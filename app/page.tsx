@@ -740,6 +740,8 @@ export default function Home() {
         backdropFilter: "blur(10px)",
         boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
         pointerEvents: "auto" as const,
+        animation: "toastSlideUp 180ms ease-out",
+        willChange: "transform, opacity",
       },
 
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
@@ -797,6 +799,25 @@ export default function Home() {
 
   return (
     <main style={styles.page} dir="rtl">
+      <style>{`
+        @keyframes toastSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
+      `}</style>
       <div style={styles.glow} />
       <div style={styles.container}>
         {/* Header */}
