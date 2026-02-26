@@ -89,6 +89,7 @@ type PersistedState = {
   analysisSignature?: string;
   advisorSelectionMode?: "all" | "custom";
   selectedAdvisors?: AdvisorKey[];
+  initStep?: "session" | "project";
 };
 
 function isVenueType(value: string): value is VenueType {
@@ -237,6 +238,9 @@ export default function Home() {
   const [mode, setMode] = useState(
     initialSaved.mode ?? "مراجعة تنفيذية سريعة"
   );
+  const [initStep, setInitStep] = useState<"session" | "project">(
+    initialSaved.initStep ?? "session"
+  );
   const [advisorSelectionMode, setAdvisorSelectionMode] = useState<"all" | "custom">(
     initialSaved.advisorSelectionMode ?? "all"
   );
@@ -298,6 +302,8 @@ export default function Home() {
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
 
+  const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
+
   const canStart =
     project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
   const isMobile = viewportWidth <= 768;
@@ -310,6 +316,7 @@ export default function Home() {
     const snapshot = {
       eventType,
       mode,
+      initStep,
       advisorSelectionMode,
       selectedAdvisors,
       venueType,
@@ -336,6 +343,7 @@ export default function Home() {
     loading,
     eventType,
     mode,
+    initStep,
     advisorSelectionMode,
     selectedAdvisors,
     venueType,
@@ -468,7 +476,9 @@ export default function Home() {
   function stageLabel() {
     switch (stage) {
       case "init":
-        return "تهيئة المشروع";
+        return initStep === "session"
+          ? "اختيار نوع الجلسة والمستشارين"
+          : "تهيئة المشروع";
       case "round1":
         return "أسئلة الجولة الأولى";
       case "round2":
@@ -548,7 +558,7 @@ export default function Home() {
       case "round2":
         return "استكمال البيانات";
       default:
-        return "تهيئة الجلسة";
+        return initStep === "session" ? "اختيار الإعدادات الأساسية" : "تهيئة الجلسة";
     }
   }
 
@@ -937,12 +947,20 @@ export default function Home() {
         zIndex: 0,
       },
       container: {
-        maxWidth: 1200,
+        maxWidth: 1320,
         margin: "0 auto",
         padding: isMobile ? 14 : 34,
         position: "relative" as const,
         zIndex: 1,
       },
+      headerShell: {
+        borderRadius: 18,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        backdropFilter: "blur(14px)",
+        padding: isMobile ? 12 : 16,
+        marginBottom: 12,
+      } as CSSProperties,
       header: {
         display: "flex",
         justifyContent: "space-between",
@@ -1686,40 +1704,42 @@ export default function Home() {
       <div style={styles.glow} />
       <div style={styles.container}>
         {/* Header */}
-        <header style={styles.header}>
-          <div style={styles.headerBrand}>
-            <Image
-              src="/logo.svg"
-              alt="One Minute Strategy"
-              width={180}
-              height={44}
-              style={{
-                height: isMobile ? 36 : 44,
-                width: "auto",
-                filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
-              }}
-            />
+        <div style={styles.headerShell}>
+          <header style={styles.header}>
+            <div style={styles.headerBrand}>
+              <Image
+                src="/logo.svg"
+                alt="One Minute Strategy"
+                width={180}
+                height={44}
+                style={{
+                  height: isMobile ? 36 : 44,
+                  width: "auto",
+                  filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
+                }}
+              />
 
-            <div>
-              <h1 style={styles.logo}>One Minute Strategy</h1>
-              <div style={styles.subtitle}>
-                Executive Decision Intelligence Platform
+              <div>
+                <h1 style={styles.logo}>One Minute Strategy</h1>
+                <div style={styles.subtitle}>
+                  Executive Decision Intelligence Platform
+                </div>
               </div>
             </div>
-          </div>
 
-          <div style={styles.headerActions}>
-            {stage === "done" && reportText?.trim() ? (
-              <button style={styles.ghostBtn} onClick={copyReport}>
-                نسخ التقرير
+            <div style={styles.headerActions}>
+              {stage === "done" && reportText?.trim() ? (
+                <button style={styles.ghostBtn} onClick={copyReport}>
+                  نسخ التقرير
+                </button>
+              ) : null}
+
+              <button style={styles.ghostBtn} onClick={clearSession}>
+                مسح الجلسة
               </button>
-            ) : null}
-
-            <button style={styles.ghostBtn} onClick={clearSession}>
-              مسح الجلسة
-            </button>
-          </div>
-        </header>
+            </div>
+          </header>
+        </div>
 
         {/* Progress */}
         <div style={styles.progressWrapper}>
@@ -1752,103 +1772,122 @@ export default function Home() {
             {/* INIT */}
             {stage === "init" && (
               <>
-                <div style={styles.selectorRow}>
-                  <button
-                    type="button"
-                    style={styles.selectorBtn(advisorSelectionMode === "all")}
-                    onClick={() => {
-                      setAdvisorSelectionMode("all");
-                      setSelectedAdvisors(ALL_ADVISOR_KEYS);
-                    }}
-                  >
-                    جلسة كاملة (كل المستشارين)
-                  </button>
-                  <button
-                    type="button"
-                    style={styles.selectorBtn(advisorSelectionMode === "custom")}
-                    onClick={() => {
-                      if (advisorSelectionMode === "custom") return;
-                      setAdvisorSelectionMode("custom");
-                      setSelectedAdvisors([]);
-                    }}
-                  >
-                    اختيار مخصص (مستشار واحد أو أكثر)
-                  </button>
-                </div>
-
-                <div style={styles.smallMuted}>
-                  {advisorSelectionMode === "all"
-                    ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
-                    : `المحددون حاليًا: ${toArabicDigits(selectedAdvisors.length)} من ${toArabicDigits(
-                        ALL_ADVISOR_KEYS.length
-                      )}`}
-                </div>
-
-                {/* ✅ مربعات المستشارين (صفّين × 3 أعمدة) */}
-                <div style={styles.advisorsGrid}>
-                  {[
-                    "financial_advisor",
-                    "regulatory_advisor",
-                    "operations_advisor",
-                    "marketing_advisor",
-                    "risk_advisor",
-                    ...(isMobile ? [] : ["__empty__"]),
-                  ].map((key) => {
-                    if (key === "__empty__") {
-                      return (
-                        <div key="empty" style={styles.advisorTileEmpty} />
-                      );
-                    }
-
-                    return (
+                {initStep === "session" && (
+                  <>
+                    <div style={styles.selectorRow}>
                       <button
                         type="button"
-                        key={key}
+                        style={styles.selectorBtn(advisorSelectionMode === "all")}
                         onClick={() => {
-                          if (advisorSelectionMode === "custom") {
-                            toggleAdvisorSelection(key as AdvisorKey);
-                          }
+                          setAdvisorSelectionMode("all");
+                          setSelectedAdvisors(ALL_ADVISOR_KEYS);
                         }}
-                        disabled={advisorSelectionMode !== "custom"}
-                        style={
-                          advisorSelectionMode === "custom"
-                            ? styles.advisorTileSelectable(
-                                key,
-                                selectedAdvisors.includes(key as AdvisorKey)
-                              )
-                            : {
-                                ...styles.advisorTile(key),
-                                cursor: "default",
-                                border: effectiveSelectedAdvisors.includes(key as AdvisorKey)
-                                  ? styles.advisorTile(key).border
-                                  : "1px solid rgba(255,255,255,0.08)",
-                                opacity: 1,
-                              }
-                        }
                       >
-                        <span
-                          style={styles.advisorSelectDot(
-                            effectiveSelectedAdvisors.includes(key as AdvisorKey)
-                          )}
-                        />
-                        <div style={styles.advisorIconS}>
-                          {advisorIcon(key)}
-                        </div>
-                        <div style={styles.advisorNameS}>
-                          {advisorName(key)}
-                        </div>
+                        جلسة كاملة (كل المستشارين)
                       </button>
-                    );
-                  })}
-                </div>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advisorSelectionMode === "custom")}
+                        onClick={() => {
+                          if (advisorSelectionMode === "custom") return;
+                          setAdvisorSelectionMode("custom");
+                          setSelectedAdvisors([]);
+                        }}
+                      >
+                        اختيار مخصص (مستشار واحد أو أكثر)
+                      </button>
+                    </div>
 
-                {advisorSelectionMode === "custom" && selectedAdvisors.length === 0 ? (
-                  <div style={styles.warnBox}>
-                    <strong>تنبيه:</strong> اختر مستشارًا واحدًا على الأقل لبدء الجلسة.
-                  </div>
-                ) : null}
+                    <div style={{ marginTop: 12 }}>
+                      <div style={styles.label}>نوع الجلسة</div>
+                      <select
+                        value={mode}
+                        onChange={(e) => setMode(e.target.value)}
+                        style={styles.input}
+                      >
+                        <option>مراجعة تنفيذية سريعة</option>
+                        <option>تحليل معمّق</option>
+                      </select>
+                    </div>
 
-                <div style={styles.initFormGrid}>
+                    <div style={styles.smallMuted}>
+                      {advisorSelectionMode === "all"
+                        ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
+                        : `المحددون حاليًا: ${toArabicDigits(
+                            selectedAdvisors.length
+                          )} من ${toArabicDigits(ALL_ADVISOR_KEYS.length)}`}
+                    </div>
+
+                    <div style={styles.advisorsGrid}>
+                      {[
+                        "financial_advisor",
+                        "regulatory_advisor",
+                        "operations_advisor",
+                        "marketing_advisor",
+                        "risk_advisor",
+                        ...(isMobile ? [] : ["__empty__"]),
+                      ].map((key) => {
+                        if (key === "__empty__") {
+                          return <div key="empty" style={styles.advisorTileEmpty} />;
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            key={key}
+                            onClick={() => {
+                              if (advisorSelectionMode === "custom") {
+                                toggleAdvisorSelection(key as AdvisorKey);
+                              }
+                            }}
+                            disabled={advisorSelectionMode !== "custom"}
+                            style={
+                              advisorSelectionMode === "custom"
+                                ? styles.advisorTileSelectable(
+                                    key,
+                                    selectedAdvisors.includes(key as AdvisorKey)
+                                  )
+                                : {
+                                    ...styles.advisorTile(key),
+                                    cursor: "default",
+                                    opacity: 1,
+                                    position: "relative",
+                                  }
+                            }
+                          >
+                            <span
+                              style={styles.advisorSelectDot(
+                                effectiveSelectedAdvisors.includes(key as AdvisorKey)
+                              )}
+                            />
+                            <div style={styles.advisorIconS}>{advisorIcon(key)}</div>
+                            <div style={styles.advisorNameS}>{advisorName(key)}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {advisorSelectionMode === "custom" && selectedAdvisors.length === 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه:</strong> اختر مستشارًا واحدًا على الأقل للمتابعة.
+                      </div>
+                    ) : null}
+
+                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                      <button
+                        style={styles.primaryBtn(!canMoveToProjectStep)}
+                        disabled={!canMoveToProjectStep}
+                        onClick={() => setInitStep("project")}
+                      >
+                        التالي: تفاصيل المشروع
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {initStep === "project" && (
+                  <>
+                    <div style={styles.initFormGrid}>
                   <div>
                     <div style={styles.label}>نوع الفعالية</div>
                     <select
@@ -1862,18 +1901,6 @@ export default function Home() {
                       <option>فعالية برعاية رئيسية</option>
                       <option>فعالية مؤسسية (حكومية / قطاع خاص)</option>
                       <option>نموذج هجين</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <div style={styles.label}>وضع الجلسة</div>
-                    <select
-                      value={mode}
-                      onChange={(e) => setMode(e.target.value)}
-                      style={styles.input}
-                    >
-                      <option>مراجعة تنفيذية سريعة</option>
-                      <option>تحليل معمّق</option>
                     </select>
                   </div>
 
@@ -1925,33 +1952,43 @@ export default function Home() {
                       style={styles.input}
                     />
                   </div>
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <div style={styles.label}>وصف المشروع</div>
-                  <textarea
-                    value={project}
-                    onChange={(e) => setProject(e.target.value)}
-                    style={{ ...styles.textarea, height: 150 }}
-                    placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
-                  />
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  {hasInvalidTimeRange() ? (
-                    <div style={{ ...styles.warnBox, marginBottom: 10 }}>
-                      <strong>تنبيه:</strong> وقت النهاية يجب أن يكون بعد وقت البداية.
                     </div>
-                  ) : null}
 
-                  <button
-                    style={styles.primaryBtn(!canStart || loading || hasInvalidTimeRange())}
-                    disabled={!canStart || loading || hasInvalidTimeRange()}
-                    onClick={startSession}
-                  >
-                    {loading ? "تتم المعالجة..." : "ابدأ الجلسة"}
-                  </button>
-                </div>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={styles.label}>وصف المشروع</div>
+                      <textarea
+                        value={project}
+                        onChange={(e) => setProject(e.target.value)}
+                        style={{ ...styles.textarea, height: 150 }}
+                        placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
+                      />
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                      {hasInvalidTimeRange() ? (
+                        <div style={{ ...styles.warnBox, marginBottom: 0 }}>
+                          <strong>تنبيه:</strong> وقت النهاية يجب أن يكون بعد وقت البداية.
+                        </div>
+                      ) : null}
+
+                      <button
+                        style={styles.primaryBtn(!canStart || loading || hasInvalidTimeRange())}
+                        disabled={!canStart || loading || hasInvalidTimeRange()}
+                        onClick={startSession}
+                      >
+                        {loading ? "تتم المعالجة..." : "ابدأ الجلسة"}
+                      </button>
+
+                      <button
+                        style={styles.secondaryBtn(loading)}
+                        disabled={loading}
+                        onClick={() => setInitStep("session")}
+                      >
+                        رجوع: نوع الجلسة والمستشارون
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
