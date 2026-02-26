@@ -433,6 +433,18 @@ export default function Home() {
     }
   }
 
+  function sessionSectionLead() {
+    if (stage === "done") {
+      return "أصبحت لديك الآن رؤية أوضح للمشروع، وهذه هي المخرجات التنفيذية النهائية لاتخاذ القرار.";
+    }
+
+    if (stage === "dialogue" || stage === "addition") {
+      return "أنت الآن في مرحلة متقدمة من بناء القرار؛ راجع النقاط الحاسمة قبل اعتماد التوصيات النهائية.";
+    }
+
+    return "حوّل فكرتك إلى قرار مدروس عبر مراحل تحليل منهجية.";
+  }
+
   function progressMetaText() {
     if (stage === "round1") {
       const ids = round1Questions.map((q) => q.id);
@@ -1407,7 +1419,7 @@ export default function Home() {
           <section style={styles.card}>
             <h2 style={styles.cardTitle}>الجلسة الإستشارية</h2>
             <p style={styles.muted}>
-              حوّل فكرتك إلى قرار مدروس عبر مراحل تحليل منهجية.
+              {sessionSectionLead()}
             </p>
 
             <hr style={styles.hr} />
@@ -1883,7 +1895,7 @@ export default function Home() {
             {stage === "done" && analysis && (
               <>
                 <h3 style={{ margin: 0, fontWeight: 900 }}>
-                  5) التحليل + القرار + التوصيات
+                  5) المخرجات النهائية: التحليل والقرار والتوصيات
                 </h3>
 
                 <div style={{ marginTop: 12 }}>
