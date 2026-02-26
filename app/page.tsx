@@ -303,6 +303,7 @@ export default function Home() {
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
+  const isSetupLanding = stage === "init" && initStep === "session";
 
   const canStart =
     project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
@@ -1737,58 +1738,104 @@ export default function Home() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.headerShell}>
-          <header style={styles.header}>
-            <div style={styles.headerBrand}>
+          {isSetupLanding ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: isMobile ? "8px 4px" : "12px 8px",
+              }}
+            >
               <Image
                 src="/logo.svg"
                 alt="One Minute Strategy"
-                width={180}
-                height={44}
+                width={isMobile ? 220 : 320}
+                height={isMobile ? 74 : 108}
                 style={{
-                  height: isMobile ? 36 : 44,
+                  height: isMobile ? 74 : 108,
                   width: "auto",
-                  filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
+                  filter: "drop-shadow(0 0 24px rgba(128,0,255,0.6))",
                 }}
               />
-
-              <div>
-                <h1 style={styles.logo}>One Minute Strategy</h1>
-                <div style={styles.subtitle}>
-                  Executive Decision Intelligence Platform
-                </div>
+              <h1
+                style={{
+                  margin: "10px 0 0 0",
+                  fontSize: isMobile ? 22 : 28,
+                  fontWeight: 900,
+                  letterSpacing: 0.2,
+                }}
+              >
+                One Minute Strategy
+              </h1>
+              <div
+                style={{
+                  marginTop: 6,
+                  color: "rgba(255,255,255,0.68)",
+                  fontSize: isMobile ? 12 : 13,
+                }}
+              >
+                Executive Decision Intelligence Platform
               </div>
             </div>
+          ) : (
+            <header style={styles.header}>
+              <div style={styles.headerBrand}>
+                <Image
+                  src="/logo.svg"
+                  alt="One Minute Strategy"
+                  width={180}
+                  height={44}
+                  style={{
+                    height: isMobile ? 36 : 44,
+                    width: "auto",
+                    filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
+                  }}
+                />
 
-            <div style={styles.headerActions}>
-              {stage === "done" && reportText?.trim() ? (
-                <button style={styles.ghostBtn} onClick={copyReport}>
-                  نسخ التقرير
+                <div>
+                  <h1 style={styles.logo}>One Minute Strategy</h1>
+                  <div style={styles.subtitle}>
+                    Executive Decision Intelligence Platform
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.headerActions}>
+                {stage === "done" && reportText?.trim() ? (
+                  <button style={styles.ghostBtn} onClick={copyReport}>
+                    نسخ التقرير
+                  </button>
+                ) : null}
+
+                <button style={styles.ghostBtn} onClick={clearSession}>
+                  مسح الجلسة
                 </button>
-              ) : null}
-
-              <button style={styles.ghostBtn} onClick={clearSession}>
-                مسح الجلسة
-              </button>
-            </div>
-          </header>
+              </div>
+            </header>
+          )}
         </div>
 
         {/* Progress */}
-        <div style={styles.progressWrapper}>
-          <div style={styles.progressLabel}>
-            ✨ خطوة بخطوة لصنع القرار —{" "}
-            <strong style={{ color: "rgba(255,255,255,0.92)" }}>{stageLabel()}</strong>
-            {progressMetaText() ? ` — ${progressMetaText()}` : ""}
+        {!isSetupLanding ? (
+          <div style={styles.progressWrapper}>
+            <div style={styles.progressLabel}>
+              ✨ خطوة بخطوة لصنع القرار —{" "}
+              <strong style={{ color: "rgba(255,255,255,0.92)" }}>{stageLabel()}</strong>
+              {progressMetaText() ? ` — ${progressMetaText()}` : ""}
+            </div>
+            <div style={styles.progressBar}>
+              <div
+                style={{
+                  ...styles.progressFill,
+                  width: `${progressPercent()}%`,
+                }}
+              />
+            </div>
           </div>
-          <div style={styles.progressBar}>
-            <div
-              style={{
-                ...styles.progressFill,
-                width: `${progressPercent()}%`,
-              }}
-            />
-          </div>
-        </div>
+        ) : null}
 
         {/* Layout */}
         <div style={styles.grid}>
