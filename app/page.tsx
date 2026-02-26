@@ -1781,17 +1781,36 @@ export default function Home() {
               </div>
               <div
                 style={{
-                  marginTop: 10,
+                  marginTop: 12,
                   maxWidth: 760,
-                  color: "rgba(255,255,255,0.92)",
-                  fontSize: isMobile ? 13.5 : 16,
-                  lineHeight: 1.7,
-                  fontWeight: 900,
+                  borderRadius: 14,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background:
+                    "linear-gradient(180deg, rgba(179,0,255,0.10), rgba(255,255,255,0.02))",
+                  padding: isMobile ? "10px 12px" : "12px 14px",
                 }}
               >
-                فكرتك تحتاج قرار، وقرارك يحتاج وضوح. One Minute Strategy يمنحك مجلسًا
-                استشاريًا متكاملًا يحلل مشروعك من جميع الزوايا، ليختصر الفوضى ويصنع التركيز
-                ويحوّل الفكرة إلى حدث جاهز للتنفيذ.
+                <div
+                  style={{
+                    color: "rgba(255,255,255,0.96)",
+                    fontSize: isMobile ? 13.5 : 15,
+                    lineHeight: 1.6,
+                    fontWeight: 900,
+                  }}
+                >
+                  فكرتك تحتاج قرار، وقرارك يحتاج وضوح.
+                </div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    color: "rgba(255,255,255,0.68)",
+                    fontSize: isMobile ? 11.5 : 12.5,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  مجلس استشاري متكامل يحلل مشروعك من جميع الزوايا ويحوّل الفكرة إلى قرار
+                  تنفيذي أوضح.
+                </div>
               </div>
             </div>
           ) : (
