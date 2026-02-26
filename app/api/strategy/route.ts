@@ -3,6 +3,24 @@ import { NextResponse } from "next/server";
 
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
 
+function normalizeReportText(text: string) {
+  return text
+    .split("\n")
+    .map((line) => {
+      let next = line.trimEnd();
+
+      // Remove common AI artifacts like quoted lines and raw question IDs in report prose.
+      next = next.replace(/^\s*["“”']+\s*/, "");
+      next = next.replace(/\s*["“”']+\s*$/, "");
+      next = next.replace(/^\s*(Q|F)\d+\s*[:\-]\s*/i, "");
+
+      return next;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -107,8 +125,12 @@ ${base}
         input: prompt,
         text: { format: { type: "json_object" } },
       });
+      const data = JSON.parse(resp.output_text);
+      if (typeof data?.report_text === "string") {
+        data.report_text = normalizeReportText(data.report_text);
+      }
 
-      return NextResponse.json({ ok: true, data: JSON.parse(resp.output_text) });
+      return NextResponse.json({ ok: true, data });
     }
 
     // ✅ 2) Follow-ups
@@ -243,6 +265,9 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
 - report_text بعناوين:
 (ملخص تنفيذي / معلومات الفعالية / أسئلة وإجابات / حوار المجلس / التحليل / القرار / توصيات المستشارين)
 - ضمن "معلومات الفعالية" اذكر: نوع الموقع + البداية + النهاية + الميزانية (إن وجدت).
+- في "أسئلة وإجابات": اكتب السؤال والإجابة بصياغة بشرية مرتبة، بدون معرفات تقنية مثل Q1/F1.
+- لا تستخدم علامات تنصيص حول الأسطر أو العناوين داخل report_text إلا عند نقل اقتباس حرفي (نادر).
+- اجعل report_text تقريرًا مهنيًا جاهزًا للنسخ، وليس عرضًا لبيانات JSON.
 `;
 
       const resp = await client.responses.create({
