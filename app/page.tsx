@@ -1532,6 +1532,14 @@ export default function Home() {
                   >
                     {loading ? "تجري المعالجة" : "التالي: حوار المستشارين"}
                   </button>
+
+                  <button
+                    style={styles.secondaryBtn(false)}
+                    disabled={false}
+                    onClick={() => setStage("round1")}
+                  >
+                    رجوع: الجولة الأولى
+                  </button>
                 </div>
               </>
             )}
@@ -1585,6 +1593,15 @@ export default function Home() {
                     onClick={() => setStage("addition")}
                   >
                     التالي: هل لديك إضافة؟
+                  </button>
+
+                  <button
+                    style={styles.secondaryBtn(false)}
+                    onClick={() =>
+                      setStage(followupQuestions.length > 0 ? "round2" : "round1")
+                    }
+                  >
+                    رجوع: مراجعة الإجابات
                   </button>
                 </div>
               </>
@@ -1702,6 +1719,14 @@ export default function Home() {
                     onClick={runAnalysis}
                   >
                     {loading ? "جاري التحليل..." : "ابدأ التحليل + القرار + التوصيات"}
+                  </button>
+
+                  <button
+                    style={styles.secondaryBtn(loading)}
+                    disabled={loading}
+                    onClick={() => setStage("dialogue")}
+                  >
+                    رجوع: حوار المستشارين
                   </button>
                 </div>
               </>
@@ -1957,6 +1982,15 @@ export default function Home() {
                       placeholder="سيظهر هنا التقرير النهائي..."
                     />
                   </div>
+                </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  <button
+                    style={styles.secondaryBtn(false)}
+                    onClick={() => setStage("addition")}
+                  >
+                    رجوع: تعديل قبل التحليل
+                  </button>
                 </div>
               </>
             )}
