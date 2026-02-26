@@ -996,8 +996,8 @@ export default function Home() {
         marginTop: 10,
         padding: "10px 12px",
         borderRadius: 12,
-        background: "rgba(255, 194, 77, 0.08)",
-        border: "1px solid rgba(255, 194, 77, 0.20)",
+        background: "rgba(255, 122, 69, 0.10)",
+        border: "1px solid rgba(255, 122, 69, 0.26)",
         color: "rgba(255,255,255,0.92)",
       } as CSSProperties,
       analysisCard: (tone: "strength" | "opportunity" | "gap" | "risk") => {
