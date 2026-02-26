@@ -224,9 +224,7 @@ export default function Home() {
     initialSaved.advisorSelectionMode ?? "all"
   );
   const [selectedAdvisors, setSelectedAdvisors] = useState<AdvisorKey[]>(
-    initialSaved.selectedAdvisors?.length
-      ? initialSaved.selectedAdvisors
-      : ALL_ADVISOR_KEYS
+    initialSaved.selectedAdvisors ?? []
   );
   const [venueType, setVenueType] = useState<VenueType>(
     initialSaved.venueType ?? "غير محدد"
@@ -1189,6 +1187,7 @@ export default function Home() {
           height: 88,
           width: "100%",
           borderRadius: 16,
+          position: "relative",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -1205,6 +1204,20 @@ export default function Home() {
           opacity: active ? 1 : 0.72,
           cursor: "pointer",
           transition: "all 120ms ease",
+        } as CSSProperties),
+      advisorSelectDot: (active: boolean) =>
+        ({
+          position: "absolute",
+          top: 8,
+          left: 8,
+          width: 12,
+          height: 12,
+          borderRadius: 999,
+          border: active
+            ? "1px solid rgba(0,255,133,0.45)"
+            : "1px solid rgba(255,255,255,0.20)",
+          background: active ? "#00FF85" : "transparent",
+          boxShadow: active ? "0 0 10px rgba(0,255,133,0.55)" : "none",
         } as CSSProperties),
 
       advisorIconS: {
@@ -1722,7 +1735,11 @@ export default function Home() {
                   <button
                     type="button"
                     style={styles.selectorBtn(advisorSelectionMode === "custom")}
-                    onClick={() => setAdvisorSelectionMode("custom")}
+                    onClick={() => {
+                      if (advisorSelectionMode === "custom") return;
+                      setAdvisorSelectionMode("custom");
+                      setSelectedAdvisors([]);
+                    }}
                   >
                     اختيار مخصص (مستشار واحد أو أكثر)
                   </button>
@@ -1778,6 +1795,11 @@ export default function Home() {
                               }
                         }
                       >
+                        <span
+                          style={styles.advisorSelectDot(
+                            effectiveSelectedAdvisors.includes(key as AdvisorKey)
+                          )}
+                        />
                         <div style={styles.advisorIconS}>
                           {advisorIcon(key)}
                         </div>
