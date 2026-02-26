@@ -735,6 +735,36 @@ export default function Home() {
         marginTop: 12,
       },
       qTitle: { fontWeight: 900, marginBottom: 6 },
+      advisorQuestionHeader: (key: string) =>
+        ({
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 10px",
+          borderRadius: 12,
+          border: `1px solid ${advisorColor(key)}2f`,
+          background: `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.02))`,
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 18px ${advisorColor(key)}12`,
+        } as CSSProperties),
+      advisorQuestionIcon: (key: string) =>
+        ({
+          width: 28,
+          height: 28,
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: `${advisorColor(key)}20`,
+          border: `1px solid ${advisorColor(key)}40`,
+          color: advisorColor(key),
+          flexShrink: 0,
+          fontSize: 15,
+        } as CSSProperties),
+      advisorQuestionText: {
+        color: "rgba(255,255,255,0.92)",
+        fontWeight: 900,
+        letterSpacing: 0.1,
+      } as CSSProperties,
       qHint: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 6 },
       row2: {
         display: "grid",
@@ -1085,20 +1115,13 @@ export default function Home() {
 
                   return (
                     <div key={q.id} style={styles.qCard}>
-                      <div
-                        style={{
-                          ...styles.qTitle,
-                          color: advisorColor(q.advisor_key),
-                          textShadow: `0 0 12px ${advisorColor(q.advisor_key)}`,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span style={{ fontSize: 18 }}>
+                      <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                        <span style={styles.advisorQuestionIcon(q.advisor_key)}>
                           {advisorIcon(q.advisor_key)}
                         </span>
-                        {advisorTitle(q.advisor_key)}
+                        <span style={styles.advisorQuestionText}>
+                          {advisorTitle(q.advisor_key)}
+                        </span>
                       </div>
 
                       <div style={{ marginTop: 6 }}>• {q.question}</div>
@@ -1150,9 +1173,18 @@ export default function Home() {
                   const a = answers.find((x) => x.id === q.id);
                   return (
                     <div key={q.id} style={styles.qCard}>
-                      <div style={styles.qTitle}>{q.advisor_name}</div>
+                      <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                        <span style={styles.advisorQuestionIcon(q.advisor_key)}>
+                          {advisorIcon(q.advisor_key)}
+                        </span>
+                        <span style={styles.advisorQuestionText}>
+                          {advisorTitle(q.advisor_key)}
+                        </span>
+                      </div>
                       <div>• {q.question}</div>
-                      <div style={styles.qHint}>سبب السؤال: {q.intent}</div>
+                      <div style={styles.qHint}>
+                        {q.advisor_name} • سبب السؤال: {q.intent}
+                      </div>
 
                       <textarea
                         value={a?.answer ?? ""}
