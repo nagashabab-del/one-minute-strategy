@@ -1779,6 +1779,27 @@ export default function Home() {
               >
                 Executive Decision Intelligence Platform
               </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: isMobile ? 15 : 17,
+                  fontWeight: 900,
+                  color: "rgba(255,255,255,0.95)",
+                }}
+              >
+                ابدأ بتحديد نوع الجلسة والمستشارين
+              </div>
+              <div
+                style={{
+                  marginTop: 6,
+                  maxWidth: 620,
+                  color: "rgba(255,255,255,0.68)",
+                  fontSize: isMobile ? 12 : 13,
+                  lineHeight: 1.6,
+                }}
+              >
+                اختر نمط العمل والمستشارين المشاركين قبل الانتقال إلى تفاصيل المشروع.
+              </div>
             </div>
           ) : (
             <header style={styles.header}>
@@ -1904,6 +1925,12 @@ export default function Home() {
                     </div>
 
                     <div style={styles.smallMuted}>
+                      {advisorSelectionMode === "all"
+                        ? "المستشارون المشاركون"
+                        : "المستشارون المشاركون (اختيار مخصص)"}
+                    </div>
+
+                    <div style={{ ...styles.smallMuted, marginTop: 4 }}>
                       {advisorSelectionMode === "all"
                         ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
                         : `المحددون حاليًا: ${toArabicDigits(
