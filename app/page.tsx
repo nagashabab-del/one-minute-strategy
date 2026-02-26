@@ -1779,27 +1779,6 @@ export default function Home() {
               >
                 Executive Decision Intelligence Platform
               </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  fontSize: isMobile ? 15 : 17,
-                  fontWeight: 900,
-                  color: "rgba(255,255,255,0.95)",
-                }}
-              >
-                اختر نوع الجلسة وحدد المستشارين المشاركين
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  maxWidth: 620,
-                  color: "rgba(255,255,255,0.68)",
-                  fontSize: isMobile ? 12 : 13,
-                  lineHeight: 1.6,
-                }}
-              >
-                اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع.
-              </div>
             </div>
           ) : (
             <header style={styles.header}>
@@ -1864,7 +1843,9 @@ export default function Home() {
           <section style={styles.card}>
             <h2 style={styles.cardTitle}>الجلسة الإستشارية</h2>
             <p style={styles.muted}>
-              {sessionSectionLead()}
+              {isSetupLanding
+                ? "اختر نوع الجلسة وحدد المستشارين المشاركين. اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع."
+                : sessionSectionLead()}
             </p>
 
             <hr style={styles.hr} />
