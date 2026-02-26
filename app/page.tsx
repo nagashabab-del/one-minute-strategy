@@ -880,19 +880,24 @@ export default function Home() {
       k: { color: "rgba(255,255,255,0.7)" },
       v: { fontWeight: 900 },
       qCard: {
-        padding: 14,
+        padding: isMobile ? 12 : 14,
         borderRadius: 14,
         background: "rgba(255,255,255,0.04)",
         border: "1px solid rgba(255,255,255,0.08)",
         marginTop: 12,
-      },
-      qTitle: { fontWeight: 900, marginBottom: 6 },
+      } as CSSProperties,
+      qTitle: {
+        fontWeight: 900,
+        marginBottom: 6,
+        lineHeight: 1.5,
+        fontSize: isMobile ? 14 : 16,
+      } as CSSProperties,
       advisorQuestionHeader: (key: string) =>
         ({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "8px 10px",
+          padding: isMobile ? "7px 9px" : "8px 10px",
           borderRadius: 12,
           border: `1px solid ${advisorColor(key)}2f`,
           background: `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.02))`,
@@ -900,8 +905,8 @@ export default function Home() {
         } as CSSProperties),
       advisorQuestionIcon: (key: string) =>
         ({
-          width: 28,
-          height: 28,
+          width: isMobile ? 26 : 28,
+          height: isMobile ? 26 : 28,
           borderRadius: 999,
           display: "flex",
           alignItems: "center",
@@ -910,14 +915,21 @@ export default function Home() {
           border: `1px solid ${advisorColor(key)}40`,
           color: advisorColor(key),
           flexShrink: 0,
-          fontSize: 15,
+          fontSize: isMobile ? 14 : 15,
         } as CSSProperties),
       advisorQuestionText: {
         color: "rgba(255,255,255,0.92)",
         fontWeight: 900,
         letterSpacing: 0.1,
+        lineHeight: 1.45,
+        fontSize: isMobile ? 13 : 14,
       } as CSSProperties,
-      qHint: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 6 },
+      qHint: {
+        fontSize: isMobile ? 11.5 : 12,
+        color: "rgba(255,255,255,0.65)",
+        marginTop: 6,
+        lineHeight: 1.55,
+      } as CSSProperties,
       row2: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
@@ -1169,6 +1181,19 @@ export default function Home() {
         lineHeight: 1.7,
         color: "rgba(255,255,255,0.9)",
         fontSize: isMobile ? 14 : 15,
+      } as CSSProperties,
+      questionPromptText: {
+        marginTop: 8,
+        lineHeight: 1.7,
+        color: "rgba(255,255,255,0.93)",
+        fontSize: isMobile ? 14 : 15,
+      } as CSSProperties,
+      questionTextarea: {
+        marginTop: 10,
+        height: isMobile ? 120 : 90,
+        fontSize: isMobile ? 16 : 14,
+        lineHeight: isMobile ? 1.8 : 1.7,
+        padding: isMobile ? 12 : 14,
       } as CSSProperties,
       advisorRecoGrid: {
         display: "grid",
@@ -1526,7 +1551,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div style={{ marginTop: 6 }}>• {q.question}</div>
+                      <div style={styles.questionPromptText}>• {q.question}</div>
                       <div style={styles.qHint}>سبب السؤال: {q.intent}</div>
 
                       <textarea
@@ -1540,7 +1565,7 @@ export default function Home() {
                           );
                         }}
                         placeholder="اكتب إجابتك..."
-                        style={{ ...styles.textarea, height: 90, marginTop: 10 }}
+                        style={{ ...styles.textarea, ...styles.questionTextarea }}
                       />
                     </div>
                   );
@@ -1583,7 +1608,7 @@ export default function Home() {
                           {advisorTitle(q.advisor_key)}
                         </span>
                       </div>
-                      <div>• {q.question}</div>
+                      <div style={styles.questionPromptText}>• {q.question}</div>
                       <div style={styles.qHint}>
                         {q.advisor_name} • سبب السؤال: {q.intent}
                       </div>
@@ -1599,7 +1624,7 @@ export default function Home() {
                           );
                         }}
                         placeholder="اكتب إجابتك..."
-                        style={{ ...styles.textarea, height: 90, marginTop: 10 }}
+                        style={{ ...styles.textarea, ...styles.questionTextarea }}
                       />
                     </div>
                   );
