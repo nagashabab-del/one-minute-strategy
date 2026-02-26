@@ -1987,7 +1987,13 @@ export default function Home() {
                 <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
                   <button
                     style={styles.secondaryBtn(false)}
-                    onClick={() => setStage("addition")}
+                    onClick={() => {
+                      setStage("addition");
+                      setUiSuccess("");
+                      setUiError(
+                        "عدّلت الرجوع قبل التحليل: إذا غيّرت الإجابات أو الإضافة، اضغط \"ابدأ التحليل\" مرة أخرى لتحديث النتائج."
+                      );
+                    }}
                   >
                     رجوع: تعديل قبل التحليل
                   </button>
