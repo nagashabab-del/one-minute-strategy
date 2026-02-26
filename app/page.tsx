@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 
 type StageUI = "init" | "round1" | "round2" | "dialogue" | "addition" | "done";
@@ -10,6 +11,8 @@ type AdvisorKey =
   | "operations_advisor"
   | "marketing_advisor"
   | "risk_advisor";
+
+type VenueType = "منتجع" | "فندق" | "قاعة" | "مساحة عامة" | "غير محدد";
 
 type Question = {
   id: string;
@@ -27,7 +30,58 @@ type Answer = {
   answer: string;
 };
 
-type DialogueLine = { advisor: string; statement: string };
+type DialogueLine = { advisor: AdvisorKey; statement: string };
+
+type AdvisorRecommendation = {
+  recommendations: string[];
+  strategic_warning: string;
+};
+
+type AnalysisData = {
+  strategic_analysis?: {
+    strengths?: string[];
+    amplification_opportunities?: string[];
+    gaps?: string[];
+    risks?: string[];
+    readiness_level?: string;
+    top_3_upgrades?: string[];
+  };
+  executive_decision?: {
+    decision?: string;
+    reason_1?: string;
+    reason_2?: string;
+  };
+  advisor_recommendations?: Partial<Record<AdvisorKey, AdvisorRecommendation>>;
+  report_text?: string;
+};
+
+type APIError = { ok: false; error?: string };
+type APISuccess<T> = { ok: true; data: T };
+type APIResponse<T> = APISuccess<T> | APIError;
+
+type PersistedState = {
+  eventType?: string;
+  mode?: string;
+  venueType?: VenueType;
+  startAt?: string;
+  endAt?: string;
+  budget?: string;
+  project?: string;
+  stage?: StageUI;
+  round1Questions?: Question[];
+  followupQuestions?: Question[];
+  answers?: Answer[];
+  dialogue?: DialogueLine[];
+  openIssues?: string[];
+  hasAddition?: "yes" | "no";
+  userAddition?: string;
+  analysis?: AnalysisData | null;
+  reportText?: string;
+};
+
+function isVenueType(value: string): value is VenueType {
+  return ["منتجع", "فندق", "قاعة", "مساحة عامة", "غير محدد"].includes(value);
+}
 
 function advisorIcon(key: string) {
   switch (key) {
@@ -102,73 +156,71 @@ function advisorColor(key: string) {
 const STORAGE_KEY = "oms_dashboard_full_v1";
 
 export default function Home() {
-  // ============ Inputs ============
-  const [eventType, setEventType] = useState("فعالية موسمية");
-  const [mode, setMode] = useState("مراجعة تنفيذية سريعة");
-  const [venueType, setVenueType] = useState<
-    "منتجع" | "فندق" | "قاعة" | "مساحة عامة" | "غير محدد"
-  >("غير محدد");
+  const [initialSaved] = useState<PersistedState>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as PersistedState;
+    } catch {
+      return {};
+    }
+  });
 
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [budget, setBudget] = useState("");
-  const [project, setProject] = useState("");
+  // ============ Inputs ============
+  const [eventType, setEventType] = useState(
+    initialSaved.eventType ?? "فعالية موسمية"
+  );
+  const [mode, setMode] = useState(
+    initialSaved.mode ?? "مراجعة تنفيذية سريعة"
+  );
+  const [venueType, setVenueType] = useState<VenueType>(
+    initialSaved.venueType ?? "غير محدد"
+  );
+
+  const [startAt, setStartAt] = useState(initialSaved.startAt ?? "");
+  const [endAt, setEndAt] = useState(initialSaved.endAt ?? "");
+  const [budget, setBudget] = useState(initialSaved.budget ?? "");
+  const [project, setProject] = useState(initialSaved.project ?? "");
 
   // ============ Flow ============
-  const [stage, setStage] = useState<StageUI>("init");
+  const [stage, setStage] = useState<StageUI>(initialSaved.stage ?? "init");
   const [loading, setLoading] = useState(false);
 
-  const [round1Questions, setRound1Questions] = useState<Question[]>([]);
-  const [followupQuestions, setFollowupQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [round1Questions, setRound1Questions] = useState<Question[]>(
+    initialSaved.round1Questions ?? []
+  );
+  const [followupQuestions, setFollowupQuestions] = useState<Question[]>(
+    initialSaved.followupQuestions ?? []
+  );
+  const [answers, setAnswers] = useState<Answer[]>(initialSaved.answers ?? []);
 
-  const [dialogue, setDialogue] = useState<DialogueLine[]>([]);
-  const [openIssues, setOpenIssues] = useState<string[]>([]);
+  const [dialogue, setDialogue] = useState<DialogueLine[]>(
+    initialSaved.dialogue ?? []
+  );
+  const [openIssues, setOpenIssues] = useState<string[]>(
+    initialSaved.openIssues ?? []
+  );
 
-  const [hasAddition, setHasAddition] = useState<"yes" | "no">("no");
-  const [userAddition, setUserAddition] = useState("");
+  const [hasAddition, setHasAddition] = useState<"yes" | "no">(
+    initialSaved.hasAddition ?? "no"
+  );
+  const [userAddition, setUserAddition] = useState(
+    initialSaved.userAddition ?? ""
+  );
 
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [reportText, setReportText] = useState("");
-
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(
+    initialSaved.analysis ?? null
+  );
+  const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
+  const [uiError, setUiError] = useState("");
 
   const canStart = project.trim().length > 0;
-
-  // ============ Restore ============
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return;
-
-    try {
-      const s = JSON.parse(saved);
-      setEventType(s.eventType ?? "فعالية موسمية");
-      setMode(s.mode ?? "مراجعة تنفيذية سريعة");
-      setVenueType(s.venueType ?? "غير محدد");
-      setStartAt(s.startAt ?? "");
-      setEndAt(s.endAt ?? "");
-      setBudget(s.budget ?? "");
-      setProject(s.project ?? "");
-
-      setStage(s.stage ?? "init");
-      setRound1Questions(s.round1Questions ?? []);
-      setFollowupQuestions(s.followupQuestions ?? []);
-      setAnswers(s.answers ?? []);
-      setDialogue(s.dialogue ?? []);
-      setOpenIssues(s.openIssues ?? []);
-      setHasAddition(s.hasAddition ?? "no");
-      setUserAddition(s.userAddition ?? "");
-      setAnalysis(s.analysis ?? null);
-      setReportText(s.reportText ?? "");
-      setLastSavedAt(s.lastSavedAt ?? null);
-    } catch {}
-  }, []);
 
   // ============ Save (no save while loading) ============
   useEffect(() => {
     if (loading) return;
 
-    const now = Date.now();
     const snapshot = {
       eventType,
       mode,
@@ -187,11 +239,9 @@ export default function Home() {
       userAddition,
       analysis,
       reportText,
-      lastSavedAt: now,
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-    setLastSavedAt(now);
   }, [
     loading,
     eventType,
@@ -214,31 +264,28 @@ export default function Home() {
   ]);
 
   // تحديث “آخر حفظ” كل ثانية
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setTick((x) => x + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  function lastSavedText() {
-    if (!lastSavedAt) return "—";
-    const diff = Date.now() - lastSavedAt;
-    if (diff < 3000) return "الآن";
-    return `قبل ${Math.floor(diff / 1000)} ثانية`;
-  }
-
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
     location.reload();
   }
 
-  async function callAPI(payload: any) {
-    const res = await fetch("/api/strategy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return await res.json();
+  async function callAPI<T>(payload: unknown): Promise<APIResponse<T>> {
+    try {
+      const res = await fetch("/api/strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = (await res.json()) as APIResponse<T>;
+      if (!res.ok) {
+        return { ok: false, error: "error" in json ? json.error : "فشل الطلب" };
+      }
+
+      return json;
+    } catch {
+      return { ok: false, error: "تعذر الاتصال بالخادم. تأكد من الشبكة وحاول مرة أخرى." };
+    }
   }
 
   function commonPayload() {
@@ -301,6 +348,7 @@ export default function Home() {
   // ============ Actions ============
   async function startSession() {
     if (!canStart || loading) return;
+    setUiError("");
 
     setLoading(true);
     setStage("round1");
@@ -316,10 +364,14 @@ export default function Home() {
     setAnalysis(null);
     setReportText("");
 
-    const json = await callAPI({ stage: "questions", ...commonPayload() });
+    const json = await callAPI<{ questions?: Question[] }>({
+      stage: "questions",
+      ...commonPayload(),
+    });
     setLoading(false);
 
     if (!json?.ok) {
+      setUiError(json?.error || "حدث خطأ في توليد الأسئلة");
       alert(json?.error || "حدث خطأ في توليد الأسئلة");
       setStage("init");
       return;
@@ -348,11 +400,12 @@ export default function Home() {
       return;
     }
 
+    setUiError("");
     setLoading(true);
 
     const round1Answers = answers.filter((a) => ids.includes(a.id));
 
-    const json = await callAPI({
+    const json = await callAPI<{ followups?: Question[] }>({
       stage: "followups",
       ...commonPayload(),
       answers: round1Answers,
@@ -361,6 +414,7 @@ export default function Home() {
     setLoading(false);
 
     if (!json?.ok) {
+      setUiError(json?.error || "حدث خطأ في توليد تدقيق إضافي");
       alert(json?.error || "حدث خطأ في توليد تدقيق إضافي");
       return;
     }
@@ -397,9 +451,13 @@ export default function Home() {
   }
 
   async function buildDialogue() {
+    setUiError("");
     setLoading(true);
 
-    const json = await callAPI({
+    const json = await callAPI<{
+      council_dialogue?: DialogueLine[];
+      open_issues?: string[];
+    }>({
       stage: "dialogue",
       ...commonPayload(),
       answers,
@@ -408,6 +466,7 @@ export default function Home() {
     setLoading(false);
 
     if (!json?.ok) {
+      setUiError(json?.error || "حدث خطأ في توليد الحوار");
       alert(json?.error || "حدث خطأ في توليد الحوار");
       return;
     }
@@ -418,9 +477,10 @@ export default function Home() {
   }
 
   async function runAnalysis() {
+    setUiError("");
     setLoading(true);
 
-    const json = await callAPI({
+    const json = await callAPI<AnalysisData>({
       stage: "analysis",
       ...commonPayload(),
       answers,
@@ -431,6 +491,7 @@ export default function Home() {
     setLoading(false);
 
     if (!json?.ok) {
+      setUiError(json?.error || "حدث خطأ في التحليل");
       alert(json?.error || "حدث خطأ في التحليل");
       return;
     }
@@ -682,9 +743,11 @@ export default function Home() {
         {/* Header */}
         <header style={styles.header}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <img
+            <Image
               src="/logo.svg"
               alt="One Minute Strategy"
+              width={180}
+              height={44}
               style={{
                 height: 44,
                 width: "auto",
@@ -738,6 +801,12 @@ export default function Home() {
             </p>
 
             <hr style={styles.hr} />
+
+            {uiError ? (
+              <div style={styles.warnBox}>
+                <strong>ملاحظة:</strong> {uiError}
+              </div>
+            ) : null}
 
             {/* INIT */}
             {stage === "init" && (
@@ -810,9 +879,11 @@ export default function Home() {
                     <div style={styles.label}>نوع الموقع</div>
                     <select
                       value={venueType}
-                      onChange={(e) =>
-                        setVenueType(e.target.value as any)
-                      }
+                      onChange={(e) => {
+                        if (isVenueType(e.target.value)) {
+                          setVenueType(e.target.value);
+                        }
+                      }}
                       style={styles.input}
                     >
                       <option value="غير محدد">غير محدد</option>
@@ -1177,7 +1248,7 @@ export default function Home() {
                     <div style={styles.qTitle}>توصيات المستشارين</div>
 
                     {Object.entries(analysis?.advisor_recommendations || {}).map(
-                      ([k, v]: any) => (
+                      ([k, v]) => (
                         <div key={k} style={{ marginTop: 12 }}>
                           <div style={{ fontWeight: 900, marginBottom: 6 }}>
                             {advisorTitle(k)}
@@ -1274,7 +1345,7 @@ export default function Home() {
             </div>
 
             <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
-              آخر حفظ: {lastSavedText()}
+              يتم حفظ التغييرات تلقائيًا أثناء العمل.
             </div>
 
             <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>

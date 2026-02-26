@@ -1,8 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
 
 export async function POST(req: Request) {
@@ -13,6 +11,8 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const body = await req.json();
 
@@ -255,9 +255,10 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
     }
 
     return NextResponse.json({ ok: false, error: "Invalid stage" }, { status: 400 });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { ok: false, error: err?.message ?? "Unknown error" },
+      { ok: false, error: message },
       { status: 500 }
     );
   }
