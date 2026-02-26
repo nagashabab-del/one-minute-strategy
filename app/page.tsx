@@ -1146,9 +1146,29 @@ export default function Home() {
       sectionHeaderRow: {
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center",
+        alignItems: isMobile ? "stretch" : "center",
         gap: 10,
         marginBottom: 8,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      finalSectionBlock: {
+        marginTop: isMobile ? 10 : 12,
+      } as CSSProperties,
+      finalReportHeaderRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 10,
+        alignItems: isMobile ? "stretch" : "center",
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      finalReportCopyBtn: {
+        width: isMobile ? "100%" : "auto",
+      } as CSSProperties,
+      finalBodyText: {
+        marginTop: 8,
+        lineHeight: 1.7,
+        color: "rgba(255,255,255,0.9)",
+        fontSize: isMobile ? 14 : 15,
       } as CSSProperties,
       advisorRecoGrid: {
         display: "grid",
@@ -1622,13 +1642,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div
-                        style={{
-                          marginTop: 8,
-                          lineHeight: 1.7,
-                          color: "rgba(255,255,255,0.9)",
-                        }}
-                      >
+                      <div style={styles.finalBodyText}>
                         {m.statement}
                       </div>
                     </div>
@@ -1960,7 +1974,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12 }}>
+                <div style={styles.finalSectionBlock}>
                   <div style={styles.qCard}>
                     <div style={styles.sectionHeaderRow}>
                       <div style={styles.qTitle}>أفضل 3 ترقيات مقترحة</div>
@@ -1981,7 +1995,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12 }}>
+                <div style={styles.finalSectionBlock}>
                   <div style={styles.qCard}>
                     <div style={styles.sectionHeaderRow}>
                       <div style={styles.qTitle}>توصيات المستشارين</div>
@@ -2032,11 +2046,14 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12 }}>
+                <div style={styles.finalSectionBlock}>
                   <div style={styles.qCard}>
-                    <div style={styles.sectionHeaderRow}>
+                    <div style={styles.finalReportHeaderRow}>
                       <div style={styles.qTitle}>التقرير النهائي (قابل للنسخ لوورد)</div>
-                      <button style={styles.ghostBtn} onClick={copyReport}>
+                      <button
+                        style={{ ...styles.ghostBtn, ...styles.finalReportCopyBtn }}
+                        onClick={copyReport}
+                      >
                         نسخ
                       </button>
                     </div>
@@ -2060,7 +2077,7 @@ export default function Home() {
                         marginTop: 10,
                         padding: 16,
                         lineHeight: 1.9,
-                        fontSize: 15,
+                        fontSize: isMobile ? 14 : 15,
                         fontFamily: "Tahoma, Arial, sans-serif",
                         border: "1px solid rgba(0, 229, 255, 0.14)",
                         background:
