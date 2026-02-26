@@ -1000,6 +1000,75 @@ export default function Home() {
         border: "1px solid rgba(255, 194, 77, 0.20)",
         color: "rgba(255,255,255,0.92)",
       } as CSSProperties,
+      analysisCard: (tone: "strength" | "opportunity" | "gap" | "risk") => {
+        const palette = {
+          strength: {
+            accent: "#00E5FF",
+            bg: "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02) 60%)",
+          },
+          opportunity: {
+            accent: "#00FF85",
+            bg: "linear-gradient(180deg, rgba(0,255,133,0.09), rgba(255,255,255,0.02) 60%)",
+          },
+          gap: {
+            accent: "#FFC24D",
+            bg: "linear-gradient(180deg, rgba(255,194,77,0.09), rgba(255,255,255,0.02) 60%)",
+          },
+          risk: {
+            accent: "#FF4FD8",
+            bg: "linear-gradient(180deg, rgba(255,79,216,0.09), rgba(255,255,255,0.02) 60%)",
+          },
+        }[tone];
+
+        return {
+          padding: 14,
+          borderRadius: 14,
+          marginTop: 12,
+          border: `1px solid ${palette.accent}22`,
+          background: palette.bg,
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 22px ${palette.accent}10`,
+        } as CSSProperties;
+      },
+      analysisCardHead: (_tone: "strength" | "opportunity" | "gap" | "risk") => {
+        void _tone;
+        return {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 8,
+          color: "rgba(255,255,255,0.95)",
+          fontWeight: 900,
+        } as CSSProperties;
+      },
+      analysisAccentDot: (tone: "strength" | "opportunity" | "gap" | "risk") => {
+        const palette = {
+          strength: "#00E5FF",
+          opportunity: "#00FF85",
+          gap: "#FFC24D",
+          risk: "#FF4FD8",
+        }[tone];
+
+        return {
+          width: 9,
+          height: 9,
+          borderRadius: 999,
+          background: palette,
+          boxShadow: `0 0 10px ${palette}88`,
+          flexShrink: 0,
+        } as CSSProperties;
+      },
+      analysisList: {
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      analysisListItem: {
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(255,255,255,0.02)",
+        color: "rgba(255,255,255,0.88)",
+        lineHeight: 1.6,
+      } as CSSProperties,
     }),
     [isMobile, isNarrowMobile]
   );
@@ -1514,48 +1583,68 @@ export default function Home() {
                 </div>
 
                 <div style={styles.row2}>
-                  <div style={styles.qCard}>
-                    <div style={styles.qTitle}>نقاط القوة</div>
-                    {(analysis?.strategic_analysis?.strengths || []).map(
-                      (x: string, i: number) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          • {x}
-                        </div>
-                      )
-                    )}
+                  <div style={styles.analysisCard("strength")}>
+                    <div style={styles.analysisCardHead("strength")}>
+                      <span style={styles.analysisAccentDot("strength")} />
+                      نقاط القوة
+                    </div>
+                    <div style={styles.analysisList}>
+                      {(analysis?.strategic_analysis?.strengths || []).map(
+                        (x: string, i: number) => (
+                          <div key={i} style={styles.analysisListItem}>
+                            • {x}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
 
-                  <div style={styles.qCard}>
-                    <div style={styles.qTitle}>فرص التعظيم</div>
-                    {(analysis?.strategic_analysis?.amplification_opportunities || []).map(
-                      (x: string, i: number) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          • {x}
-                        </div>
-                      )
-                    )}
+                  <div style={styles.analysisCard("opportunity")}>
+                    <div style={styles.analysisCardHead("opportunity")}>
+                      <span style={styles.analysisAccentDot("opportunity")} />
+                      فرص التعظيم
+                    </div>
+                    <div style={styles.analysisList}>
+                      {(analysis?.strategic_analysis?.amplification_opportunities || []).map(
+                        (x: string, i: number) => (
+                          <div key={i} style={styles.analysisListItem}>
+                            • {x}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
 
-                  <div style={styles.qCard}>
-                    <div style={styles.qTitle}>فجوات تحتاج معالجة</div>
-                    {(analysis?.strategic_analysis?.gaps || []).map(
-                      (x: string, i: number) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          • {x}
-                        </div>
-                      )
-                    )}
+                  <div style={styles.analysisCard("gap")}>
+                    <div style={styles.analysisCardHead("gap")}>
+                      <span style={styles.analysisAccentDot("gap")} />
+                      فجوات تحتاج معالجة
+                    </div>
+                    <div style={styles.analysisList}>
+                      {(analysis?.strategic_analysis?.gaps || []).map(
+                        (x: string, i: number) => (
+                          <div key={i} style={styles.analysisListItem}>
+                            • {x}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
 
-                  <div style={styles.qCard}>
-                    <div style={styles.qTitle}>مخاطر محتملة</div>
-                    {(analysis?.strategic_analysis?.risks || []).map(
-                      (x: string, i: number) => (
-                        <div key={i} style={{ marginBottom: 6 }}>
-                          • {x}
-                        </div>
-                      )
-                    )}
+                  <div style={styles.analysisCard("risk")}>
+                    <div style={styles.analysisCardHead("risk")}>
+                      <span style={styles.analysisAccentDot("risk")} />
+                      مخاطر محتملة
+                    </div>
+                    <div style={styles.analysisList}>
+                      {(analysis?.strategic_analysis?.risks || []).map(
+                        (x: string, i: number) => (
+                          <div key={i} style={styles.analysisListItem}>
+                            • {x}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
 
