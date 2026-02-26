@@ -214,6 +214,7 @@ export default function Home() {
   );
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
+  const [uiSuccess, setUiSuccess] = useState("");
 
   const canStart = project.trim().length > 0;
 
@@ -356,10 +357,11 @@ export default function Home() {
     if (hasInvalidTimeRange()) {
       const msg = "وقت النهاية يجب أن يكون بعد وقت البداية.";
       setUiError(msg);
-      alert(msg);
+      setUiSuccess("");
       return;
     }
     setUiError("");
+    setUiSuccess("");
 
     setLoading(true);
     setStage("round1");
@@ -383,7 +385,7 @@ export default function Home() {
 
     if (!json?.ok) {
       setUiError(json?.error || "حدث خطأ في توليد الأسئلة");
-      alert(json?.error || "حدث خطأ في توليد الأسئلة");
+      setUiSuccess("");
       setStage("init");
       return;
     }
@@ -407,11 +409,13 @@ export default function Home() {
   async function submitRound1() {
     const ids = round1Questions.map((q) => q.id);
     if (ratioAnswered(ids) < 0.6) {
-      alert("جاوب على أغلب أسئلة الجولة الأولى (على الأقل 60%).");
+      setUiError("جاوب على أغلب أسئلة الجولة الأولى (على الأقل 60%).");
+      setUiSuccess("");
       return;
     }
 
     setUiError("");
+    setUiSuccess("");
     setLoading(true);
 
     const round1Answers = answers.filter((a) => ids.includes(a.id));
@@ -426,7 +430,7 @@ export default function Home() {
 
     if (!json?.ok) {
       setUiError(json?.error || "حدث خطأ في توليد تدقيق إضافي");
-      alert(json?.error || "حدث خطأ في توليد تدقيق إضافي");
+      setUiSuccess("");
       return;
     }
 
@@ -455,14 +459,18 @@ export default function Home() {
   async function submitRound2() {
     const ids = followupQuestions.map((q) => q.id);
     if (ids.length > 0 && ratioAnswered(ids) < 0.6) {
-      alert("جاوب على أغلب تدقيق إضافي (على الأقل 60%).");
+      setUiError("جاوب على أغلب تدقيق إضافي (على الأقل 60%).");
+      setUiSuccess("");
       return;
     }
+    setUiError("");
+    setUiSuccess("");
     await buildDialogue();
   }
 
   async function buildDialogue() {
     setUiError("");
+    setUiSuccess("");
     setLoading(true);
 
     const json = await callAPI<{
@@ -478,7 +486,7 @@ export default function Home() {
 
     if (!json?.ok) {
       setUiError(json?.error || "حدث خطأ في توليد الحوار");
-      alert(json?.error || "حدث خطأ في توليد الحوار");
+      setUiSuccess("");
       return;
     }
 
@@ -489,6 +497,7 @@ export default function Home() {
 
   async function runAnalysis() {
     setUiError("");
+    setUiSuccess("");
     setLoading(true);
 
     const json = await callAPI<AnalysisData>({
@@ -503,7 +512,7 @@ export default function Home() {
 
     if (!json?.ok) {
       setUiError(json?.error || "حدث خطأ في التحليل");
-      alert(json?.error || "حدث خطأ في التحليل");
+      setUiSuccess("");
       return;
     }
 
@@ -515,7 +524,8 @@ export default function Home() {
   async function copyReport() {
     if (!reportText?.trim()) return;
     await navigator.clipboard.writeText(reportText);
-    alert("تم نسخ التقرير ✅");
+    setUiError("");
+    setUiSuccess("تم نسخ التقرير بنجاح.");
   }
 
   const summaryStats = useMemo(() => {
@@ -693,6 +703,13 @@ export default function Home() {
         border: "1px solid rgba(255, 200, 0, 0.18)",
         marginTop: 10,
       },
+      successBox: {
+        padding: 12,
+        borderRadius: 14,
+        background: "rgba(0, 255, 133, 0.10)",
+        border: "1px solid rgba(0, 255, 133, 0.18)",
+        marginTop: 10,
+      },
 
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
@@ -816,6 +833,11 @@ export default function Home() {
             {uiError ? (
               <div style={styles.warnBox}>
                 <strong>ملاحظة:</strong> {uiError}
+              </div>
+            ) : null}
+            {uiSuccess ? (
+              <div style={styles.successBox}>
+                <strong>نجاح:</strong> {uiSuccess}
               </div>
             ) : null}
 
