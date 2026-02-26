@@ -148,6 +148,23 @@ function advisorTitle(key: string) {
   }
 }
 
+function advisorRoleShort(key: string) {
+  switch (key) {
+    case "financial_advisor":
+      return "مالي";
+    case "regulatory_advisor":
+      return "تنظيمي";
+    case "operations_advisor":
+      return "تشغيلي";
+    case "marketing_advisor":
+      return "تسويق";
+    case "risk_advisor":
+      return "مخاطر";
+    default:
+      return key;
+  }
+}
+
 function advisorColor(key: string) {
   switch (key) {
     case "financial_advisor":
@@ -533,6 +550,20 @@ export default function Home() {
       default:
         return "تهيئة الجلسة";
     }
+  }
+
+  function selectedAdvisorsSummary() {
+    if (effectiveSelectedAdvisors.length === ALL_ADVISOR_KEYS.length) {
+      return "كل المستشارين";
+    }
+
+    if (effectiveSelectedAdvisors.length === 0) {
+      return "غير محدد";
+    }
+
+    return effectiveSelectedAdvisors
+      .map((key) => `${advisorName(key)} (${advisorRoleShort(key)})`)
+      .join("، ");
   }
 
   function sessionAlerts() {
@@ -2575,6 +2606,24 @@ export default function Home() {
               </div>
               <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
                 {stageLabel()}
+              </div>
+            </div>
+
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>المستشارون المشاركون</div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(255,255,255,0.9)",
+                  lineHeight: 1.7,
+                }}
+              >
+                {selectedAdvisorsSummary()}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.62)" }}>
+                العدد:
+                {" "}
+                {toArabicDigits(effectiveSelectedAdvisors.length)}
               </div>
             </div>
 
