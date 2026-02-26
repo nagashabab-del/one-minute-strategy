@@ -183,6 +183,10 @@ function readinessAccent(level?: string) {
   }
 }
 
+function toArabicDigits(value: number | string) {
+  return String(value).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 
 export default function Home() {
@@ -429,6 +433,46 @@ export default function Home() {
     if (subset.length === 0) return 0;
     const filled = subset.filter((a) => a.answer.trim().length > 0).length;
     return filled / subset.length;
+  }
+
+  function analyzeAnswerQuality() {
+    const filledAnswers = answers.filter((a) => a.answer.trim().length > 0);
+    const weakPatterns = [
+      /^لا يوجد$/i,
+      /^لا اعرف$/i,
+      /^مدري$/i,
+      /^غير محدد$/i,
+      /^تمام$/i,
+      /^كويس$/i,
+      /^دعوات$/i,
+      /^كل شي متوفر$/i,
+    ];
+
+    const weakItems = filledAnswers.filter((a) => {
+      const text = a.answer.trim();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      const tooShort = text.length < 12 || words <= 2;
+      const generic = weakPatterns.some((p) => p.test(text));
+      return tooShort || generic;
+    });
+
+    const filledCount = filledAnswers.length;
+    const weakCount = weakItems.length;
+    const strongCount = Math.max(0, filledCount - weakCount);
+    const score = filledCount === 0 ? 0 : Math.round((strongCount / filledCount) * 100);
+
+    let level: "ضعيف" | "متوسط" | "جيد" = "جيد";
+    if (score < 45) level = "ضعيف";
+    else if (score < 75) level = "متوسط";
+
+    return {
+      filledCount,
+      weakCount,
+      strongCount,
+      score,
+      level,
+      weakExamples: weakItems.slice(0, 3),
+    };
   }
 
   // ============ Actions ============
@@ -992,6 +1036,53 @@ export default function Home() {
         fontWeight: 900,
         color: "rgba(255,255,255,0.96)",
       } as CSSProperties,
+      qualityCard: {
+        marginTop: 12,
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: 12,
+      } as CSSProperties,
+      qualityMeterTrack: {
+        marginTop: 8,
+        height: 8,
+        borderRadius: 999,
+        background: "rgba(255,255,255,0.08)",
+        overflow: "hidden",
+      } as CSSProperties,
+      qualityMeterFill: (level: "ضعيف" | "متوسط" | "جيد", score: number) =>
+        ({
+          height: "100%",
+          width: `${score}%`,
+          background:
+            level === "جيد"
+              ? "linear-gradient(90deg, #00e5ff, #00ff85)"
+              : level === "متوسط"
+                ? "linear-gradient(90deg, #ffc24d, #ff9d4d)"
+                : "linear-gradient(90deg, #ff4fd8, #ff7a45)",
+        } as CSSProperties),
+      qualityBadge: (level: "ضعيف" | "متوسط" | "جيد") =>
+        ({
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "4px 8px",
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 800,
+          border:
+            level === "جيد"
+              ? "1px solid rgba(0,255,133,0.30)"
+              : level === "متوسط"
+                ? "1px solid rgba(255,194,77,0.30)"
+                : "1px solid rgba(255,79,216,0.30)",
+          background:
+            level === "جيد"
+              ? "rgba(0,255,133,0.10)"
+              : level === "متوسط"
+                ? "rgba(255,194,77,0.10)"
+                : "rgba(255,79,216,0.10)",
+          color: "white",
+        } as CSSProperties),
       sectionHeaderRow: {
         display: "flex",
         justifyContent: "space-between",
@@ -1105,6 +1196,8 @@ export default function Home() {
     }),
     [isMobile, isNarrowMobile]
   );
+
+  const answerQuality = analyzeAnswerQuality();
 
   return (
     <main style={styles.page} dir="rtl">
@@ -1534,6 +1627,73 @@ export default function Home() {
                     />
                   </div>
                 )}
+
+                <div style={styles.qualityCard}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ fontWeight: 900 }}>مؤشر جودة الإجابات قبل التحليل</div>
+                    <div style={styles.qualityBadge(answerQuality.level)}>
+                      {answerQuality.level}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      color: "rgba(255,255,255,0.75)",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    جودة تقديرية: {toArabicDigits(answerQuality.score)}٪
+                    {" • "}
+                    إجابات قوية: {toArabicDigits(answerQuality.strongCount)}
+                    {" • "}
+                    إجابات تحتاج تفصيل: {toArabicDigits(answerQuality.weakCount)}
+                  </div>
+
+                  <div style={styles.qualityMeterTrack}>
+                    <div
+                      style={styles.qualityMeterFill(
+                        answerQuality.level,
+                        answerQuality.score
+                      )}
+                    />
+                  </div>
+
+                  {answerQuality.weakCount > 0 ? (
+                    <div style={{ ...styles.inlineWarnBox, marginTop: 10 }}>
+                      <strong>ملاحظة مهمة:</strong> بعض الإجابات قصيرة أو عامة جدًا، وهذا
+                      يضعف دقة التحليل النهائي.
+                      {answerQuality.weakExamples.length > 0 ? (
+                        <div style={{ marginTop: 8 }}>
+                          {answerQuality.weakExamples.map((x, i) => (
+                            <div key={i} style={{ marginBottom: 4 }}>
+                              • {x.question}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        fontSize: 13,
+                        color: "rgba(255,255,255,0.72)",
+                      }}
+                    >
+                      ممتاز، مستوى الإجابات الحالي مناسب لإنتاج تحليل أقوى.
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
                   <button
