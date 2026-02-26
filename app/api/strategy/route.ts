@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
 
 function normalizeReportText(text: string) {
+  const toArabicDigits = (value: string) =>
+    value.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+
   return text
     .split("\n")
     .map((line) => {
@@ -15,12 +18,12 @@ function normalizeReportText(text: string) {
 
       // Convert technical question labels to readable report labels (supports markdown forms).
       next = next.replace(
-        /^\s*(?:\*\*\s*)?(Q|F)\d+(?:\s*\*\*)?\s*[:\-]?\s*/i,
-        "- السؤال: "
+        /^\s*(?:\*\*\s*)?(Q|F)\s*(\d+)(?:\s*\*\*)?\s*[:\-]?\s*/i,
+        (_match, _label, num: string) => `- سؤال ${toArabicDigits(num)}: `
       );
       next = next.replace(
-        /^\s*(?:\*\*\s*)?A\d+(?:\s*\*\*)?\s*[:\-]?\s*/i,
-        "  الإجابة: "
+        /^\s*(?:\*\*\s*)?A\s*(\d+)(?:\s*\*\*)?\s*[:\-]?\s*/i,
+        (_match, num: string) => `  إجابة ${toArabicDigits(num)}: `
       );
 
       // Remove bold markdown markers left around labels/content.
