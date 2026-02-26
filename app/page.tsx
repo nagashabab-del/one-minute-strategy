@@ -1440,8 +1440,9 @@ export default function Home() {
           <div
             style={{
               ...styles.toastBox,
-              background: "rgba(255, 200, 0, 0.12)",
-              border: "1px solid rgba(255, 200, 0, 0.28)",
+              background:
+                "linear-gradient(180deg, rgba(179, 0, 255, 0.18), rgba(106, 0, 255, 0.12))",
+              border: "1px solid rgba(179, 0, 255, 0.35)",
               color: "white",
             }}
             role="alert"
@@ -1457,8 +1458,9 @@ export default function Home() {
           <div
             style={{
               ...styles.toastBox,
-              background: "rgba(0, 255, 133, 0.12)",
-              border: "1px solid rgba(0, 255, 133, 0.28)",
+              background:
+                "linear-gradient(180deg, rgba(0, 229, 255, 0.16), rgba(106, 0, 255, 0.10))",
+              border: "1px solid rgba(0, 229, 255, 0.28)",
               color: "white",
             }}
             role="status"
