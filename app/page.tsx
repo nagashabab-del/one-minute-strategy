@@ -77,6 +77,7 @@ type PersistedState = {
   userAddition?: string;
   analysis?: AnalysisData | null;
   reportText?: string;
+  dialogueSignature?: string;
 };
 
 function isVenueType(value: string): value is VenueType {
@@ -232,6 +233,9 @@ export default function Home() {
   const [dialogue, setDialogue] = useState<DialogueLine[]>(
     initialSaved.dialogue ?? []
   );
+  const [dialogueSignature, setDialogueSignature] = useState(
+    initialSaved.dialogueSignature ?? ""
+  );
   const [openIssues, setOpenIssues] = useState<string[]>(
     initialSaved.openIssues ?? []
   );
@@ -275,6 +279,7 @@ export default function Home() {
       followupQuestions,
       answers,
       dialogue,
+      dialogueSignature,
       openIssues,
       hasAddition,
       userAddition,
@@ -297,6 +302,7 @@ export default function Home() {
     followupQuestions,
     answers,
     dialogue,
+    dialogueSignature,
     openIssues,
     hasAddition,
     userAddition,
@@ -360,6 +366,13 @@ export default function Home() {
       budget: budget.trim() ? budget : "",
       project,
     };
+  }
+
+  function getDialogueSignature() {
+    return JSON.stringify({
+      ...commonPayload(),
+      answers,
+    });
   }
 
   function hasInvalidTimeRange() {
@@ -496,6 +509,7 @@ export default function Home() {
     setFollowupQuestions([]);
     setAnswers([]);
     setDialogue([]);
+    setDialogueSignature("");
     setOpenIssues([]);
     setHasAddition("no");
     setUserAddition("");
@@ -594,6 +608,18 @@ export default function Home() {
   }
 
   async function buildDialogue() {
+    const currentDialogueSignature = getDialogueSignature();
+    const hasCachedDialogue =
+      dialogue.length > 0 &&
+      dialogueSignature === currentDialogueSignature;
+
+    if (hasCachedDialogue) {
+      setUiError("");
+      setUiSuccess("");
+      setStage("dialogue");
+      return;
+    }
+
     setUiError("");
     setUiSuccess("");
     setLoading(true);
@@ -616,6 +642,7 @@ export default function Home() {
     }
 
     setDialogue(json.data?.council_dialogue || []);
+    setDialogueSignature(currentDialogueSignature);
     setOpenIssues(json.data?.open_issues || []);
     setStage("dialogue");
   }
