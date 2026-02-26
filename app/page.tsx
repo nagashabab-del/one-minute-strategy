@@ -3,7 +3,14 @@
 import Image from "next/image";
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 
-type StageUI = "init" | "round1" | "round2" | "dialogue" | "addition" | "done";
+type StageUI =
+  | "welcome"
+  | "init"
+  | "round1"
+  | "round2"
+  | "dialogue"
+  | "addition"
+  | "done";
 
 type AdvisorKey =
   | "financial_advisor"
@@ -257,7 +264,7 @@ export default function Home() {
   const [project, setProject] = useState(initialSaved.project ?? "");
 
   // ============ Flow ============
-  const [stage, setStage] = useState<StageUI>(initialSaved.stage ?? "init");
+  const [stage, setStage] = useState<StageUI>(initialSaved.stage ?? "welcome");
   const [loading, setLoading] = useState(false);
 
   const [round1Questions, setRound1Questions] = useState<Question[]>(
@@ -303,7 +310,7 @@ export default function Home() {
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
-  const isSetupLanding = stage === "init" && initStep === "session";
+  const isWelcome = stage === "welcome";
 
   const canStart =
     project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
@@ -457,6 +464,8 @@ export default function Home() {
 
   function progressPercent() {
     switch (stage) {
+      case "welcome":
+        return 0;
       case "init":
         return 14;
       case "round1":
@@ -476,6 +485,8 @@ export default function Home() {
 
   function stageLabel() {
     switch (stage) {
+      case "welcome":
+        return "الانطلاق";
       case "init":
         return initStep === "session"
           ? "اختيار نوع الجلسة والمستشارين"
@@ -548,6 +559,8 @@ export default function Home() {
 
   function stageStatusText() {
     switch (stage) {
+      case "welcome":
+        return "جاهز للانطلاق";
       case "done":
         return "النتائج جاهزة";
       case "dialogue":
@@ -1738,7 +1751,7 @@ export default function Home() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.headerShell}>
-          {isSetupLanding ? (
+          {isWelcome ? (
             <div
               style={{
                 display: "flex",
@@ -1779,39 +1792,19 @@ export default function Home() {
               >
                 Executive Decision Intelligence Platform
               </div>
-              <div
+              <button
                 style={{
-                  marginTop: 12,
-                  maxWidth: 760,
-                  borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background:
-                    "linear-gradient(180deg, rgba(179,0,255,0.10), rgba(255,255,255,0.02))",
-                  padding: isMobile ? "10px 12px" : "12px 14px",
+                  marginTop: 14,
+                  ...styles.primaryBtn(false),
+                  width: isMobile ? "100%" : 280,
+                }}
+                onClick={() => {
+                  setInitStep("session");
+                  setStage("init");
                 }}
               >
-                <div
-                  style={{
-                    color: "rgba(255,255,255,0.96)",
-                    fontSize: isMobile ? 13.5 : 15,
-                    lineHeight: 1.6,
-                    fontWeight: 900,
-                  }}
-                >
-                  فكرتك تحتاج قرار، وقرارك يحتاج وضوح.
-                </div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    color: "rgba(255,255,255,0.68)",
-                    fontSize: isMobile ? 11.5 : 12.5,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  مجلس استشاري متكامل يحلل مشروعك من جميع الزوايا ويحوّل الفكرة إلى قرار
-                  تنفيذي أوضح.
-                </div>
-              </div>
+                🚀 انطلق الآن
+              </button>
             </div>
           ) : (
             <header style={styles.header}>
@@ -1852,7 +1845,7 @@ export default function Home() {
         </div>
 
         {/* Progress */}
-        {!isSetupLanding ? (
+        {!isWelcome ? (
           <div style={styles.progressWrapper}>
             <div style={styles.progressLabel}>
               ✨ خطوة بخطوة لصنع القرار —{" "}
@@ -1871,12 +1864,12 @@ export default function Home() {
         ) : null}
 
         {/* Layout */}
-        <div style={styles.grid}>
+        {!isWelcome ? <div style={styles.grid}>
           {/* Main */}
           <section style={styles.card}>
             <h2 style={styles.cardTitle}>الجلسة الإستشارية</h2>
             <p style={styles.muted}>
-              {isSetupLanding
+              {initStep === "session"
                 ? "اختر نوع الجلسة وحدد المستشارين المشاركين. اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع."
                 : sessionSectionLead()}
             </p>
@@ -2991,7 +2984,7 @@ export default function Home() {
               </>
             )}
           </aside>
-        </div>
+        </div> : null}
       </div>
 
       {uiError ? (
