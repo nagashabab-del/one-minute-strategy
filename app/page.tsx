@@ -469,6 +469,72 @@ export default function Home() {
     return "";
   }
 
+  function stageStatusTone() {
+    switch (stage) {
+      case "done":
+        return "ready";
+      case "dialogue":
+      case "addition":
+        return "active";
+      case "round1":
+      case "round2":
+        return "working";
+      default:
+        return "idle";
+    }
+  }
+
+  function stageStatusText() {
+    switch (stage) {
+      case "done":
+        return "النتائج جاهزة";
+      case "dialogue":
+        return "مراجعة الحوار";
+      case "addition":
+        return "قبل التحليل النهائي";
+      case "round1":
+        return "جمع المعلومات الأساسية";
+      case "round2":
+        return "استكمال البيانات";
+      default:
+        return "تهيئة الجلسة";
+    }
+  }
+
+  function sessionAlerts() {
+    const alerts: Array<{ text: string; tone: "warn" | "info" | "ok" }> = [];
+
+    if (hasInvalidTimeRange()) {
+      alerts.push({ text: "وقت النهاية أقدم من وقت البداية.", tone: "warn" });
+    }
+    if (!budget.trim()) {
+      alerts.push({ text: "الميزانية غير محددة حتى الآن.", tone: "info" });
+    }
+    if (!startAt || !endAt) {
+      alerts.push({ text: "الجدول الزمني غير مكتمل (بداية/نهاية).", tone: "info" });
+    }
+    if ((stage === "addition" || stage === "done") && answerQuality.level !== "جيد") {
+      alerts.push({
+        text:
+          answerQuality.level === "ضعيف"
+            ? "جودة الإجابات ضعيفة وقد تؤثر على دقة القرار."
+            : "بعض الإجابات تحتاج تفصيل لرفع جودة التحليل.",
+        tone: "warn",
+      });
+    }
+    if (stage === "done" && (analysis?.strategic_analysis?.risks || []).length > 0) {
+      alerts.push({
+        text: `يوجد ${toArabicDigits((analysis?.strategic_analysis?.risks || []).length)} مخاطر بحاجة متابعة.`,
+        tone: "warn",
+      });
+    }
+    if (alerts.length === 0) {
+      alerts.push({ text: "الوضع الحالي جيد ولا توجد تنبيهات حرجة.", tone: "ok" });
+    }
+
+    return alerts.slice(0, 3);
+  }
+
   function ratioAnswered(questionIds: string[]) {
     const subset = answers.filter((a) => questionIds.includes(a.id));
     if (subset.length === 0) return 0;
@@ -1228,6 +1294,98 @@ export default function Home() {
         lineHeight: isMobile ? 1.8 : 1.7,
         padding: isMobile ? 12 : 14,
       } as CSSProperties,
+      sidePanel: {
+        background: "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(14px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 16,
+        padding: isMobile ? 14 : 18,
+        position: "sticky" as const,
+        top: 12,
+        alignSelf: "start",
+      } as CSSProperties,
+      sideBlock: {
+        marginTop: 12,
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(255,255,255,0.02)",
+        padding: 12,
+      } as CSSProperties,
+      sideBlockTitle: {
+        fontWeight: 900,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.92)",
+        marginBottom: 8,
+      } as CSSProperties,
+      stageStatusChip: (tone: "ready" | "active" | "working" | "idle") =>
+        ({
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 800,
+          color: "white",
+          border:
+            tone === "ready"
+              ? "1px solid rgba(0,255,133,0.28)"
+              : tone === "active"
+                ? "1px solid rgba(0,229,255,0.28)"
+                : tone === "working"
+                  ? "1px solid rgba(255,194,77,0.28)"
+                  : "1px solid rgba(179,107,255,0.28)",
+          background:
+            tone === "ready"
+              ? "rgba(0,255,133,0.10)"
+              : tone === "active"
+                ? "rgba(0,229,255,0.10)"
+                : tone === "working"
+                  ? "rgba(255,194,77,0.10)"
+                  : "rgba(179,107,255,0.10)",
+        } as CSSProperties),
+      miniStatsGrid: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      miniStat: {
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(255,255,255,0.025)",
+        padding: "9px 10px",
+      } as CSSProperties,
+      miniStatLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.62)",
+        marginBottom: 3,
+      } as CSSProperties,
+      miniStatValue: {
+        fontSize: 14,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      sideAlertItem: (tone: "warn" | "info" | "ok") =>
+        ({
+          borderRadius: 10,
+          padding: "8px 10px",
+          marginTop: 8,
+          border:
+            tone === "warn"
+              ? "1px solid rgba(255,122,69,0.22)"
+              : tone === "info"
+                ? "1px solid rgba(0,229,255,0.20)"
+                : "1px solid rgba(0,255,133,0.20)",
+          background:
+            tone === "warn"
+              ? "rgba(255,122,69,0.07)"
+              : tone === "info"
+                ? "rgba(0,229,255,0.06)"
+                : "rgba(0,255,133,0.06)",
+          fontSize: 12,
+          lineHeight: 1.5,
+          color: "rgba(255,255,255,0.9)",
+        } as CSSProperties),
       advisorRecoGrid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
@@ -2193,55 +2351,169 @@ export default function Home() {
           </section>
 
           {/* Side Summary */}
-          <aside style={styles.card}>
-            <h3 style={styles.cardTitle}>ملخص المشروع</h3>
-            <p style={styles.muted}>يتحدث تلقائيًا مع اختياراتك.</p>
+          <aside style={styles.sidePanel}>
+            <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
+            <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
 
-            <div style={styles.summaryMetaGrid}>
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>نوع الفعالية</span>
-                <span style={styles.v}>{eventType}</span>
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>حالة الجلسة</div>
+              <div style={styles.stageStatusChip(stageStatusTone())}>
+                {stageStatusText()}
               </div>
-
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>وضع الجلسة</span>
-                <span style={styles.v}>{mode}</span>
+              <div style={{ marginTop: 10 }}>
+                <div style={styles.progressBar}>
+                  <div
+                    style={{
+                      ...styles.progressFill,
+                      width: `${progressPercent()}%`,
+                    }}
+                  />
+                </div>
               </div>
-
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>الموقع</span>
-                <span style={styles.v}>{venueType}</span>
-              </div>
-
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>البداية</span>
-                <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
-              </div>
-
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>النهاية</span>
-                <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
-              </div>
-
-              <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                <span style={styles.k}>الميزانية</span>
-                <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
+                {stageLabel()}
               </div>
             </div>
 
-            <hr style={styles.hr} />
-
-            <div style={{ ...styles.metaItem, alignItems: "center" }}>
-              <span style={styles.k}>الحفظ التلقائي</span>
-              <span style={styles.v}>مفعل ✓</span>
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>مؤشرات سريعة</div>
+              <div style={styles.miniStatsGrid}>
+                <div style={styles.miniStat}>
+                  <div style={styles.miniStatLabel}>الجولة الأولى</div>
+                  <div style={styles.miniStatValue}>
+                    {toArabicDigits(round1Questions.length)}
+                  </div>
+                </div>
+                <div style={styles.miniStat}>
+                  <div style={styles.miniStatLabel}>المتابعة</div>
+                  <div style={styles.miniStatValue}>
+                    {toArabicDigits(followupQuestions.length)}
+                  </div>
+                </div>
+                <div style={styles.miniStat}>
+                  <div style={styles.miniStatLabel}>الحوار</div>
+                  <div style={styles.miniStatValue}>
+                    {toArabicDigits(dialogue.length)}
+                  </div>
+                </div>
+                <div style={styles.miniStat}>
+                  <div style={styles.miniStatLabel}>النتائج</div>
+                  <div style={styles.miniStatValue}>
+                    {analysis ? "جاهزة" : "—"}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
-              يتم حفظ التغييرات تلقائيًا أثناء العمل.
+            {(stage === "addition" || stage === "done") ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>جودة المدخلات</div>
+                <div style={styles.qualityBadge(answerQuality.level)}>{answerQuality.level}</div>
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    color: "rgba(255,255,255,0.72)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  جودة تقديرية {toArabicDigits(answerQuality.score)}٪ • إجابات تحتاج تفصيل:
+                  {" "}
+                  {toArabicDigits(answerQuality.weakCount)}
+                </div>
+                <div style={styles.qualityMeterTrack}>
+                  <div
+                    style={styles.qualityMeterFill(answerQuality.level, answerQuality.score)}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {stage === "done" && analysis ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>ملخص القرار</div>
+                <div style={{ ...styles.qTitle, marginBottom: 4 }}>
+                  {analysis?.executive_decision?.decision ?? "—"}
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
+                  الجاهزية:
+                  {" "}
+                  <span
+                    style={{
+                      color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
+                      fontWeight: 900,
+                    }}
+                  >
+                    {analysis?.strategic_analysis?.readiness_level ?? "—"}
+                  </span>
+                </div>
+                <div style={styles.miniStatsGrid}>
+                  <div style={styles.miniStat}>
+                    <div style={styles.miniStatLabel}>الفجوات</div>
+                    <div style={styles.miniStatValue}>
+                      {toArabicDigits((analysis?.strategic_analysis?.gaps || []).length)}
+                    </div>
+                  </div>
+                  <div style={styles.miniStat}>
+                    <div style={styles.miniStatLabel}>المخاطر</div>
+                    <div style={styles.miniStatValue}>
+                      {toArabicDigits((analysis?.strategic_analysis?.risks || []).length)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>بيانات المشروع</div>
+              <div style={styles.summaryMetaGrid}>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>نوع الفعالية</span>
+                  <span style={styles.v}>{eventType}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>وضع الجلسة</span>
+                  <span style={styles.v}>{mode}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>الموقع</span>
+                  <span style={styles.v}>{venueType}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>البداية</span>
+                  <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>النهاية</span>
+                  <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>الميزانية</span>
+                  <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+                </div>
+              </div>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
-              تفعيل الأزرار يعتمد على نسبة الإجابات (60%).
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
+              {sessionAlerts().map((alert, idx) => (
+                <div key={idx} style={styles.sideAlertItem(alert.tone)}>
+                  {alert.text}
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.sideBlock}>
+              <div style={{ ...styles.metaItem, marginTop: 0, alignItems: "center" }}>
+                <span style={styles.k}>الحفظ التلقائي</span>
+                <span style={styles.v}>مفعل ✓</span>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+                يتم حفظ التغييرات تلقائيًا أثناء العمل.
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+                تفعيل بعض الأزرار يعتمد على نسبة الإجابات (60%).
+              </div>
             </div>
           </aside>
         </div>
