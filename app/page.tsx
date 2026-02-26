@@ -1779,6 +1779,20 @@ export default function Home() {
               >
                 Executive Decision Intelligence Platform
               </div>
+              <div
+                style={{
+                  marginTop: 10,
+                  maxWidth: 760,
+                  color: "rgba(255,255,255,0.92)",
+                  fontSize: isMobile ? 13.5 : 16,
+                  lineHeight: 1.7,
+                  fontWeight: 900,
+                }}
+              >
+                فكرتك تحتاج قرار، وقرارك يحتاج وضوح. One Minute Strategy يمنحك مجلسًا
+                استشاريًا متكاملًا يحلل مشروعك من جميع الزوايا، ليختصر الفوضى ويصنع التركيز
+                ويحوّل الفكرة إلى حدث جاهز للتنفيذ.
+              </div>
             </div>
           ) : (
             <header style={styles.header}>
@@ -1844,7 +1858,7 @@ export default function Home() {
             <h2 style={styles.cardTitle}>الجلسة الإستشارية</h2>
             <p style={styles.muted}>
               {isSetupLanding
-                ? "فكرتك تحتاج قرار، وقرارك يحتاج وضوح. One Minute Strategy يمنحك مجلسًا استشاريًا متكاملًا يحلل مشروعك من جميع الزوايا، ليختصر الفوضى ويصنع التركيز ويحوّل الفكرة إلى حدث جاهز للتنفيذ."
+                ? "اختر نوع الجلسة وحدد المستشارين المشاركين. اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع."
                 : sessionSectionLead()}
             </p>
 
