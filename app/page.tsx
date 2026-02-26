@@ -264,7 +264,19 @@ export default function Home() {
     reportText,
   ]);
 
-  // تحديث “آخر حفظ” كل ثانية
+  // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
+  useEffect(() => {
+    if (!uiError && !uiSuccess) return;
+
+    const timeoutMs = uiError ? 4500 : 3000;
+    const t = setTimeout(() => {
+      setUiError("");
+      setUiSuccess("");
+    }, timeoutMs);
+
+    return () => clearTimeout(t);
+  }, [uiError, uiSuccess]);
+
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
     location.reload();
