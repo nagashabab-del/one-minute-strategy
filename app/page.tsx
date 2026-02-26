@@ -1769,14 +1769,30 @@ export default function Home() {
                       </button>
                     </div>
 
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.62)",
+                        marginTop: 2,
+                      }}
+                    >
+                      صياغة جاهزة للنسخ المباشر إلى Word مع الحفاظ على العناوين والفقرات.
+                    </div>
+
                     <textarea
                       readOnly
                       value={reportText}
                       style={{
                         ...styles.textarea,
-                        height: 320,
+                        height: isMobile ? 360 : 340,
                         marginTop: 10,
-                        fontFamily: "Arial",
+                        padding: 16,
+                        lineHeight: 1.9,
+                        fontSize: 15,
+                        fontFamily: "Tahoma, Arial, sans-serif",
+                        border: "1px solid rgba(0, 229, 255, 0.14)",
+                        background:
+                          "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
                       }}
                       placeholder="سيظهر هنا التقرير النهائي..."
                     />
