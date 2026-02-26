@@ -966,6 +966,40 @@ export default function Home() {
         gap: 10,
         marginBottom: 8,
       } as CSSProperties,
+      advisorRecoGrid: {
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 12,
+        marginTop: 10,
+      } as CSSProperties,
+      advisorRecoCard: (key: string) =>
+        ({
+          borderRadius: 14,
+          border: `1px solid ${advisorColor(key)}26`,
+          background: `linear-gradient(180deg, ${advisorColor(key)}10, rgba(255,255,255,0.02) 55%)`,
+          padding: 12,
+        } as CSSProperties),
+      advisorRecoList: {
+        display: "grid",
+        gap: 8,
+        marginTop: 10,
+      } as CSSProperties,
+      advisorRecoItem: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(255,255,255,0.025)",
+        padding: "8px 10px",
+        color: "rgba(255,255,255,0.9)",
+        lineHeight: 1.6,
+      } as CSSProperties,
+      inlineWarnBox: {
+        marginTop: 10,
+        padding: "10px 12px",
+        borderRadius: 12,
+        background: "rgba(255, 194, 77, 0.08)",
+        border: "1px solid rgba(255, 194, 77, 0.20)",
+        color: "rgba(255,255,255,0.92)",
+      } as CSSProperties,
     }),
     [isMobile, isNarrowMobile]
   );
@@ -1552,25 +1586,48 @@ export default function Home() {
                       <div style={styles.qTitle}>توصيات المستشارين</div>
                     </div>
 
-                    {Object.entries(analysis?.advisor_recommendations || {}).map(
-                      ([k, v]) => (
-                        <div key={k} style={{ marginTop: 12 }}>
-                          <div style={{ fontWeight: 900, marginBottom: 6 }}>
-                            {advisorTitle(k)}
+                    <div style={styles.advisorRecoGrid}>
+                      {Object.entries(analysis?.advisor_recommendations || {}).map(
+                        ([k, v]) => (
+                          <div key={k} style={styles.advisorRecoCard(k)}>
+                            <div style={styles.advisorQuestionHeader(k)}>
+                              <span style={styles.advisorQuestionIcon(k)}>
+                                {advisorIcon(k)}
+                              </span>
+                              <span style={styles.advisorQuestionText}>
+                                {advisorTitle(k)}
+                              </span>
+                            </div>
+
+                            {(v?.recommendations || []).length ? (
+                              <div style={styles.advisorRecoList}>
+                                {(v?.recommendations || []).map((r: string, i: number) => (
+                                  <div key={i} style={styles.advisorRecoItem}>
+                                    • {r}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  marginTop: 10,
+                                  color: "rgba(255,255,255,0.65)",
+                                  fontSize: 13,
+                                }}
+                              >
+                                لا توجد توصيات مفصلة من هذا المستشار في هذه النتيجة.
+                              </div>
+                            )}
+
+                            {v?.strategic_warning ? (
+                              <div style={styles.inlineWarnBox}>
+                                <strong>تنبيه استراتيجي:</strong> {v.strategic_warning}
+                              </div>
+                            ) : null}
                           </div>
-                          {(v?.recommendations || []).map((r: string, i: number) => (
-                            <div key={i} style={{ marginBottom: 6 }}>
-                              • {r}
-                            </div>
-                          ))}
-                          {v?.strategic_warning ? (
-                            <div style={styles.warnBox}>
-                              <strong>تنبيه استراتيجي:</strong> {v.strategic_warning}
-                            </div>
-                          ) : null}
-                        </div>
-                      )
-                    )}
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
 
