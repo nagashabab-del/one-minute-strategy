@@ -221,6 +221,7 @@ export default function Home() {
 
   const canStart = project.trim().length > 0;
   const isMobile = viewportWidth <= 768;
+  const isNarrowMobile = viewportWidth <= 480;
 
   // ============ Save (no save while loading) ============
   useEffect(() => {
@@ -617,7 +618,8 @@ export default function Home() {
         display: "flex",
         gap: 10,
         alignItems: "center",
-        flexDirection: isMobile ? "column" : "row",
+        flexDirection: "row",
+        flexWrap: isMobile ? "wrap" : "nowrap",
         width: isMobile ? "100%" : "auto",
       } as CSSProperties,
       ghostBtn: {
@@ -627,7 +629,7 @@ export default function Home() {
         borderRadius: 12,
         color: "white",
         cursor: "pointer",
-        width: isMobile ? "100%" : "auto",
+        width: isNarrowMobile ? "100%" : "auto",
       },
       primaryBtn: (disabled: boolean) =>
         ({
@@ -835,11 +837,16 @@ export default function Home() {
       } as CSSProperties,
       initFormGrid: {
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 12,
       } as CSSProperties,
+      summaryMetaGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
     }),
-    [isMobile]
+    [isMobile, isNarrowMobile]
   );
 
   return (
@@ -1426,34 +1433,36 @@ export default function Home() {
             <h3 style={styles.cardTitle}>ملخص المشروع</h3>
             <p style={styles.muted}>يتحدث تلقائيًا مع اختياراتك.</p>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>نوع الفعالية</span>
-              <span style={styles.v}>{eventType}</span>
-            </div>
+            <div style={styles.summaryMetaGrid}>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>نوع الفعالية</span>
+                <span style={styles.v}>{eventType}</span>
+              </div>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>وضع الجلسة</span>
-              <span style={styles.v}>{mode}</span>
-            </div>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>وضع الجلسة</span>
+                <span style={styles.v}>{mode}</span>
+              </div>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>الموقع</span>
-              <span style={styles.v}>{venueType}</span>
-            </div>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>الموقع</span>
+                <span style={styles.v}>{venueType}</span>
+              </div>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>البداية</span>
-              <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
-            </div>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>البداية</span>
+                <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
+              </div>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>النهاية</span>
-              <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
-            </div>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>النهاية</span>
+                <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
+              </div>
 
-            <div style={styles.metaItem}>
-              <span style={styles.k}>الميزانية</span>
-              <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+              <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <span style={styles.k}>الميزانية</span>
+                <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+              </div>
             </div>
 
             <hr style={styles.hr} />
