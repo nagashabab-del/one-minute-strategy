@@ -153,6 +153,21 @@ function advisorColor(key: string) {
   }
 }
 
+function decisionAccent(decision?: string) {
+  switch (decision) {
+    case "جاهز للتنفيذ":
+      return "#00E5FF";
+    case "جاهز بعد تحسينات محددة":
+      return "#00FF85";
+    case "يحتاج إعادة ضبط استراتيجية":
+      return "#FFC24D";
+    case "يحتاج إعادة دراسة شاملة":
+      return "#FF4FD8";
+    default:
+      return "#B66BFF";
+  }
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 
 export default function Home() {
@@ -875,6 +890,82 @@ export default function Home() {
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
+      finalHeroCard: {
+        borderRadius: 16,
+        padding: isMobile ? 14 : 16,
+        border: "1px solid rgba(179,0,255,0.22)",
+        background:
+          "linear-gradient(180deg, rgba(179,0,255,0.14), rgba(106,0,255,0.07) 55%, rgba(255,255,255,0.02))",
+        boxShadow: "0 10px 30px rgba(64, 0, 128, 0.18)",
+      } as CSSProperties,
+      finalHeroHead: {
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      decisionBadge: (decision?: string) =>
+        ({
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 10px",
+          borderRadius: 999,
+          border: `1px solid ${decisionAccent(decision)}50`,
+          background: `${decisionAccent(decision)}14`,
+          color: "white",
+          fontSize: 12,
+          fontWeight: 800,
+        } as CSSProperties),
+      decisionTitle: {
+        marginTop: 10,
+        fontSize: isMobile ? 18 : 22,
+        fontWeight: 900,
+        lineHeight: 1.4,
+        color: "rgba(255,255,255,0.98)",
+      } as CSSProperties,
+      decisionReasons: {
+        marginTop: 10,
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      decisionReasonItem: {
+        padding: "10px 12px",
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        color: "rgba(255,255,255,0.9)",
+      } as CSSProperties,
+      quickStatsGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gap: 10,
+        marginTop: 12,
+      } as CSSProperties,
+      statTile: {
+        borderRadius: 14,
+        padding: "10px 12px",
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+      } as CSSProperties,
+      statLabel: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.62)",
+        marginBottom: 4,
+      } as CSSProperties,
+      statValue: {
+        fontSize: 17,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      sectionHeaderRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 8,
+      } as CSSProperties,
     }),
     [isMobile, isNarrowMobile]
   );
@@ -1327,11 +1418,64 @@ export default function Home() {
                 </h3>
 
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ ...styles.metaItem, marginTop: 0 }}>
-                    <span style={styles.k}>مستوى الجاهزية</span>
-                    <span style={styles.v}>
+                  <div style={styles.finalHeroCard}>
+                    <div style={styles.finalHeroHead}>
+                      <div style={styles.qTitle}>القرار التنفيذي</div>
+                      <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 999,
+                            background: decisionAccent(analysis?.executive_decision?.decision),
+                            display: "inline-block",
+                          }}
+                        />
+                        {analysis?.strategic_analysis?.readiness_level
+                          ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
+                          : "الجاهزية: —"}
+                      </div>
+                    </div>
+
+                    <div style={styles.decisionTitle}>
+                      {analysis?.executive_decision?.decision ?? "—"}
+                    </div>
+
+                    <div style={styles.decisionReasons}>
+                      <div style={styles.decisionReasonItem}>
+                        • {analysis?.executive_decision?.reason_1 ?? "—"}
+                      </div>
+                      <div style={styles.decisionReasonItem}>
+                        • {analysis?.executive_decision?.reason_2 ?? "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.quickStatsGrid}>
+                  <div style={styles.statTile}>
+                    <div style={styles.statLabel}>مستوى الجاهزية</div>
+                    <div style={styles.statValue}>
                       {analysis?.strategic_analysis?.readiness_level ?? "—"}
-                    </span>
+                    </div>
+                  </div>
+                  <div style={styles.statTile}>
+                    <div style={styles.statLabel}>نقاط القوة</div>
+                    <div style={styles.statValue}>
+                      {(analysis?.strategic_analysis?.strengths || []).length}
+                    </div>
+                  </div>
+                  <div style={styles.statTile}>
+                    <div style={styles.statLabel}>الفجوات</div>
+                    <div style={styles.statValue}>
+                      {(analysis?.strategic_analysis?.gaps || []).length}
+                    </div>
+                  </div>
+                  <div style={styles.statTile}>
+                    <div style={styles.statLabel}>المخاطر</div>
+                    <div style={styles.statValue}>
+                      {(analysis?.strategic_analysis?.risks || []).length}
+                    </div>
                   </div>
                 </div>
 
@@ -1383,20 +1527,30 @@ export default function Home() {
 
                 <div style={{ marginTop: 12 }}>
                   <div style={styles.qCard}>
-                    <div style={styles.qTitle}>القرار التنفيذي</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 10 }}>
-                      {analysis?.executive_decision?.decision ?? "—"}
+                    <div style={styles.sectionHeaderRow}>
+                      <div style={styles.qTitle}>أفضل 3 ترقيات مقترحة</div>
                     </div>
-                    <div style={{ marginBottom: 6 }}>
-                      • {analysis?.executive_decision?.reason_1 ?? "—"}
-                    </div>
-                    <div>• {analysis?.executive_decision?.reason_2 ?? "—"}</div>
+                    {(analysis?.strategic_analysis?.top_3_upgrades || []).length ? (
+                      (analysis?.strategic_analysis?.top_3_upgrades || []).map(
+                        (x: string, i: number) => (
+                          <div key={i} style={{ marginBottom: 6 }}>
+                            • {x}
+                          </div>
+                        )
+                      )
+                    ) : (
+                      <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                        لا توجد ترقيات محددة في النتيجة الحالية.
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div style={{ marginTop: 12 }}>
                   <div style={styles.qCard}>
-                    <div style={styles.qTitle}>توصيات المستشارين</div>
+                    <div style={styles.sectionHeaderRow}>
+                      <div style={styles.qTitle}>توصيات المستشارين</div>
+                    </div>
 
                     {Object.entries(analysis?.advisor_recommendations || {}).map(
                       ([k, v]) => (
@@ -1422,14 +1576,7 @@ export default function Home() {
 
                 <div style={{ marginTop: 12 }}>
                   <div style={styles.qCard}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        alignItems: "center",
-                      }}
-                    >
+                    <div style={styles.sectionHeaderRow}>
                       <div style={styles.qTitle}>التقرير النهائي (قابل للنسخ لوورد)</div>
                       <button style={styles.ghostBtn} onClick={copyReport}>
                         نسخ
