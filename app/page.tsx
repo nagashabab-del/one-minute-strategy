@@ -1893,10 +1893,11 @@ export default function Home() {
                       <div
                         style={{
                           display: "flex",
-                          alignItems: isMobile ? "stretch" : "center",
+                          alignItems: "center",
                           gap: 8,
-                          flexDirection: isMobile ? "column" : "row",
-                          width: isMobile ? "100%" : "auto",
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          width: "auto",
                         }}
                       >
                         <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
@@ -1918,9 +1919,13 @@ export default function Home() {
                         <button
                           style={{
                             ...styles.ghostBtn,
-                            ...(isMobile ? { width: "100%" } : {}),
-                            padding: "8px 12px",
-                            borderRadius: 10,
+                            width: "auto",
+                            padding: "7px 10px",
+                            borderRadius: 999,
+                            fontSize: 12,
+                            lineHeight: 1.1,
+                            border: "1px solid rgba(255,255,255,0.14)",
+                            background: "rgba(255,255,255,0.03)",
                           }}
                           onClick={copyExecutiveDecision}
                         >
