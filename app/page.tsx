@@ -249,6 +249,7 @@ export default function Home() {
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
+  const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
@@ -620,6 +621,7 @@ export default function Home() {
   }
 
   async function runAnalysis() {
+    setNeedsReanalysisHint(false);
     setUiError("");
     setUiSuccess("");
     setLoading(true);
@@ -1712,6 +1714,17 @@ export default function Home() {
                   )}
                 </div>
 
+                {needsReanalysisHint ? (
+                  <div style={{ ...styles.inlineWarnBox, marginTop: 10 }}>
+                    <strong>تنبيه:</strong> هذه النتائج الحالية مبنية على التحليل السابق.
+                    إذا عدّلت الإجابات أو الإضافة، اضغط
+                    {" "}
+                    <strong>ابدأ التحليل</strong>
+                    {" "}
+                    لتحديث النتائج.
+                  </div>
+                ) : null}
+
                 <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
                   <button
                     style={styles.primaryBtn(loading)}
@@ -1728,6 +1741,7 @@ export default function Home() {
                       onClick={() => {
                         setUiError("");
                         setUiSuccess("");
+                        setNeedsReanalysisHint(false);
                         setStage("done");
                       }}
                     >
@@ -2003,6 +2017,7 @@ export default function Home() {
                     style={styles.secondaryBtn(false)}
                     onClick={() => {
                       setStage("addition");
+                      setNeedsReanalysisHint(true);
                       setUiSuccess("");
                       setUiError(
                         "عدّلت الرجوع قبل التحليل: إذا غيّرت الإجابات أو الإضافة، اضغط \"ابدأ التحليل\" مرة أخرى لتحديث النتائج."
