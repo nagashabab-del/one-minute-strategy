@@ -710,6 +710,25 @@ export default function Home() {
         border: "1px solid rgba(0, 255, 133, 0.18)",
         marginTop: 10,
       },
+      toastWrap: {
+        position: "fixed" as const,
+        bottom: 18,
+        left: 18,
+        right: 18,
+        zIndex: 50,
+        display: "flex",
+        justifyContent: "center",
+        pointerEvents: "none" as const,
+      },
+      toastBox: {
+        width: "100%",
+        maxWidth: 760,
+        padding: "12px 14px",
+        borderRadius: 14,
+        backdropFilter: "blur(10px)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+        pointerEvents: "auto" as const,
+      },
 
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
@@ -829,17 +848,6 @@ export default function Home() {
             </p>
 
             <hr style={styles.hr} />
-
-            {uiError ? (
-              <div style={styles.warnBox}>
-                <strong>ملاحظة:</strong> {uiError}
-              </div>
-            ) : null}
-            {uiSuccess ? (
-              <div style={styles.successBox}>
-                <strong>نجاح:</strong> {uiSuccess}
-              </div>
-            ) : null}
 
             {/* INIT */}
             {stage === "init" && (
@@ -1393,6 +1401,40 @@ export default function Home() {
           </aside>
         </div>
       </div>
+
+      {uiError ? (
+        <div style={styles.toastWrap}>
+          <div
+            style={{
+              ...styles.toastBox,
+              background: "rgba(255, 200, 0, 0.12)",
+              border: "1px solid rgba(255, 200, 0, 0.28)",
+              color: "white",
+            }}
+            role="alert"
+            aria-live="assertive"
+          >
+            <strong>ملاحظة:</strong> {uiError}
+          </div>
+        </div>
+      ) : null}
+
+      {!uiError && uiSuccess ? (
+        <div style={styles.toastWrap}>
+          <div
+            style={{
+              ...styles.toastBox,
+              background: "rgba(0, 255, 133, 0.12)",
+              border: "1px solid rgba(0, 255, 133, 0.28)",
+              color: "white",
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <strong>نجاح:</strong> {uiSuccess}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
