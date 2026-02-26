@@ -595,7 +595,7 @@ export default function Home() {
         flexDirection: isMobile ? "column" : "row",
         gap: 16,
         marginBottom: 22,
-      },
+      } as CSSProperties,
       headerBrand: {
         display: "flex",
         alignItems: isMobile ? "flex-start" : "center",
@@ -619,7 +619,7 @@ export default function Home() {
         alignItems: "center",
         flexDirection: isMobile ? "column" : "row",
         width: isMobile ? "100%" : "auto",
-      },
+      } as CSSProperties,
       ghostBtn: {
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.18)",
@@ -746,7 +746,7 @@ export default function Home() {
         marginTop: 12,
         alignItems: "center",
         flexWrap: "wrap",
-      },
+      } as CSSProperties,
       warnBox: {
         padding: 12,
         borderRadius: 14,
