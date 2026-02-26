@@ -503,6 +503,7 @@ export default function Home() {
 
   function sessionAlerts() {
     const alerts: Array<{ text: string; tone: "warn" | "info" | "ok" }> = [];
+    const duration = eventDurationSummary();
 
     if (hasInvalidTimeRange()) {
       alerts.push({ text: "وقت النهاية أقدم من وقت البداية.", tone: "warn" });
@@ -512,6 +513,12 @@ export default function Home() {
     }
     if (!startAt || !endAt) {
       alerts.push({ text: "الجدول الزمني غير مكتمل (بداية/نهاية).", tone: "info" });
+    }
+    if (duration && duration.isLongForPaidConference) {
+      alerts.push({
+        text: `مدة الفعالية (${duration.label}) طويلة نسبيًا لمؤتمر احترافي مدفوع وتحتاج تبريرًا تشغيليًا/تجاريًا.`,
+        tone: "warn",
+      });
     }
     if ((stage === "addition" || stage === "done") && answerQuality.level !== "جيد") {
       alerts.push({
@@ -533,6 +540,37 @@ export default function Home() {
     }
 
     return alerts.slice(0, 3);
+  }
+
+  function eventDurationSummary() {
+    if (!startAt || !endAt) return null;
+
+    const start = new Date(startAt);
+    const end = new Date(endAt);
+    const diffMs = end.getTime() - start.getTime();
+
+    if (!Number.isFinite(diffMs) || diffMs <= 0) return null;
+
+    const totalMinutes = Math.round(diffMs / (1000 * 60));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${toArabicDigits(days)} يوم`);
+    if (hours > 0) parts.push(`${toArabicDigits(hours)} ساعة`);
+    if (minutes > 0 && days === 0) parts.push(`${toArabicDigits(minutes)} دقيقة`);
+    if (parts.length === 0) parts.push(`${toArabicDigits(totalMinutes)} دقيقة`);
+
+    const isPaidConference =
+      eventType === "مؤتمر احترافي مدفوع" || eventType.includes("مؤتمر");
+    const isLongForPaidConference = isPaidConference && diffMs > 1000 * 60 * 60 * 24 * 3;
+
+    return {
+      label: parts.join(" و "),
+      totalMinutes,
+      isLongForPaidConference,
+    };
   }
 
   function ratioAnswered(questionIds: string[]) {
@@ -2403,6 +2441,22 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {eventDurationSummary() ? (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: "rgba(255,255,255,0.76)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  مدة الفعالية:{" "}
+                  <strong style={{ color: "rgba(255,255,255,0.95)" }}>
+                    {eventDurationSummary()?.label}
+                  </strong>
+                </div>
+              ) : null}
             </div>
 
             {(stage === "addition" || stage === "done") ? (
@@ -2490,6 +2544,10 @@ export default function Home() {
                 <div style={{ ...styles.metaItem, marginTop: 0 }}>
                   <span style={styles.k}>الميزانية</span>
                   <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+                </div>
+                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                  <span style={styles.k}>مدة الفعالية</span>
+                  <span style={styles.v}>{eventDurationSummary()?.label ?? "غير مكتملة"}</span>
                 </div>
               </div>
             </div>
