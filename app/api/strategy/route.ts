@@ -2,6 +2,28 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
+type AdvisorKey =
+  | "financial_advisor"
+  | "regulatory_advisor"
+  | "operations_advisor"
+  | "marketing_advisor"
+  | "risk_advisor";
+
+const ALL_ADVISOR_KEYS: AdvisorKey[] = [
+  "financial_advisor",
+  "regulatory_advisor",
+  "operations_advisor",
+  "marketing_advisor",
+  "risk_advisor",
+];
+
+const ADVISOR_LABELS: Record<AdvisorKey, string> = {
+  financial_advisor: "المستشار المالي – محلل الاستدامة",
+  regulatory_advisor: "المستشار التنظيمي – الحوكمة والامتثال",
+  operations_advisor: "مستشار العمليات – التشغيل والتنفيذ",
+  marketing_advisor: "مستشار التسويق – القيمة والطلب",
+  risk_advisor: "مستشار المخاطر والاستراتيجية – موازن القرار",
+};
 
 function normalizeReportText(text: string) {
   const toArabicDigits = (value: string) =>
@@ -53,6 +75,9 @@ export async function POST(req: Request) {
     const eventType = body.eventType ?? "فعالية موسمية";
     const mode = body.mode ?? "مراجعة تنفيذية سريعة";
     const project = body.project ?? "";
+    const selectedAdvisorsRaw = Array.isArray(body.selectedAdvisors)
+      ? body.selectedAdvisors
+      : ALL_ADVISOR_KEYS;
 
     // ✅ NEW FIELDS
     const startAt = body.startAt ?? ""; // datetime-local string
@@ -63,6 +88,9 @@ export async function POST(req: Request) {
     const answers = body.answers ?? [];
     const dialogue = body.dialogue ?? [];
     const userAddition = body.userAddition ?? "";
+    const selectedAdvisors = selectedAdvisorsRaw.filter((x: unknown): x is AdvisorKey =>
+      ALL_ADVISOR_KEYS.includes(x as AdvisorKey)
+    );
 
     if (!project?.trim()) {
       return NextResponse.json(
@@ -70,6 +98,25 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    if (selectedAdvisors.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "At least one advisor must be selected" },
+        { status: 400 }
+      );
+    }
+
+    const activeAdvisorKeysText = selectedAdvisors
+      .map((x: AdvisorKey) => `"${x}"`)
+      .join(" | ");
+    const activeAdvisorListText = selectedAdvisors
+      .map((x: AdvisorKey) => `- ${ADVISOR_LABELS[x]} (${x})`)
+      .join("\n");
+    const advisorRecommendationShape = selectedAdvisors
+      .map(
+        (key: AdvisorKey) =>
+          `"${key}": { "recommendations": [], "strategic_warning": "" }`
+      )
+      .join(",\n    ");
 
     const context = `
 معلومات إضافية مهمة للمجلس:
@@ -97,6 +144,10 @@ ${context}
 - لغة عربية مهنية واضحة.
 - نقاط قصيرة عملية (ماذا نفعل؟ وكيف؟).
 - ممنوع أي نص خارج JSON.
+- التزم فقط بالمستشارين المشاركين في هذه الجلسة.
+
+المستشارون المشاركون في هذه الجلسة:
+${activeAdvisorListText}
 `;
 
     // ✅ 1) الجولة الأولى
@@ -130,7 +181,7 @@ ${base}
   - إذا mode = "تحليل معمّق": 8 إلى 10 أسئلة
   - إذا mode = "مراجعة تنفيذية سريعة": 5 إلى 6 أسئلة
 - advisor_key:
-"financial_advisor" | "regulatory_advisor" | "operations_advisor" | "marketing_advisor" | "risk_advisor"
+${activeAdvisorKeysText}
 - intent سطر واحد يوضح لماذا السؤال مهم.
 - note_to_user: سطرين فقط.
 `;
@@ -181,6 +232,7 @@ ${JSON.stringify(answers, null, 2)}
   - إذا mode = "تحليل معمّق": 3 إلى 5
   - إذا mode = "مراجعة تنفيذية سريعة": 2 إلى 3
 - why_these_followups: 2 إلى 4 نقاط.
+- advisor_key يجب أن يكون فقط من المستشارين المشاركين.
 `;
 
       const resp = await client.responses.create({
@@ -216,6 +268,7 @@ ${JSON.stringify(answers, null, 2)}
 - إذا mode = "تحليل معمّق": 10 إلى 16 مداخلة
 - إذا mode = "مراجعة تنفيذية سريعة": 6 إلى 9 مداخلات
 - open_issues: 3 إلى 7 نقاط مختصرة.
+- advisor داخل council_dialogue يجب أن يكون فقط من المستشارين المشاركين.
 `;
 
       const resp = await client.responses.create({
@@ -264,11 +317,7 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
     "reason_2": ""
   },
   "advisor_recommendations": {
-    "financial_advisor": { "recommendations": [], "strategic_warning": "" },
-    "regulatory_advisor": { "recommendations": [], "strategic_warning": "" },
-    "operations_advisor": { "recommendations": [], "strategic_warning": "" },
-    "marketing_advisor": { "recommendations": [], "strategic_warning": "" },
-    "risk_advisor": { "recommendations": [], "strategic_warning": "" }
+    ${advisorRecommendationShape}
   },
   "report_text": ""
 }
@@ -283,6 +332,7 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
 - في "أسئلة وإجابات": اكتب السؤال والإجابة بصياغة بشرية مرتبة، بدون معرفات تقنية مثل Q1/F1.
 - لا تستخدم علامات تنصيص حول الأسطر أو العناوين داخل report_text إلا عند نقل اقتباس حرفي (نادر).
 - اجعل report_text تقريرًا مهنيًا جاهزًا للنسخ، وليس عرضًا لبيانات JSON.
+- advisor_recommendations يجب أن تتضمن فقط المستشارين المشاركين في هذه الجلسة.
 `;
 
       const resp = await client.responses.create({

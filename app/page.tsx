@@ -12,6 +12,14 @@ type AdvisorKey =
   | "marketing_advisor"
   | "risk_advisor";
 
+const ALL_ADVISOR_KEYS: AdvisorKey[] = [
+  "financial_advisor",
+  "regulatory_advisor",
+  "operations_advisor",
+  "marketing_advisor",
+  "risk_advisor",
+];
+
 type VenueType = "منتجع" | "فندق" | "قاعة" | "مساحة عامة" | "غير محدد";
 
 type Question = {
@@ -79,6 +87,8 @@ type PersistedState = {
   reportText?: string;
   dialogueSignature?: string;
   analysisSignature?: string;
+  advisorSelectionMode?: "all" | "custom";
+  selectedAdvisors?: AdvisorKey[];
 };
 
 function isVenueType(value: string): value is VenueType {
@@ -210,6 +220,14 @@ export default function Home() {
   const [mode, setMode] = useState(
     initialSaved.mode ?? "مراجعة تنفيذية سريعة"
   );
+  const [advisorSelectionMode, setAdvisorSelectionMode] = useState<"all" | "custom">(
+    initialSaved.advisorSelectionMode ?? "all"
+  );
+  const [selectedAdvisors, setSelectedAdvisors] = useState<AdvisorKey[]>(
+    initialSaved.selectedAdvisors?.length
+      ? initialSaved.selectedAdvisors
+      : ALL_ADVISOR_KEYS
+  );
   const [venueType, setVenueType] = useState<VenueType>(
     initialSaved.venueType ?? "غير محدد"
   );
@@ -262,7 +280,11 @@ export default function Home() {
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
 
-  const canStart = project.trim().length > 0;
+  const effectiveSelectedAdvisors =
+    advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
+
+  const canStart =
+    project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
 
@@ -273,6 +295,8 @@ export default function Home() {
     const snapshot = {
       eventType,
       mode,
+      advisorSelectionMode,
+      selectedAdvisors,
       venueType,
       startAt,
       endAt,
@@ -297,6 +321,8 @@ export default function Home() {
     loading,
     eventType,
     mode,
+    advisorSelectionMode,
+    selectedAdvisors,
     venueType,
     startAt,
     endAt,
@@ -366,12 +392,22 @@ export default function Home() {
     return {
       eventType,
       mode,
+      selectedAdvisors: effectiveSelectedAdvisors,
       venueType,
       startAt,
       endAt,
       budget: budget.trim() ? budget : "",
       project,
     };
+  }
+
+  function toggleAdvisorSelection(key: AdvisorKey) {
+    setSelectedAdvisors((prev) => {
+      if (prev.includes(key)) {
+        return prev.filter((x) => x !== key);
+      }
+      return [...prev, key];
+    });
   }
 
   function getDialogueSignature() {
@@ -1148,6 +1184,28 @@ export default function Home() {
           padding: 10,
           boxShadow: `0 0 18px ${advisorColor(key)}18`,
         } as CSSProperties),
+      advisorTileSelectable: (key: string, active: boolean) =>
+        ({
+          height: 88,
+          width: "100%",
+          borderRadius: 16,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          padding: 10,
+          background: active
+            ? `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.03))`
+            : "rgba(255,255,255,0.02)",
+          border: active
+            ? `1px solid ${advisorColor(key)}55`
+            : "1px solid rgba(255,255,255,0.08)",
+          boxShadow: active ? `0 0 18px ${advisorColor(key)}14` : "none",
+          opacity: active ? 1 : 0.72,
+          cursor: "pointer",
+          transition: "all 120ms ease",
+        } as CSSProperties),
 
       advisorIconS: {
         fontSize: 20,
@@ -1170,6 +1228,33 @@ export default function Home() {
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 12,
+      } as CSSProperties,
+      selectorRow: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+        marginBottom: 12,
+      } as CSSProperties,
+      selectorBtn: (active: boolean) =>
+        ({
+          borderRadius: 12,
+          border: active
+            ? "1px solid rgba(179,0,255,0.35)"
+            : "1px solid rgba(255,255,255,0.12)",
+          background: active
+            ? "linear-gradient(180deg, rgba(179,0,255,0.16), rgba(106,0,255,0.10))"
+            : "rgba(255,255,255,0.03)",
+          color: "white",
+          padding: "10px 12px",
+          textAlign: "right",
+          cursor: "pointer",
+          fontWeight: active ? 900 : 700,
+        } as CSSProperties),
+      smallMuted: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.66)",
+        lineHeight: 1.5,
       } as CSSProperties,
       summaryMetaGrid: {
         display: "grid",
@@ -1623,6 +1708,34 @@ export default function Home() {
             {/* INIT */}
             {stage === "init" && (
               <>
+                <div style={styles.selectorRow}>
+                  <button
+                    type="button"
+                    style={styles.selectorBtn(advisorSelectionMode === "all")}
+                    onClick={() => {
+                      setAdvisorSelectionMode("all");
+                      setSelectedAdvisors(ALL_ADVISOR_KEYS);
+                    }}
+                  >
+                    جلسة كاملة (كل المستشارين)
+                  </button>
+                  <button
+                    type="button"
+                    style={styles.selectorBtn(advisorSelectionMode === "custom")}
+                    onClick={() => setAdvisorSelectionMode("custom")}
+                  >
+                    اختيار مخصص (مستشار واحد أو أكثر)
+                  </button>
+                </div>
+
+                <div style={styles.smallMuted}>
+                  {advisorSelectionMode === "all"
+                    ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
+                    : `المحددون حاليًا: ${toArabicDigits(selectedAdvisors.length)} من ${toArabicDigits(
+                        ALL_ADVISOR_KEYS.length
+                      )}`}
+                </div>
+
                 {/* ✅ مربعات المستشارين (صفّين × 3 أعمدة) */}
                 <div style={styles.advisorsGrid}>
                   {[
@@ -1640,17 +1753,47 @@ export default function Home() {
                     }
 
                     return (
-                      <div key={key} style={styles.advisorTile(key)}>
+                      <button
+                        type="button"
+                        key={key}
+                        onClick={() => {
+                          if (advisorSelectionMode === "custom") {
+                            toggleAdvisorSelection(key as AdvisorKey);
+                          }
+                        }}
+                        disabled={advisorSelectionMode !== "custom"}
+                        style={
+                          advisorSelectionMode === "custom"
+                            ? styles.advisorTileSelectable(
+                                key,
+                                selectedAdvisors.includes(key as AdvisorKey)
+                              )
+                            : {
+                                ...styles.advisorTile(key),
+                                cursor: "default",
+                                border: effectiveSelectedAdvisors.includes(key as AdvisorKey)
+                                  ? styles.advisorTile(key).border
+                                  : "1px solid rgba(255,255,255,0.08)",
+                                opacity: 1,
+                              }
+                        }
+                      >
                         <div style={styles.advisorIconS}>
                           {advisorIcon(key)}
                         </div>
                         <div style={styles.advisorNameS}>
                           {advisorName(key)}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
+
+                {advisorSelectionMode === "custom" && selectedAdvisors.length === 0 ? (
+                  <div style={styles.warnBox}>
+                    <strong>تنبيه:</strong> اختر مستشارًا واحدًا على الأقل لبدء الجلسة.
+                  </div>
+                ) : null}
 
                 <div style={styles.initFormGrid}>
                   <div>
