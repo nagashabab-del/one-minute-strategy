@@ -425,7 +425,7 @@ export default function Home() {
       case "dialogue":
         return "حوار المستشارين";
       case "addition":
-        return "إضافة المستخدم";
+        return "معلومة إضافية قبل التحليل";
       case "done":
         return "التحليل والقرار والتقرير";
       default:
@@ -1321,7 +1321,8 @@ export default function Home() {
         {/* Progress */}
         <div style={styles.progressWrapper}>
           <div style={styles.progressLabel}>
-            ✨ خطوة بخطوة لصنع القرار — {stageLabel()}
+            ✨ خطوة بخطوة لصنع القرار —{" "}
+            <strong style={{ color: "rgba(255,255,255,0.92)" }}>{stageLabel()}</strong>
             {progressMetaText() ? ` — ${progressMetaText()}` : ""}
           </div>
           <div style={styles.progressBar}>
