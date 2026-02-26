@@ -400,6 +400,30 @@ export default function Home() {
     }
   }
 
+  function progressMetaText() {
+    if (stage === "round1") {
+      const ids = round1Questions.map((q) => q.id);
+      const filled = answers.filter(
+        (a) => ids.includes(a.id) && a.answer.trim().length > 0
+      ).length;
+      return `إجابات الجولة الأولى (${filled}/${ids.length})`;
+    }
+
+    if (stage === "round2") {
+      const ids = followupQuestions.map((q) => q.id);
+      const filled = answers.filter(
+        (a) => ids.includes(a.id) && a.answer.trim().length > 0
+      ).length;
+      return `إجابات المتابعة (${filled}/${ids.length})`;
+    }
+
+    if (stage === "done") {
+      return "مكتمل";
+    }
+
+    return "";
+  }
+
   function ratioAnswered(questionIds: string[]) {
     const subset = answers.filter((a) => questionIds.includes(a.id));
     if (subset.length === 0) return 0;
@@ -583,12 +607,6 @@ export default function Home() {
     setUiError("");
     setUiSuccess("تم نسخ التقرير بنجاح.");
   }
-
-  const summaryStats = useMemo(() => {
-    const all = answers.length;
-    const filled = answers.filter((a) => a.answer.trim().length > 0).length;
-    return { all, filled };
-  }, [answers]);
 
   // ============ Styles ============
   const styles = useMemo(
@@ -1150,8 +1168,9 @@ export default function Home() {
         {/* Progress */}
         <div style={styles.progressWrapper}>
           <div style={styles.progressLabel}>
-  ✨ خطوة بخطوة لصنع القرار — {stageLabel()} — ({summaryStats.filled}/{summaryStats.all})
-</div>
+            ✨ خطوة بخطوة لصنع القرار — {stageLabel()}
+            {progressMetaText() ? ` — ${progressMetaText()}` : ""}
+          </div>
           <div style={styles.progressBar}>
             <div
               style={{
