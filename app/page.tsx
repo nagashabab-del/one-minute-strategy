@@ -300,6 +300,11 @@ export default function Home() {
     };
   }
 
+  function hasInvalidTimeRange() {
+    if (!startAt || !endAt) return false;
+    return new Date(endAt).getTime() < new Date(startAt).getTime();
+  }
+
   function progressPercent() {
     switch (stage) {
       case "init":
@@ -348,6 +353,12 @@ export default function Home() {
   // ============ Actions ============
   async function startSession() {
     if (!canStart || loading) return;
+    if (hasInvalidTimeRange()) {
+      const msg = "وقت النهاية يجب أن يكون بعد وقت البداية.";
+      setUiError(msg);
+      alert(msg);
+      return;
+    }
     setUiError("");
 
     setLoading(true);
@@ -936,9 +947,15 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: 12 }}>
+                  {hasInvalidTimeRange() ? (
+                    <div style={{ ...styles.warnBox, marginBottom: 10 }}>
+                      <strong>تنبيه:</strong> وقت النهاية يجب أن يكون بعد وقت البداية.
+                    </div>
+                  ) : null}
+
                   <button
-                    style={styles.primaryBtn(!canStart || loading)}
-                    disabled={!canStart || loading}
+                    style={styles.primaryBtn(!canStart || loading || hasInvalidTimeRange())}
+                    disabled={!canStart || loading || hasInvalidTimeRange()}
                     onClick={startSession}
                   >
                     {loading ? "تتم المعالجة..." : "ابدأ الجلسة"}
