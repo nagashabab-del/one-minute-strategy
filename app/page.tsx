@@ -1223,20 +1223,13 @@ export default function Home() {
                 <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
                   {dialogue.map((m, i) => (
                     <div key={i} style={styles.qCard}>
-                      <div
-                        style={{
-                          ...styles.qTitle,
-                          color: advisorColor(m.advisor),
-                          textShadow: `0 0 12px ${advisorColor(m.advisor)}`,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span style={{ fontSize: 18 }}>
+                      <div style={styles.advisorQuestionHeader(m.advisor)}>
+                        <span style={styles.advisorQuestionIcon(m.advisor)}>
                           {advisorIcon(m.advisor)}
                         </span>
-                        {advisorTitle(m.advisor)}
+                        <span style={styles.advisorQuestionText}>
+                          {advisorTitle(m.advisor)}
+                        </span>
                       </div>
 
                       <div
