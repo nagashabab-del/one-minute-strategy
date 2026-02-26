@@ -168,6 +168,21 @@ function decisionAccent(decision?: string) {
   }
 }
 
+function readinessAccent(level?: string) {
+  switch (level) {
+    case "جاهز":
+      return "#00FF85";
+    case "متقدم":
+      return "#00E5FF";
+    case "متوسط":
+      return "#FF9D4D";
+    case "مبدئي":
+      return "#FF4FD8";
+    default:
+      return "#B66BFF";
+  }
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 
 export default function Home() {
@@ -1530,7 +1545,8 @@ export default function Home() {
                             width: 8,
                             height: 8,
                             borderRadius: 999,
-                            background: decisionAccent(analysis?.executive_decision?.decision),
+                            background:
+                              readinessAccent(analysis?.strategic_analysis?.readiness_level),
                             display: "inline-block",
                           }}
                         />
@@ -1558,7 +1574,12 @@ export default function Home() {
                 <div style={styles.quickStatsGrid}>
                   <div style={styles.statTile}>
                     <div style={styles.statLabel}>مستوى الجاهزية</div>
-                    <div style={styles.statValue}>
+                    <div
+                      style={{
+                        ...styles.statValue,
+                        color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
+                      }}
+                    >
                       {analysis?.strategic_analysis?.readiness_level ?? "—"}
                     </div>
                   </div>
