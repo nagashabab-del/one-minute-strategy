@@ -1312,6 +1312,38 @@ export default function Home() {
           cursor: "pointer",
           fontWeight: active ? 900 : 700,
         } as CSSProperties),
+      sessionModeGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+        marginTop: 8,
+      } as CSSProperties,
+      sessionModeCard: (active: boolean) =>
+        ({
+          borderRadius: 14,
+          border: active
+            ? "1px solid rgba(0,229,255,0.28)"
+            : "1px solid rgba(255,255,255,0.10)",
+          background: active
+            ? "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(179,0,255,0.08))"
+            : "rgba(255,255,255,0.025)",
+          color: "white",
+          padding: "11px 12px",
+          textAlign: "right",
+          cursor: "pointer",
+          boxShadow: active ? "0 8px 22px rgba(0,229,255,0.08)" : "none",
+        } as CSSProperties),
+      sessionModeTitle: {
+        fontWeight: 900,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      sessionModeDesc: {
+        marginTop: 5,
+        fontSize: 11.5,
+        lineHeight: 1.5,
+        color: "rgba(255,255,255,0.66)",
+      } as CSSProperties,
       smallMuted: {
         marginTop: 8,
         fontSize: 12,
@@ -1800,14 +1832,28 @@ export default function Home() {
 
                     <div style={{ marginTop: 12 }}>
                       <div style={styles.label}>نوع الجلسة</div>
-                      <select
-                        value={mode}
-                        onChange={(e) => setMode(e.target.value)}
-                        style={styles.input}
-                      >
-                        <option>مراجعة تنفيذية سريعة</option>
-                        <option>تحليل معمّق</option>
-                      </select>
+                      <div style={styles.sessionModeGrid}>
+                        <button
+                          type="button"
+                          style={styles.sessionModeCard(mode === "مراجعة تنفيذية سريعة")}
+                          onClick={() => setMode("مراجعة تنفيذية سريعة")}
+                        >
+                          <div style={styles.sessionModeTitle}>مراجعة تنفيذية سريعة</div>
+                          <div style={styles.sessionModeDesc}>
+                            مناسبة للحصول على قرار سريع بأسئلة أقل ومخرجات مختصرة.
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.sessionModeCard(mode === "تحليل معمّق")}
+                          onClick={() => setMode("تحليل معمّق")}
+                        >
+                          <div style={styles.sessionModeTitle}>تحليل معمّق</div>
+                          <div style={styles.sessionModeDesc}>
+                            أسئلة أكثر وحوار أعمق لتقييم المشروع بشكل تفصيلي.
+                          </div>
+                        </button>
+                      </div>
                     </div>
 
                     <div style={styles.smallMuted}>
@@ -2623,8 +2669,38 @@ export default function Home() {
 
           {/* Side Summary */}
           <aside style={styles.sidePanel}>
-            <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
-            <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
+            {stage === "init" && initStep === "session" ? (
+              <>
+                <h3 style={styles.cardTitle}>خطوة البداية</h3>
+                <p style={styles.muted}>
+                  اختر نوع الجلسة والمستشارين المشاركين أولًا، ثم انتقل إلى تفاصيل المشروع.
+                </p>
+
+                <div style={styles.sideBlock}>
+                  <div style={styles.sideBlockTitle}>ما الذي ستحدده هنا؟</div>
+                  <div style={styles.sideAlertItem("info")}>
+                    نوع الجلسة: سريعة أو معمّقة
+                  </div>
+                  <div style={styles.sideAlertItem("info")}>
+                    المستشارون المشاركون في الجلسة
+                  </div>
+                </div>
+
+                <div style={styles.sideBlock}>
+                  <div style={styles.sideBlockTitle}>اختيارك الحالي</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.9)" }}>
+                    نوع الجلسة: <strong>{mode}</strong>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.9)" }}>
+                    المستشارون:{" "}
+                    <strong>{selectedAdvisorsSummary()}</strong>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
+                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
 
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>حالة الجلسة</div>
@@ -2824,6 +2900,8 @@ export default function Home() {
                 تفعيل بعض الأزرار يعتمد على نسبة الإجابات (60%).
               </div>
             </div>
+              </>
+            )}
           </aside>
         </div>
       </div>
