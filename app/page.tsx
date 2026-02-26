@@ -78,6 +78,7 @@ type PersistedState = {
   analysis?: AnalysisData | null;
   reportText?: string;
   dialogueSignature?: string;
+  analysisSignature?: string;
 };
 
 function isVenueType(value: string): value is VenueType {
@@ -250,6 +251,9 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisData | null>(
     initialSaved.analysis ?? null
   );
+  const [analysisSignature, setAnalysisSignature] = useState(
+    initialSaved.analysisSignature ?? ""
+  );
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
@@ -284,6 +288,7 @@ export default function Home() {
       hasAddition,
       userAddition,
       analysis,
+      analysisSignature,
       reportText,
     };
 
@@ -307,6 +312,7 @@ export default function Home() {
     hasAddition,
     userAddition,
     analysis,
+    analysisSignature,
     reportText,
   ]);
 
@@ -372,6 +378,15 @@ export default function Home() {
     return JSON.stringify({
       ...commonPayload(),
       answers,
+    });
+  }
+
+  function getAnalysisSignature() {
+    return JSON.stringify({
+      ...commonPayload(),
+      answers,
+      dialogue,
+      userAddition: hasAddition === "yes" ? userAddition : "",
     });
   }
 
@@ -514,6 +529,7 @@ export default function Home() {
     setHasAddition("no");
     setUserAddition("");
     setAnalysis(null);
+    setAnalysisSignature("");
     setReportText("");
 
     const json = await callAPI<{ questions?: Question[] }>({
@@ -648,6 +664,20 @@ export default function Home() {
   }
 
   async function runAnalysis() {
+    const currentAnalysisSignature = getAnalysisSignature();
+    const hasCachedAnalysis =
+      !!analysis &&
+      !!reportText &&
+      analysisSignature === currentAnalysisSignature;
+
+    if (hasCachedAnalysis) {
+      setNeedsReanalysisHint(false);
+      setUiError("");
+      setUiSuccess("");
+      setStage("done");
+      return;
+    }
+
     setNeedsReanalysisHint(false);
     setUiError("");
     setUiSuccess("");
@@ -670,6 +700,7 @@ export default function Home() {
     }
 
     setAnalysis(json.data);
+    setAnalysisSignature(currentAnalysisSignature);
     setReportText(json.data?.report_text || "");
     setStage("done");
   }
