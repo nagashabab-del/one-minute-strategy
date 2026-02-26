@@ -264,7 +264,7 @@ export default function Home() {
   const [project, setProject] = useState(initialSaved.project ?? "");
 
   // ============ Flow ============
-  const [stage, setStage] = useState<StageUI>(initialSaved.stage ?? "welcome");
+  const [stage, setStage] = useState<StageUI>("welcome");
   const [loading, setLoading] = useState(false);
 
   const [round1Questions, setRound1Questions] = useState<Question[]>(
