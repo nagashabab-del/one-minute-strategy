@@ -12,7 +12,19 @@ function normalizeReportText(text: string) {
       // Remove common AI artifacts like quoted lines and raw question IDs in report prose.
       next = next.replace(/^\s*["“”']+\s*/, "");
       next = next.replace(/\s*["“”']+\s*$/, "");
-      next = next.replace(/^\s*(Q|F)\d+\s*[:\-]\s*/i, "");
+
+      // Convert technical question labels to readable report labels (supports markdown forms).
+      next = next.replace(
+        /^\s*(?:\*\*\s*)?(Q|F)\d+(?:\s*\*\*)?\s*[:\-]?\s*/i,
+        "- السؤال: "
+      );
+      next = next.replace(
+        /^\s*(?:\*\*\s*)?A\d+(?:\s*\*\*)?\s*[:\-]?\s*/i,
+        "  الإجابة: "
+      );
+
+      // Remove bold markdown markers left around labels/content.
+      next = next.replace(/\*\*/g, "");
 
       return next;
     })
