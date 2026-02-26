@@ -1772,7 +1772,7 @@ export default function Home() {
                         setStage("done");
                       }}
                     >
-                      العودة إلى النتائج الحالية
+                      الانتقال إلى النتائج الحالية
                     </button>
                   ) : null}
 
