@@ -311,6 +311,7 @@ export default function Home() {
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
+  const isSelectionStep = stage === "init" && initStep === "session";
 
   const canStart =
     project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
@@ -1836,16 +1837,18 @@ export default function Home() {
                   </button>
                 ) : null}
 
-                <button style={styles.ghostBtn} onClick={clearSession}>
-                  مسح الجلسة
-                </button>
+                {!isSelectionStep ? (
+                  <button style={styles.ghostBtn} onClick={clearSession}>
+                    مسح الجلسة
+                  </button>
+                ) : null}
               </div>
             </header>
           )}
         </div>
 
         {/* Progress */}
-        {!isWelcome ? (
+        {!isWelcome && !isSelectionStep ? (
           <div style={styles.progressWrapper}>
             <div style={styles.progressLabel}>
               ✨ خطوة بخطوة لصنع القرار —{" "}
