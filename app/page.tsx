@@ -733,15 +733,16 @@ export default function Home() {
         pointerEvents: "none" as const,
       },
       toastBox: {
-        width: "100%",
-        maxWidth: 760,
-        padding: "12px 14px",
+        width: "fit-content",
+        maxWidth: "min(92vw, 560px)",
+        padding: "10px 14px",
         borderRadius: 14,
         backdropFilter: "blur(10px)",
         boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
         pointerEvents: "auto" as const,
         animation: "toastSlideUp 180ms ease-out",
         willChange: "transform, opacity",
+        lineHeight: 1.5,
       },
 
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
