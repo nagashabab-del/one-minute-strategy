@@ -1721,6 +1721,20 @@ export default function Home() {
                     {loading ? "جاري التحليل..." : "ابدأ التحليل + القرار + التوصيات"}
                   </button>
 
+                  {analysis ? (
+                    <button
+                      style={styles.secondaryBtn(loading)}
+                      disabled={loading}
+                      onClick={() => {
+                        setUiError("");
+                        setUiSuccess("");
+                        setStage("done");
+                      }}
+                    >
+                      العودة إلى النتائج الحالية
+                    </button>
+                  ) : null}
+
                   <button
                     style={styles.secondaryBtn(loading)}
                     disabled={loading}
