@@ -215,8 +215,12 @@ export default function Home() {
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1200 : window.innerWidth
+  );
 
   const canStart = project.trim().length > 0;
+  const isMobile = viewportWidth <= 768;
 
   // ============ Save (no save while loading) ============
   useEffect(() => {
@@ -263,6 +267,15 @@ export default function Home() {
     analysis,
     reportText,
   ]);
+
+  useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
@@ -558,11 +571,11 @@ export default function Home() {
       },
       glow: {
         position: "absolute" as const,
-        top: -260,
+        top: isMobile ? -340 : -260,
         left: "50%",
         transform: "translateX(-50%)",
-        width: 980,
-        height: 980,
+        width: isMobile ? 720 : 980,
+        height: isMobile ? 720 : 980,
         background:
           "radial-gradient(circle, rgba(128,0,255,0.55) 0%, rgba(5,7,13,0) 60%)",
         filter: "blur(90px)",
@@ -571,24 +584,42 @@ export default function Home() {
       container: {
         maxWidth: 1200,
         margin: "0 auto",
-        padding: 34,
+        padding: isMobile ? 14 : 34,
         position: "relative" as const,
         zIndex: 1,
       },
       header: {
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center",
+        alignItems: isMobile ? "stretch" : "center",
+        flexDirection: isMobile ? "column" : "row",
         gap: 16,
         marginBottom: 22,
       },
-      logo: { fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: 0.2 },
+      headerBrand: {
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        gap: isMobile ? 12 : 16,
+        width: isMobile ? "100%" : "auto",
+      },
+      logo: {
+        fontSize: isMobile ? 20 : 24,
+        fontWeight: 900,
+        margin: 0,
+        letterSpacing: 0.2,
+      },
       subtitle: {
         marginTop: 6,
         color: "rgba(255,255,255,0.65)",
-        fontSize: 13,
+        fontSize: isMobile ? 12 : 13,
       },
-      headerActions: { display: "flex", gap: 10, alignItems: "center" },
+      headerActions: {
+        display: "flex",
+        gap: 10,
+        alignItems: "center",
+        flexDirection: isMobile ? "column" : "row",
+        width: isMobile ? "100%" : "auto",
+      },
       ghostBtn: {
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.18)",
@@ -596,6 +627,7 @@ export default function Home() {
         borderRadius: 12,
         color: "white",
         cursor: "pointer",
+        width: isMobile ? "100%" : "auto",
       },
       primaryBtn: (disabled: boolean) =>
         ({
@@ -625,6 +657,7 @@ export default function Home() {
       progressLabel: {
         marginBottom: 8,
         fontSize: 13,
+        lineHeight: 1.6,
         color: "rgba(255,255,255,0.72)",
       },
       progressBar: {
@@ -639,7 +672,7 @@ export default function Home() {
       },
       grid: {
         display: "grid",
-        gridTemplateColumns: "2fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
         gap: 18,
       },
       card: {
@@ -647,7 +680,7 @@ export default function Home() {
         backdropFilter: "blur(14px)",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 16,
-        padding: 18,
+        padding: isMobile ? 14 : 18,
       },
       cardTitle: { fontSize: 16, fontWeight: 900, margin: 0 },
       muted: { color: "rgba(255,255,255,0.62)", fontSize: 13, marginTop: 8 },
@@ -703,11 +736,17 @@ export default function Home() {
       qHint: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 6 },
       row2: {
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 12,
         marginTop: 12,
       },
-      radioRow: { display: "flex", gap: 16, marginTop: 12, alignItems: "center" },
+      radioRow: {
+        display: "flex",
+        gap: 16,
+        marginTop: 12,
+        alignItems: "center",
+        flexWrap: "wrap",
+      },
       warnBox: {
         padding: 12,
         borderRadius: 14,
@@ -724,9 +763,9 @@ export default function Home() {
       },
       toastWrap: {
         position: "fixed" as const,
-        bottom: 18,
-        left: 18,
-        right: 18,
+        bottom: isMobile ? 10 : 18,
+        left: isMobile ? 10 : 18,
+        right: isMobile ? 10 : 18,
         zIndex: 50,
         display: "flex",
         justifyContent: "center",
@@ -748,12 +787,12 @@ export default function Home() {
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
         display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
         gap: 10,
         marginBottom: 14,
 
         // ✅ التوسيط الصحيح
-        maxWidth: 520,
+        maxWidth: isMobile ? "100%" : 520,
         marginLeft: "auto",
         marginRight: "auto",
 
@@ -794,8 +833,13 @@ export default function Home() {
         background: "rgba(255,255,255,0.02)",
         border: "1px dashed rgba(255,255,255,0.10)",
       } as CSSProperties,
+      initFormGrid: {
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 12,
+      } as CSSProperties,
     }),
-    []
+    [isMobile]
   );
 
   return (
@@ -823,14 +867,14 @@ export default function Home() {
       <div style={styles.container}>
         {/* Header */}
         <header style={styles.header}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={styles.headerBrand}>
             <Image
               src="/logo.svg"
               alt="One Minute Strategy"
               width={180}
               height={44}
               style={{
-                height: 44,
+                height: isMobile ? 36 : 44,
                 width: "auto",
                 filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
               }}
@@ -894,7 +938,7 @@ export default function Home() {
                     "operations_advisor",
                     "marketing_advisor",
                     "risk_advisor",
-                    "__empty__",
+                    ...(isMobile ? [] : ["__empty__"]),
                   ].map((key) => {
                     if (key === "__empty__") {
                       return (
@@ -915,13 +959,7 @@ export default function Home() {
                   })}
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}
-                >
+                <div style={styles.initFormGrid}>
                   <div>
                     <div style={styles.label}>نوع الفعالية</div>
                     <select
