@@ -610,6 +610,12 @@ function suggestedSellFromMargin(unitCost: number, targetMarginPct: number) {
   return unitCost * (1 + targetMarginPct / 100);
 }
 
+function marginPctFromCostAndSell(unitCost: number, unitSellPrice: number) {
+  if (!Number.isFinite(unitCost) || unitCost <= 0) return null;
+  if (!Number.isFinite(unitSellPrice)) return null;
+  return ((unitSellPrice - unitCost) / unitCost) * 100;
+}
+
 function formatNumericForInput(value: number) {
   if (!Number.isFinite(value)) return "";
   const rounded = Math.round(value * 100) / 100;
@@ -1589,6 +1595,25 @@ export default function Home() {
   function updateBoqItem(id: string, patch: Partial<BoqItem>) {
     setBoqItems((prev) =>
       prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+  }
+
+  function syncBoqTargetMarginFromManualSell(id: string) {
+    setBoqItems((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        if (!row.unitSellPrice.trim()) return row;
+        const unitCost = parseNumericInput(row.unitCost);
+        const unitSellPrice = parseNumericInput(row.unitSellPrice);
+        const marginPct = marginPctFromCostAndSell(unitCost, unitSellPrice);
+        if (marginPct === null) return row;
+        const normalizedMargin = formatNumericForInput(marginPct);
+        if (row.targetMarginPct === normalizedMargin) return row;
+        return {
+          ...row,
+          targetMarginPct: normalizedMargin,
+        };
+      })
     );
   }
 
@@ -6722,6 +6747,11 @@ export default function Home() {
                           <input
                             value={row.unitCost}
                             onChange={(e) => updateBoqItem(row.id, { unitCost: e.target.value })}
+                            onBlur={() => {
+                              if (row.unitSellPrice.trim().length > 0) {
+                                syncBoqTargetMarginFromManualSell(row.id);
+                              }
+                            }}
                             style={styles.input}
                             disabled={!canEditBoqPricing}
                             placeholder="سعر التكلفة للوحدة"
@@ -6740,6 +6770,7 @@ export default function Home() {
                             onChange={(e) =>
                               updateBoqItem(row.id, { unitSellPrice: e.target.value })
                             }
+                            onBlur={() => syncBoqTargetMarginFromManualSell(row.id)}
                             style={styles.input}
                             disabled={!canEditBoqPricing}
                             placeholder="سعر البيع للوحدة (يدوي)"
