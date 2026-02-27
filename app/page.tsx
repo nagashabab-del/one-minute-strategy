@@ -150,6 +150,8 @@ type OrgRole = {
   assignee: string;
 };
 
+type OrgRoleDetailPanel = "tasks" | "kpis" | null;
+
 type LoadingContext =
   | ""
   | "start_session"
@@ -467,6 +469,17 @@ export default function Home() {
   const [orgRoles, setOrgRoles] = useState<OrgRole[]>(
     () => hydrateOrgRoles(initialSaved.orgRoles)
   );
+  const [orgRoleDetailsOpen, setOrgRoleDetailsOpen] = useState<
+    Record<OrgRoleId, OrgRoleDetailPanel>
+  >({
+    operations_manager: null,
+    creative_director: null,
+    finance_manager: null,
+    marketing_manager: null,
+    sponsorship_manager: null,
+    visitor_experience_manager: null,
+    program_director: null,
+  });
   const [advancedPlanText, setAdvancedPlanText] = useState(
     initialSaved.advancedPlanText ?? ""
   );
@@ -807,6 +820,13 @@ export default function Home() {
     setOrgRoles((prev) =>
       prev.map((role) => (role.id === id ? { ...role, ...patch } : role))
     );
+  }
+
+  function toggleOrgRoleDetail(id: OrgRoleId, panel: Exclude<OrgRoleDetailPanel, null>) {
+    setOrgRoleDetailsOpen((prev) => ({
+      ...prev,
+      [id]: prev[id] === panel ? null : panel,
+    }));
   }
 
   function openAdvancedTrack() {
@@ -3054,11 +3074,51 @@ export default function Home() {
         fontSize: 11,
         color: "rgba(255,255,255,0.70)",
       } as CSSProperties,
+      orgRoleMetaHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      } as CSSProperties,
+      orgRoleInfoBtn: {
+        width: 20,
+        height: 20,
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.32)",
+        background: "rgba(0,229,255,0.10)",
+        color: "white",
+        fontSize: 11,
+        fontWeight: 900,
+        lineHeight: 1,
+        padding: 0,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      } as CSSProperties,
       orgRoleMetaValue: {
         marginTop: 3,
         fontSize: 13,
         fontWeight: 900,
         color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      orgRoleDetailsPanel: {
+        marginTop: 8,
+        borderRadius: 10,
+        border: "1px solid rgba(0,229,255,0.22)",
+        background: "rgba(0,229,255,0.06)",
+        padding: "8px 10px",
+      } as CSSProperties,
+      orgRoleDetailsTitle: {
+        fontSize: 11.5,
+        fontWeight: 800,
+        color: "rgba(255,255,255,0.9)",
+      } as CSSProperties,
+      orgRoleDetailsItem: {
+        marginTop: 6,
+        fontSize: 11.5,
+        lineHeight: 1.5,
+        color: "rgba(255,255,255,0.86)",
       } as CSSProperties,
       orgRoleMetaText: {
         marginTop: 8,
@@ -4479,25 +4539,60 @@ export default function Home() {
 
                         <div style={styles.orgRoleMetaRow}>
                           <div style={styles.orgRoleMetaBox}>
-                            <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                            <div style={styles.orgRoleMetaHead}>
+                              <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                              <button
+                                type="button"
+                                style={styles.orgRoleInfoBtn}
+                                onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
+                                aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
+                              >
+                                ؟
+                              </button>
+                            </div>
                             <div style={styles.orgRoleMetaValue}>
                               {toArabicDigits(role.responsibilities.length)}
                             </div>
                           </div>
                           <div style={styles.orgRoleMetaBox}>
-                            <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                            <div style={styles.orgRoleMetaHead}>
+                              <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                              <button
+                                type="button"
+                                style={styles.orgRoleInfoBtn}
+                                onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
+                                aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
+                              >
+                                ؟
+                              </button>
+                            </div>
                             <div style={styles.orgRoleMetaValue}>
                               {toArabicDigits(role.kpis.length)}
                             </div>
                           </div>
                         </div>
 
-                        <div style={styles.orgRoleMetaText}>
-                          أهم مهمة: {role.responsibilities[0] || "—"}
-                        </div>
-                        <div style={styles.orgRoleMetaText}>
-                          أهم KPI: {role.kpis[0] || "—"}
-                        </div>
+                        {orgRoleDetailsOpen[role.id] ? (
+                          <div style={styles.orgRoleDetailsPanel}>
+                            <div style={styles.orgRoleDetailsTitle}>
+                              {orgRoleDetailsOpen[role.id] === "tasks"
+                                ? "المهام الكاملة"
+                                : "KPIs الكاملة"}
+                            </div>
+                            {(orgRoleDetailsOpen[role.id] === "tasks"
+                              ? role.responsibilities
+                              : role.kpis
+                            ).map((item, idx) => (
+                              <div key={idx} style={styles.orgRoleDetailsItem}>
+                                • {item}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={styles.orgRoleMetaText}>
+                            اضغط (؟) لعرض التفاصيل الكاملة.
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
