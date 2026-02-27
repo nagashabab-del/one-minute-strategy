@@ -2986,40 +2986,85 @@ export default function Home() {
       orgRolesGrid: {
         marginTop: 10,
         display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
       orgRoleCard: (active: boolean) =>
         ({
-          borderRadius: 14,
+          borderRadius: 12,
           border: active
-            ? "1px solid rgba(0,229,255,0.22)"
-            : "1px solid rgba(255,255,255,0.08)",
+            ? "1px solid rgba(0,229,255,0.24)"
+            : "1px solid rgba(255,255,255,0.10)",
           background: active
-            ? "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02))"
-            : "rgba(255,255,255,0.02)",
-          padding: 12,
+            ? "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))"
+            : "rgba(255,255,255,0.025)",
+          padding: 10,
         } as CSSProperties),
-      orgRoleHeader: {
+      orgRoleHead: {
         display: "flex",
+        justifyContent: "space-between",
         gap: 10,
         alignItems: "flex-start",
       } as CSSProperties,
+      orgRoleIdentity: {
+        minWidth: 0,
+        flex: 1,
+      } as CSSProperties,
       orgRoleTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: 900,
         color: "rgba(255,255,255,0.95)",
       } as CSSProperties,
       orgRoleSummary: {
         marginTop: 3,
-        fontSize: 12,
+        fontSize: 11.5,
         color: "rgba(255,255,255,0.72)",
         lineHeight: 1.5,
       } as CSSProperties,
+      orgRoleToggle: (active: boolean) =>
+        ({
+          minHeight: 30,
+          borderRadius: 999,
+          border: active
+            ? "1px solid rgba(0,255,133,0.30)"
+            : "1px solid rgba(255,194,77,0.32)",
+          background: active
+            ? "rgba(0,255,133,0.12)"
+            : "rgba(255,194,77,0.10)",
+          color: "white",
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: "5px 10px",
+          cursor: "pointer",
+          flexShrink: 0,
+        } as CSSProperties),
+      orgRoleMetaRow: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      orgRoleMetaBox: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "7px 8px",
+      } as CSSProperties,
+      orgRoleMetaLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.70)",
+      } as CSSProperties,
+      orgRoleMetaValue: {
+        marginTop: 3,
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
       orgRoleMetaText: {
         marginTop: 8,
-        fontSize: 12,
+        fontSize: 11.5,
         color: "rgba(255,255,255,0.78)",
-        lineHeight: 1.6,
+        lineHeight: 1.5,
       } as CSSProperties,
       radioLabel: {
         display: "flex",
@@ -4404,19 +4449,21 @@ export default function Home() {
                   <div style={styles.orgRolesGrid}>
                     {orgRoles.map((role) => (
                       <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
-                        <label style={styles.orgRoleHeader}>
-                          <input
-                            type="checkbox"
-                            checked={role.enabled}
-                            onChange={(e) =>
-                              updateOrgRole(role.id, { enabled: e.target.checked })
-                            }
-                          />
-                          <div>
+                        <div style={styles.orgRoleHead}>
+                          <div style={styles.orgRoleIdentity}>
                             <div style={styles.orgRoleTitle}>{role.title}</div>
                             <div style={styles.orgRoleSummary}>{role.summary}</div>
                           </div>
-                        </label>
+                          <button
+                            type="button"
+                            style={styles.orgRoleToggle(role.enabled)}
+                            onClick={() =>
+                              updateOrgRole(role.id, { enabled: !role.enabled })
+                            }
+                          >
+                            {role.enabled ? "مفعّل" : "غير مفعّل"}
+                          </button>
+                        </div>
 
                         <div style={styles.blockTop8}>
                           <input
@@ -4425,15 +4472,31 @@ export default function Home() {
                               updateOrgRole(role.id, { assignee: e.target.value })
                             }
                             style={styles.input}
+                            disabled={!role.enabled}
                             placeholder="اسم المسؤول (اختياري)"
                           />
                         </div>
 
+                        <div style={styles.orgRoleMetaRow}>
+                          <div style={styles.orgRoleMetaBox}>
+                            <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                            <div style={styles.orgRoleMetaValue}>
+                              {toArabicDigits(role.responsibilities.length)}
+                            </div>
+                          </div>
+                          <div style={styles.orgRoleMetaBox}>
+                            <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                            <div style={styles.orgRoleMetaValue}>
+                              {toArabicDigits(role.kpis.length)}
+                            </div>
+                          </div>
+                        </div>
+
                         <div style={styles.orgRoleMetaText}>
-                          المهام: {role.responsibilities.join(" • ")}
+                          أهم مهمة: {role.responsibilities[0] || "—"}
                         </div>
                         <div style={styles.orgRoleMetaText}>
-                          KPIs: {role.kpis.join(" • ")}
+                          أهم KPI: {role.kpis[0] || "—"}
                         </div>
                       </div>
                     ))}
