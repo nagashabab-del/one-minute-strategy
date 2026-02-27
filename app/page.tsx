@@ -4005,6 +4005,20 @@ export default function Home() {
         outline: "none",
         fontSize: isMobile ? 16 : 14,
       },
+      inputSuffixWrap: {
+        position: "relative",
+        width: "100%",
+      } as CSSProperties,
+      inputSuffix: {
+        position: "absolute",
+        left: 12,
+        top: "50%",
+        transform: "translateY(-50%)",
+        fontSize: 13,
+        color: "rgba(255,255,255,0.74)",
+        pointerEvents: "none",
+        userSelect: "none",
+      } as CSSProperties,
       textarea: {
         width: "100%",
         padding: space.sm,
@@ -6756,15 +6770,18 @@ export default function Home() {
                             disabled={!canEditBoqPricing}
                             placeholder="سعر التكلفة للوحدة"
                           />
-                          <input
-                            value={row.targetMarginPct}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, { targetMarginPct: e.target.value })
-                            }
-                            style={styles.input}
-                            disabled={!canEditBoqPricing}
-                            placeholder="نسبة الربح المستهدفة % (اختياري)"
-                          />
+                          <div style={styles.inputSuffixWrap}>
+                            <input
+                              value={row.targetMarginPct}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, { targetMarginPct: e.target.value })
+                              }
+                              style={{ ...styles.input, paddingLeft: 30 }}
+                              disabled={!canEditBoqPricing}
+                              placeholder="نسبة الربح المستهدفة ٪ (اختياري)"
+                            />
+                            <span style={styles.inputSuffix}>٪</span>
+                          </div>
                           <input
                             value={row.unitSellPrice}
                             onChange={(e) =>
