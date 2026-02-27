@@ -10,7 +10,12 @@ type StageUI =
   | "round2"
   | "dialogue"
   | "addition"
-  | "done";
+  | "done"
+  | "advanced_scope"
+  | "advanced_boq"
+  | "advanced_plan";
+
+type DeliveryTrack = "fast" | "advanced";
 
 type AdvisorKey =
   | "financial_advisor"
@@ -97,6 +102,31 @@ type PersistedState = {
   advisorSelectionMode?: "all" | "custom";
   selectedAdvisors?: AdvisorKey[];
   initStep?: "session" | "project";
+  deliveryTrack?: DeliveryTrack;
+  commissioningDate?: string;
+  scopeSite?: string;
+  scopeTechnical?: string;
+  scopeProgram?: string;
+  scopeCeremony?: string;
+  executionStrategy?: string;
+  qualityStandards?: string;
+  riskManagement?: string;
+  responseSla?: string;
+  closureRemovalHours?: string;
+  boqItems?: BoqItem[];
+  advancedPlanText?: string;
+  advancedApproved?: boolean;
+};
+
+type BoqItem = {
+  id: string;
+  category: string;
+  item: string;
+  spec: string;
+  unit: string;
+  qty: string;
+  source: "أصل داخلي" | "مورد";
+  leadTimeDays: string;
 };
 
 type LoadingContext =
@@ -239,6 +269,18 @@ function toArabicDigits(value: number | string) {
 }
 
 const STORAGE_KEY = "oms_dashboard_full_v1";
+const DEFAULT_BOQ_ITEMS: BoqItem[] = [
+  {
+    id: "1",
+    category: "الموقع والتجهيزات",
+    item: "",
+    spec: "",
+    unit: "قطعة",
+    qty: "",
+    source: "مورد",
+    leadTimeDays: "",
+  },
+];
 
 export default function Home() {
   const [initialSaved] = useState<PersistedState>(() => {
@@ -262,6 +304,9 @@ export default function Home() {
   const [initStep, setInitStep] = useState<"session" | "project">(
     initialSaved.initStep ?? "session"
   );
+  const [deliveryTrack, setDeliveryTrack] = useState<DeliveryTrack>(
+    initialSaved.deliveryTrack ?? "fast"
+  );
   const [advisorSelectionMode, setAdvisorSelectionMode] = useState<"all" | "custom">(
     initialSaved.advisorSelectionMode ?? "all"
   );
@@ -276,6 +321,39 @@ export default function Home() {
   const [endAt, setEndAt] = useState(initialSaved.endAt ?? "");
   const [budget, setBudget] = useState(initialSaved.budget ?? "");
   const [project, setProject] = useState(initialSaved.project ?? "");
+  const [commissioningDate, setCommissioningDate] = useState(
+    initialSaved.commissioningDate ?? ""
+  );
+  const [scopeSite, setScopeSite] = useState(initialSaved.scopeSite ?? "");
+  const [scopeTechnical, setScopeTechnical] = useState(
+    initialSaved.scopeTechnical ?? ""
+  );
+  const [scopeProgram, setScopeProgram] = useState(initialSaved.scopeProgram ?? "");
+  const [scopeCeremony, setScopeCeremony] = useState(
+    initialSaved.scopeCeremony ?? ""
+  );
+  const [executionStrategy, setExecutionStrategy] = useState(
+    initialSaved.executionStrategy ?? ""
+  );
+  const [qualityStandards, setQualityStandards] = useState(
+    initialSaved.qualityStandards ?? ""
+  );
+  const [riskManagement, setRiskManagement] = useState(
+    initialSaved.riskManagement ?? ""
+  );
+  const [responseSla, setResponseSla] = useState(initialSaved.responseSla ?? "");
+  const [closureRemovalHours, setClosureRemovalHours] = useState(
+    initialSaved.closureRemovalHours ?? "6"
+  );
+  const [boqItems, setBoqItems] = useState<BoqItem[]>(
+    initialSaved.boqItems?.length ? initialSaved.boqItems : DEFAULT_BOQ_ITEMS
+  );
+  const [advancedPlanText, setAdvancedPlanText] = useState(
+    initialSaved.advancedPlanText ?? ""
+  );
+  const [advancedApproved, setAdvancedApproved] = useState(
+    initialSaved.advancedApproved ?? false
+  );
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>("welcome");
@@ -330,6 +408,22 @@ export default function Home() {
 
   const canStart =
     project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
+  const canBuildAdvancedPlan =
+    commissioningDate.trim().length > 0 &&
+    scopeSite.trim().length > 0 &&
+    scopeTechnical.trim().length > 0 &&
+    scopeProgram.trim().length > 0 &&
+    executionStrategy.trim().length > 0 &&
+    boqItems.some((row) => row.item.trim().length > 0);
+  const advancedMissingFields: string[] = [];
+  if (!commissioningDate.trim()) advancedMissingFields.push("تاريخ التعميد");
+  if (!scopeSite.trim()) advancedMissingFields.push("نطاق الموقع والتجهيزات");
+  if (!scopeTechnical.trim()) advancedMissingFields.push("نطاق التجهيزات الفنية");
+  if (!scopeProgram.trim()) advancedMissingFields.push("نطاق البرنامج التنفيذي");
+  if (!executionStrategy.trim()) advancedMissingFields.push("استراتيجية التنفيذ");
+  if (!boqItems.some((row) => row.item.trim().length > 0)) {
+    advancedMissingFields.push("بند واحد على الأقل في BOQ (اسم البند)");
+  }
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
 
@@ -341,6 +435,7 @@ export default function Home() {
       eventType,
       mode,
       initStep,
+      deliveryTrack,
       advisorSelectionMode,
       selectedAdvisors,
       venueType,
@@ -348,6 +443,19 @@ export default function Home() {
       endAt,
       budget,
       project,
+      commissioningDate,
+      scopeSite,
+      scopeTechnical,
+      scopeProgram,
+      scopeCeremony,
+      executionStrategy,
+      qualityStandards,
+      riskManagement,
+      responseSla,
+      closureRemovalHours,
+      boqItems,
+      advancedPlanText,
+      advancedApproved,
       stage,
       round1Questions,
       followupQuestions,
@@ -368,6 +476,7 @@ export default function Home() {
     eventType,
     mode,
     initStep,
+    deliveryTrack,
     advisorSelectionMode,
     selectedAdvisors,
     venueType,
@@ -375,6 +484,19 @@ export default function Home() {
     endAt,
     budget,
     project,
+    commissioningDate,
+    scopeSite,
+    scopeTechnical,
+    scopeProgram,
+    scopeCeremony,
+    executionStrategy,
+    qualityStandards,
+    riskManagement,
+    responseSla,
+    closureRemovalHours,
+    boqItems,
+    advancedPlanText,
+    advancedApproved,
     stage,
     round1Questions,
     followupQuestions,
@@ -526,6 +648,394 @@ export default function Home() {
     });
   }
 
+  function updateBoqItem(id: string, patch: Partial<BoqItem>) {
+    setBoqItems((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+  }
+
+  function addBoqRow() {
+    const nextId = String(Date.now());
+    setBoqItems((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        category: "التجهيزات الفنية",
+        item: "",
+        spec: "",
+        unit: "قطعة",
+        qty: "",
+        source: "مورد",
+        leadTimeDays: "",
+      },
+    ]);
+  }
+
+  function removeBoqRow(id: string) {
+    setBoqItems((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((row) => row.id !== id);
+    });
+  }
+
+  function openAdvancedTrack() {
+    if (!commissioningDate.trim() && startAt) {
+      setCommissioningDate(startAt.slice(0, 10));
+    }
+    if (!scopeSite.trim()) {
+      setScopeSite(`الموقع المستهدف: ${venueType} — ${project.slice(0, 120)}`);
+    }
+    if (!scopeTechnical.trim()) {
+      setScopeTechnical("شاشات العرض، الصوت، الإضاءة، والدعم الفني الميداني.");
+    }
+    if (!scopeProgram.trim()) {
+      setScopeProgram("تنفيذ السيناريو المعتمد، إدارة الفقرات، والتنسيق التشغيلي يوم الفعالية.");
+    }
+    if (!executionStrategy.trim()) {
+      setExecutionStrategy(
+        "التنفيذ على مراحل: اعتماد نهائي > تجهيز > تشغيل > متابعة > إقفال."
+      );
+    }
+    if (!qualityStandards.trim()) {
+      setQualityStandards(
+        "فحص جاهزية الموقع، اختبار صوت وإضاءة، بروفة تشغيل، واعتماد ما قبل الافتتاح."
+      );
+    }
+    if (!riskManagement.trim()) {
+      setRiskManagement(
+        "خطة بدائل للموردين، فريق فني احتياطي، ونقاط تصعيد واضحة أثناء التشغيل."
+      );
+    }
+    if (!responseSla.trim()) {
+      setResponseSla(
+        "أعطال فنية حرجة: الاستجابة خلال 10 دقائق. ملاحظات تشغيلية: خلال 15 دقيقة."
+      );
+    }
+
+    setDeliveryTrack("advanced");
+    setStage("advanced_scope");
+    showSuccess("تم تفعيل المسار المتقدم. أكمل البيانات لبناء خطة تنفيذ تفصيلية.");
+  }
+
+  function buildAdvancedPlan() {
+    const commissioning = commissioningDate ? new Date(commissioningDate) : null;
+    const start = startAt ? new Date(startAt) : null;
+    const end = endAt ? new Date(endAt) : null;
+
+    let prepDaysText = "غير محدد";
+    let execDaysText = "غير محدد";
+
+    if (
+      commissioning &&
+      start &&
+      Number.isFinite(commissioning.getTime()) &&
+      Number.isFinite(start.getTime())
+    ) {
+      const days = Math.ceil(
+        (start.getTime() - commissioning.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      prepDaysText = toArabicDigits(Math.max(0, days));
+    }
+
+    if (start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())) {
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      execDaysText = toArabicDigits(Math.max(1, days));
+    }
+
+    const boqSummary = boqItems
+      .filter((row) => row.item.trim())
+      .map(
+        (row, idx) =>
+          `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source})`
+      )
+      .join("\n");
+
+    const plan = [
+      "خطة تنفيذ متكاملة (V1)",
+      "",
+      "الأساس الزمني:",
+      `- تاريخ التعميد: ${commissioningDate || "غير محدد"}`,
+      `- بداية الفعالية: ${startAt || "غير محدد"}`,
+      `- نهاية الفعالية: ${endAt || "غير محدد"}`,
+      `- مدة الإعداد التقديرية: ${prepDaysText} يوم`,
+      `- مدة التنفيذ التقديرية: ${execDaysText} يوم`,
+      `- مدة الإزالة/الإقفال: ${closureRemovalHours || "6"} ساعة`,
+      "",
+      "١) الإعداد:",
+      "- اعتماد نطاق العمل والتصاميم.",
+      "- استكمال التوريد حسب BOQ المختصر.",
+      "- اختبارات ما قبل التشغيل (صوت/إضاءة/شاشة/ضيافة).",
+      "",
+      "٢) التنفيذ:",
+      "- تشغيل ميداني حسب السيناريو المعتمد.",
+      "- إدارة البرنامج والفقرات والمراسم.",
+      "- مراقبة فورية للمخاطر والاستجابة.",
+      "",
+      "٣) المتابعة:",
+      "- مراجعة يومية للجودة ومؤشرات الأداء.",
+      "- معالجة الانحرافات ورفع تقارير الحالة.",
+      "",
+      "٤) الإقفال:",
+      "- إيقاف التشغيل وفق خطة آمنة.",
+      "- إزالة التجهيزات خلال المدة المحددة.",
+      "- تسليم الموقع وإغلاق المحاضر.",
+      "",
+      "نطاق البرنامج والمراسم:",
+      scopeProgram || "- غير مدخل.",
+      "",
+      "نطاق المراسم والتوثيق:",
+      scopeCeremony || "- غير مدخل.",
+      "",
+      "BOQ المختصر:",
+      boqSummary || "- لا توجد بنود BOQ مدخلة بعد.",
+      "",
+      "معايير الجودة:",
+      qualityStandards || "- غير مدخلة.",
+      "",
+      "إدارة المخاطر:",
+      riskManagement || "- غير مدخلة.",
+      "",
+      "سرعة الاستجابة (SLA):",
+      responseSla || "- غير مدخلة.",
+    ].join("\n");
+
+    setAdvancedPlanText(plan);
+    setStage("advanced_plan");
+    showSuccess("تم توليد خطة التنفيذ المتقدمة بنجاح.");
+  }
+
+  function fillAdvancedTestData() {
+    setCommissioningDate((prev) => prev || (startAt ? startAt.slice(0, 10) : "2026-03-01"));
+    setScopeSite((prev) =>
+      prev ||
+      "حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية قبل التنفيذ."
+    );
+    setScopeTechnical((prev) =>
+      prev || "شاشة LED، أنظمة صوت، إضاءة فنية، وفريق دعم تقني بالموقع."
+    );
+    setScopeProgram((prev) =>
+      prev || "تنفيذ السيناريو المعتمد وإدارة الفقرات والالتزام بجدول الحفل."
+    );
+    setScopeCeremony((prev) =>
+      prev || "إدارة الاستقبال والإجلاس الرسمي والتوثيق الإعلامي والبث المباشر."
+    );
+    setExecutionStrategy((prev) =>
+      prev || "تجهيز > اختبار > بروفة نهائية > تشغيل > متابعة > إقفال."
+    );
+    setQualityStandards((prev) =>
+      prev || "فحص جودة القاعات، اختبار فني كامل، واعتماد تشغيلي قبل الافتتاح."
+    );
+    setRiskManagement((prev) =>
+      prev || "سجل مخاطر يومي مع بدائل موردين وفريق تصعيد فوري."
+    );
+    setResponseSla((prev) => prev || "المشاكل الحرجة: خلال 10 دقائق. التشغيلية: خلال 15 دقيقة.");
+    setClosureRemovalHours((prev) => prev || "6");
+
+    setBoqItems((prev) => {
+      const hasFilled = prev.some((row) => row.item.trim());
+      if (hasFilled) return prev;
+      return [
+        {
+          id: String(Date.now()),
+          category: "التجهيزات الفنية",
+          item: "شاشة LED رئيسية",
+          spec: "دقة عالية مع تحكم كامل وتشغيل تجريبي قبل الحدث",
+          unit: "قطعة",
+          qty: "1",
+          source: "مورد",
+          leadTimeDays: "5",
+        },
+      ];
+    });
+
+    showSuccess("تم تعبئة بيانات اختبار سريعة للمسار المتقدم.");
+  }
+
+  function fillFullTestModel() {
+    const demoStart = "2026-03-20T18:00";
+    const demoEnd = "2026-03-21T23:00";
+
+    const demoRound1: Question[] = [
+      {
+        id: "Q1",
+        advisor_key: "financial_advisor",
+        advisor_name: "المستشار المالي – محلل الاستدامة",
+        question: "ما توزيع الميزانية على البنود التشغيلية والتقنية؟",
+        intent: "قياس كفاية الميزانية وتحديد بنود المخاطر المالية.",
+      },
+      {
+        id: "Q2",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: "ما خطة الجاهزية للموقع قبل يوم الفعالية؟",
+        intent: "تأكيد التسلسل التشغيلي وضمان الجاهزية الميدانية.",
+      },
+    ];
+
+    const demoFollowups: Question[] = [
+      {
+        id: "F1",
+        advisor_key: "risk_advisor",
+        advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
+        question: "ما البدائل في حال تأخر تجهيز الشاشة أو الصوت؟",
+        intent: "تقليل أثر التعثر وضمان استمرارية التشغيل.",
+      },
+    ];
+
+    const demoAnswers: Answer[] = [
+      {
+        id: "Q1",
+        advisor_key: "financial_advisor",
+        advisor_name: "المستشار المالي – محلل الاستدامة",
+        question: demoRound1[0].question,
+        answer: "الميزانية الإجمالية 250 ألف، موزعة على التشغيل 40%، الفني 35%، التسويق 15%، احتياطي 10%.",
+      },
+      {
+        id: "Q2",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: demoRound1[1].question,
+        answer: "الجاهزية على 3 مراحل: تجهيز، اختبار، بروفة نهائية قبل الافتتاح بـ 24 ساعة.",
+      },
+      {
+        id: "F1",
+        advisor_key: "risk_advisor",
+        advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
+        question: demoFollowups[0].question,
+        answer: "تم تحديد مورد احتياطي وفريق فني بديل مع زمن استجابة لا يتجاوز 10 دقائق.",
+      },
+    ];
+
+    const demoDialogue: DialogueLine[] = [
+      {
+        advisor: "financial_advisor",
+        statement: "الميزانية مناسبة بشرط ضبط العقود الفنية مبكرًا وتقليل التغييرات المتأخرة.",
+      },
+      {
+        advisor: "operations_advisor",
+        statement: "أولوية التنفيذ هي الجاهزية الميدانية واختبارات التشغيل قبل يوم الحدث.",
+      },
+      {
+        advisor: "risk_advisor",
+        statement: "يوصى بتفعيل خطة تصعيد فوري للمخاطر الحرجة وربطها بمؤشرات SLA.",
+      },
+    ];
+
+    const demoAnalysis: AnalysisData = {
+      strategic_analysis: {
+        strengths: [
+          "وضوح نطاق العمل الأساسي وتوزيع مبدئي مناسب للميزانية.",
+          "توفر خطة تشغيل مرحلية تشمل الاختبار والبروفة.",
+        ],
+        amplification_opportunities: [
+          "تعزيز خطة التسويق الرقمي قبل الإطلاق بـ 14 يومًا.",
+          "رفع جاهزية فريق المراسم من خلال سيناريوهات محاكاة.",
+        ],
+        gaps: ["تحتاج خطة الجودة إلى نقاط قياس أكثر تفصيلًا.", "توثيق بدائل الموردين يحتاج اعتماد نهائي."],
+        risks: ["تأخر توريد بند فني حرج.", "تعارض جدول الفقرات يوم التنفيذ."],
+        readiness_level: "متقدم",
+        top_3_upgrades: [
+          "اعتماد خطة طوارئ فنية مفصلة قبل 7 أيام.",
+          "تثبيت نافذة تجميد للتغييرات قبل التنفيذ.",
+          "تفعيل تقرير متابعة يومي قبل الحدث.",
+        ],
+      },
+      executive_decision: {
+        decision: "جاهز بعد تحسينات محددة",
+        reason_1: "المشروع يمتلك أساسًا تشغيليًا قويًا مع فرص تحسين محددة وواضحة.",
+        reason_2: "الفجوات الحالية قابلة للإغلاق سريعًا قبل موعد التنفيذ.",
+      },
+      advisor_recommendations: {
+        financial_advisor: {
+          recommendations: ["ضبط الالتزامات التعاقدية ضمن سقف الميزانية.", "تفعيل احتياطي طوارئ بنسبة 10%."],
+          strategic_warning: "أي تغيير متأخر في البنود الفنية قد يضغط الميزانية.",
+        },
+        operations_advisor: {
+          recommendations: ["اعتماد خطة جاهزية يومية.", "تنفيذ بروفة تشغيل كاملة."],
+          strategic_warning: "تأخير الاختبارات النهائية يرفع مخاطر يوم الفعالية.",
+        },
+        risk_advisor: {
+          recommendations: ["تفعيل مسار تصعيد فوري.", "تحديد ملاك مخاطر لكل بند حرج."],
+          strategic_warning: "غياب خطة بدائل موثقة للموردين يمثل خطرًا تشغيليًا عاليًا.",
+        },
+      },
+      report_text: "تقرير تجريبي: تم تحميل بيانات افتراضية كاملة للاختبار.",
+    };
+
+    const demoPlan = [
+      "خطة تنفيذ متكاملة (نموذج تجريبي كامل)",
+      "",
+      "١) الإعداد: اعتماد النطاق والتصاميم وتجهيز الموردين.",
+      "٢) التنفيذ: تشغيل البرنامج وإدارة الفقرات والمراسم.",
+      "٣) المتابعة: مراقبة الجودة والمخاطر ورفع التقارير.",
+      "٤) الإقفال: إزالة التجهيزات وتسليم الموقع خلال 6 ساعات.",
+    ].join("\n");
+
+    setDeliveryTrack("advanced");
+    setAdvisorSelectionMode("all");
+    setSelectedAdvisors(ALL_ADVISOR_KEYS);
+    setMode("تحليل معمّق");
+    setInitStep("project");
+    setEventType("مؤتمر احترافي مدفوع");
+    setVenueType("فندق");
+    setCommissioningDate("2026-03-10");
+    setStartAt(demoStart);
+    setEndAt(demoEnd);
+    setBudget("250000");
+    setProject("مشروع فعالية تنفيذية متكاملة مع مسارات تشغيل وتسويق وتوثيق.");
+
+    setRound1Questions(demoRound1);
+    setFollowupQuestions(demoFollowups);
+    setAnswers(demoAnswers);
+    setDialogue(demoDialogue);
+    setDialogueSignature("demo_dialogue_signature_v1");
+    setOpenIssues(["اعتماد نهائي لخطة الجودة", "تأكيد مورد احتياطي للشاشة"]);
+    setHasAddition("yes");
+    setUserAddition("تأكيد جاهزية فريق الاستقبال وتوسيع خطة الإعلام المباشر.");
+    setAnalysis(demoAnalysis);
+    setAnalysisSignature("demo_analysis_signature_v1");
+    setReportText(demoAnalysis.report_text || "");
+
+    setScopeSite("حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية.");
+    setScopeTechnical("شاشة LED، صوت، إضاءة، وفريق تقني متواجد طوال التشغيل.");
+    setScopeProgram("تطبيق السيناريو المعتمد وإدارة فقرات الحفل وفق الجدول.");
+    setScopeCeremony("تنظيم المراسم والتوثيق والبث المباشر والتغطية الإعلامية.");
+    setExecutionStrategy("اعتماد > تجهيز > اختبار > بروفة > تشغيل > إقفال.");
+    setQualityStandards("اختبارات جودة قبل التشغيل ونقاط فحص يومية أثناء التنفيذ.");
+    setRiskManagement("سجل مخاطر تشغيلي مع بدائل للموردين وخطة تصعيد.");
+    setResponseSla("الأعطال الحرجة خلال 10 دقائق، والملاحظات التشغيلية خلال 15 دقيقة.");
+    setClosureRemovalHours("6");
+    setBoqItems([
+      {
+        id: "demo-1",
+        category: "التجهيزات الفنية",
+        item: "شاشة LED رئيسية",
+        spec: "دقة عالية مع اختبار تجريبي كامل",
+        unit: "قطعة",
+        qty: "1",
+        source: "مورد",
+        leadTimeDays: "5",
+      },
+      {
+        id: "demo-2",
+        category: "الموقع والتجهيزات",
+        item: "تجهيز قاعة كبار الشخصيات",
+        spec: "أثاث وضيافة وتجهيز بروتوكولي",
+        unit: "باكدج",
+        qty: "1",
+        source: "أصل داخلي",
+        leadTimeDays: "2",
+      },
+    ]);
+    setAdvancedPlanText(demoPlan);
+    setAdvancedApproved(false);
+    setNeedsReanalysisHint(false);
+    setLoading(false);
+    setLoadingContext("");
+    setStage("advanced_plan");
+    showSuccess("تم تحميل نموذج تجريبي كامل. يمكنك الاختبار مباشرة بدون تعبئة يدوية.");
+  }
+
   function hasInvalidTimeRange() {
     if (!startAt || !endAt) return false;
     return new Date(endAt).getTime() < new Date(startAt).getTime();
@@ -546,6 +1056,12 @@ export default function Home() {
       case "addition":
         return 76;
       case "done":
+        return deliveryTrack === "advanced" ? 78 : 100;
+      case "advanced_scope":
+        return 86;
+      case "advanced_boq":
+        return 93;
+      case "advanced_plan":
         return 100;
       default:
         return 14;
@@ -570,6 +1086,12 @@ export default function Home() {
         return "معلومة إضافية قبل التحليل";
       case "done":
         return "التحليل والقرار والتقرير";
+      case "advanced_scope":
+        return "المسار المتقدم: نطاق واستراتيجية";
+      case "advanced_boq":
+        return "المسار المتقدم: BOQ والجودة والمخاطر";
+      case "advanced_plan":
+        return "المسار المتقدم: خطة التنفيذ";
       default:
         return stage;
     }
@@ -578,6 +1100,10 @@ export default function Home() {
   function sessionSectionLead() {
     if (stage === "done") {
       return "أصبحت لديك الآن رؤية أوضح للمشروع، وهذه هي المخرجات التنفيذية النهائية لاتخاذ القرار.";
+    }
+
+    if (stage === "advanced_scope" || stage === "advanced_boq" || stage === "advanced_plan") {
+      return "أنت في المسار المتقدم لبناء خطة تنفيذ متكاملة تعتمد على النطاق، BOQ، والجودة والمخاطر.";
     }
 
     if (stage === "dialogue" || stage === "addition") {
@@ -608,13 +1134,28 @@ export default function Home() {
       return "مكتمل";
     }
 
+    if (stage === "advanced_scope") {
+      return "تجهيز نطاق العمل والاستراتيجية";
+    }
+
+    if (stage === "advanced_boq") {
+      return "استكمال BOQ والجودة والمخاطر";
+    }
+
+    if (stage === "advanced_plan") {
+      return advancedApproved ? "تم اعتماد الخطة المتقدمة" : "الخطة جاهزة للمراجعة";
+    }
+
     return "";
   }
 
   function stageStatusTone() {
     switch (stage) {
       case "done":
+      case "advanced_plan":
         return "ready";
+      case "advanced_scope":
+      case "advanced_boq":
       case "dialogue":
       case "addition":
         return "active";
@@ -632,6 +1173,12 @@ export default function Home() {
         return "جاهز للانطلاق";
       case "done":
         return "النتائج جاهزة";
+      case "advanced_scope":
+        return "تجهيز النطاق المتقدم";
+      case "advanced_boq":
+        return "تجهيز BOQ والمخاطر";
+      case "advanced_plan":
+        return advancedApproved ? "الخطة المعتمدة جاهزة" : "مراجعة الخطة المتقدمة";
       case "dialogue":
         return "مراجعة الحوار";
       case "addition":
@@ -690,6 +1237,18 @@ export default function Home() {
     if (stage === "done" && (analysis?.strategic_analysis?.risks || []).length > 0) {
       alerts.push({
         text: `يوجد ${toArabicDigits((analysis?.strategic_analysis?.risks || []).length)} مخاطر بحاجة متابعة.`,
+        tone: "warn",
+      });
+    }
+    if (deliveryTrack === "advanced" && !commissioningDate) {
+      alerts.push({
+        text: "تاريخ التعميد غير محدد، وهذا يؤثر على دقة خطة التنفيذ.",
+        tone: "info",
+      });
+    }
+    if (stage === "advanced_plan" && !advancedApproved) {
+      alerts.push({
+        text: "خطة التنفيذ المتقدمة تحتاج اعتماد نهائي قبل التجميد.",
         tone: "warn",
       });
     }
@@ -2093,6 +2652,16 @@ export default function Home() {
               >
                 🚀 انطلق الآن
               </button>
+              <button
+                style={{
+                  marginTop: 10,
+                  ...styles.secondaryBtn(false),
+                  width: isMobile ? "100%" : 280,
+                }}
+                onClick={fillFullTestModel}
+              >
+                🧪 تحميل نموذج تجريبي كامل
+              </button>
             </div>
           ) : (
             <header style={styles.header}>
@@ -2217,6 +2786,26 @@ export default function Home() {
                           <div style={styles.sessionModeDesc}>
                             أسئلة أكثر وحوار أعمق لتقييم المشروع بشكل تفصيلي.
                           </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.label}>مسار التنفيذ</div>
+                      <div style={styles.selectorRow}>
+                        <button
+                          type="button"
+                          style={styles.selectorBtn(deliveryTrack === "fast")}
+                          onClick={() => setDeliveryTrack("fast")}
+                        >
+                          المسار السريع (النموذج الحالي)
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.selectorBtn(deliveryTrack === "advanced")}
+                          onClick={() => setDeliveryTrack("advanced")}
+                        >
+                          المسار المتقدم (اختياري)
                         </button>
                       </div>
                     </div>
@@ -2961,6 +3550,16 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={openAdvancedTrack}
+                  >
+                    {deliveryTrack === "advanced"
+                      ? "التالي: استكمال المسار المتقدم"
+                      : "ترقية إلى المسار المتقدم"}
+                  </button>
+
+                  <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
                     onClick={() => {
@@ -2970,6 +3569,310 @@ export default function Home() {
                     }}
                   >
                     رجوع: تعديل قبل التحليل
+                  </button>
+                </div>
+              </>
+            )}
+
+            {stage === "advanced_scope" && (
+              <>
+                <h3 style={styles.sectionHeading}>6) المسار المتقدم: نطاق واستراتيجية</h3>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>تاريخ التعميد</div>
+                  <input
+                    type="date"
+                    value={commissioningDate}
+                    onChange={(e) => setCommissioningDate(e.target.value)}
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.١ نطاق العمل - الموقع والتجهيزات</div>
+                  <textarea
+                    value={scopeSite}
+                    onChange={(e) => setScopeSite(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب نطاق الموقع والتجهيزات..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.١ نطاق العمل - التجهيزات الفنية</div>
+                  <textarea
+                    value={scopeTechnical}
+                    onChange={(e) => setScopeTechnical(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب نطاق التجهيزات الفنية..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.١ نطاق العمل - البرنامج التنفيذي / المراسم</div>
+                  <textarea
+                    value={scopeProgram}
+                    onChange={(e) => setScopeProgram(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب نطاق البرنامج التنفيذي..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.١ نطاق العمل - المراسم والتوثيق</div>
+                  <textarea
+                    value={scopeCeremony}
+                    onChange={(e) => setScopeCeremony(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب نطاق المراسم والتوثيق..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٢ استراتيجية التنفيذ</div>
+                  <textarea
+                    value={executionStrategy}
+                    onChange={(e) => setExecutionStrategy(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
+                  />
+                </div>
+
+                <div style={styles.stackAfterSection}>
+                  <button
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={fillAdvancedTestData}
+                  >
+                    تعبئة سريعة للاختبار
+                  </button>
+                  <button
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={() => setStage("advanced_boq")}
+                  >
+                    التالي: BOQ + الجودة + المخاطر
+                  </button>
+                  <button
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={() => setStage("done")}
+                  >
+                    رجوع: التقرير والنتائج
+                  </button>
+                </div>
+              </>
+            )}
+
+            {stage === "advanced_boq" && (
+              <>
+                <h3 style={styles.sectionHeading}>7) المسار المتقدم: BOQ والجودة والمخاطر</h3>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٣ جدول الكميات والمواصفات (مختصر V1)</div>
+                  <div style={{ ...styles.qCard, marginTop: 0 }}>
+                    {boqItems.map((row) => (
+                      <div key={row.id} style={styles.blockTop12}>
+                        <div style={styles.initFormGrid}>
+                          <input
+                            value={row.category}
+                            onChange={(e) => updateBoqItem(row.id, { category: e.target.value })}
+                            style={styles.input}
+                            placeholder="التصنيف"
+                          />
+                          <input
+                            value={row.item}
+                            onChange={(e) => updateBoqItem(row.id, { item: e.target.value })}
+                            style={styles.input}
+                            placeholder="اسم البند"
+                          />
+                        </div>
+                        <div style={styles.blockTop8}>
+                          <textarea
+                            value={row.spec}
+                            onChange={(e) => updateBoqItem(row.id, { spec: e.target.value })}
+                            style={styles.textarea}
+                            placeholder="المواصفة الفنية المختصرة"
+                          />
+                        </div>
+                        <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
+                          <input
+                            value={row.unit}
+                            onChange={(e) => updateBoqItem(row.id, { unit: e.target.value })}
+                            style={styles.input}
+                            placeholder="الوحدة"
+                          />
+                          <input
+                            value={row.qty}
+                            onChange={(e) => updateBoqItem(row.id, { qty: e.target.value })}
+                            style={styles.input}
+                            placeholder="الكمية"
+                          />
+                          <select
+                            value={row.source}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, {
+                                source:
+                                  e.target.value === "أصل داخلي" ? "أصل داخلي" : "مورد",
+                              })
+                            }
+                            style={styles.input}
+                          >
+                            <option value="مورد">مورد</option>
+                            <option value="أصل داخلي">أصل داخلي</option>
+                          </select>
+                          <input
+                            value={row.leadTimeDays}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, { leadTimeDays: e.target.value })
+                            }
+                            style={styles.input}
+                            placeholder="زمن التوريد (يوم)"
+                          />
+                        </div>
+                        <div style={styles.blockTop8}>
+                          <button
+                            style={styles.ghostBtn}
+                            onClick={() => removeBoqRow(row.id)}
+                            disabled={boqItems.length <= 1}
+                          >
+                            حذف البند
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div style={styles.blockTop12}>
+                      <button
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing()}
+                        onClick={addBoqRow}
+                      >
+                        إضافة بند BOQ
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٥ معايير الجودة</div>
+                  <textarea
+                    value={qualityStandards}
+                    onChange={(e) => setQualityStandards(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب معايير الجودة وآلية التحقق..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٦ إدارة المخاطر</div>
+                  <textarea
+                    value={riskManagement}
+                    onChange={(e) => setRiskManagement(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٧ سرعة الاستجابة (SLA)</div>
+                  <textarea
+                    value={responseSla}
+                    onChange={(e) => setResponseSla(e.target.value)}
+                    style={styles.textarea}
+                    placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
+                  />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>مدة الإزالة/الإقفال (بالساعات)</div>
+                  <input
+                    value={closureRemovalHours}
+                    onChange={(e) => setClosureRemovalHours(e.target.value)}
+                    style={styles.input}
+                    placeholder="مثال: 6"
+                  />
+                </div>
+
+                {!canBuildAdvancedPlan ? (
+                  <div style={styles.warnBox}>
+                    <strong>تنبيه:</strong> الحقول الناقصة قبل توليد الخطة:
+                    <div style={styles.blockTop8}>
+                      {advancedMissingFields.map((x, idx) => (
+                        <div key={idx} style={styles.listItemGap4}>
+                          • {x}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={styles.stackAfterSection}>
+                  <button
+                    style={styles.primaryBtn(!canBuildAdvancedPlan || isProcessing())}
+                    disabled={!canBuildAdvancedPlan || isProcessing()}
+                    onClick={buildAdvancedPlan}
+                  >
+                    توليد خطة التنفيذ المتقدمة
+                  </button>
+                  <button
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={() => setStage("advanced_scope")}
+                  >
+                    رجوع: النطاق والاستراتيجية
+                  </button>
+                </div>
+              </>
+            )}
+
+            {stage === "advanced_plan" && (
+              <>
+                <h3 style={styles.sectionHeading}>8) خطة التنفيذ المتقدمة</h3>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.qTitle}>خطة العمل المتكاملة</div>
+                    <textarea
+                      readOnly
+                      value={advancedPlanText}
+                      style={{ ...styles.textarea, ...styles.reportTextarea }}
+                      placeholder="سيظهر هنا ملخص الخطة المتقدمة..."
+                    />
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <label style={styles.radioLabel}>
+                    <input
+                      type="checkbox"
+                      checked={advancedApproved}
+                      onChange={(e) => setAdvancedApproved(e.target.checked)}
+                    />
+                    اعتماد نهائي للخطة (V1)
+                  </label>
+                </div>
+
+                <div style={styles.stackAfterSection}>
+                  <button
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={() =>
+                      showSuccess(
+                        advancedApproved
+                          ? "تم اعتماد الخطة المتقدمة بنجاح."
+                          : "يمكنك اعتماد الخطة عند الجاهزية."
+                      )
+                    }
+                  >
+                    حفظ واعتماد
+                  </button>
+                  <button
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
+                    onClick={() => setStage("advanced_boq")}
+                  >
+                    رجوع: BOQ والجودة والمخاطر
                   </button>
                 </div>
               </>
@@ -2999,6 +3902,10 @@ export default function Home() {
                   <div style={styles.sideBlockTitle}>اختيارك الحالي</div>
                   <div style={styles.textPrimarySmall}>
                     نوع الجلسة: <strong>{mode}</strong>
+                  </div>
+                  <div style={{ ...styles.textPrimarySmall, ...styles.blockTop8 }}>
+                    مسار التنفيذ:{" "}
+                    <strong>{deliveryTrack === "advanced" ? "متقدم" : "سريع"}</strong>
                   </div>
                   <div style={{ ...styles.textPrimarySmall, ...styles.blockTop8 }}>
                     المستشارون:{" "}
@@ -3144,6 +4051,12 @@ export default function Home() {
                 <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>وضع الجلسة</span>
                   <span style={styles.v}>{mode}</span>
+                </div>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                  <span style={styles.k}>مسار التنفيذ</span>
+                  <span style={styles.v}>
+                    {deliveryTrack === "advanced" ? "متقدم" : "سريع"}
+                  </span>
                 </div>
                 <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>الموقع</span>
