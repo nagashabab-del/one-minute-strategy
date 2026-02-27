@@ -1543,6 +1543,14 @@ export default function Home() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({
+      top: 0,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  }, [stage, initStep]);
+
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
     if (!uiError && !uiSuccess) return;
