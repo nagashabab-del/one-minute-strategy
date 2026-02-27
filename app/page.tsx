@@ -1007,6 +1007,7 @@ export default function Home() {
         heroSubtitle: isMobile ? 13 : 16,
         heroMessage: isMobile ? 14 : 18,
       };
+      const touchTarget = 44;
 
       return ({
       page: {
@@ -1065,7 +1066,7 @@ export default function Home() {
       },
       subtitle: {
         marginTop: space.xs,
-        color: "rgba(255,255,255,0.65)",
+        color: "rgba(255,255,255,0.72)",
         fontSize: textScale.small,
       },
       headerActions: {
@@ -1080,14 +1081,24 @@ export default function Home() {
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.18)",
         padding: "10px 14px",
+        minHeight: touchTarget,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
         borderRadius: 12,
         color: "white",
         cursor: "pointer",
+        fontSize: 14,
+        lineHeight: 1.2,
         width: isNarrowMobile ? "100%" : "auto",
       },
       primaryBtn: (disabled: boolean) =>
         ({
           padding: "12px 16px",
+          minHeight: touchTarget,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
           borderRadius: 14,
           border: "none",
           background: disabled
@@ -1095,17 +1106,23 @@ export default function Home() {
             : "linear-gradient(90deg, #6a00ff, #b300ff)",
           color: "white",
           fontWeight: 900,
+          lineHeight: 1.2,
           cursor: disabled ? "not-allowed" : "pointer",
           width: "100%",
         } as CSSProperties),
       secondaryBtn: (disabled: boolean) =>
         ({
           padding: "12px 16px",
+          minHeight: touchTarget,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
           borderRadius: 14,
           border: "1px solid rgba(255,255,255,0.18)",
           background: "rgba(255,255,255,0.04)",
           color: "white",
           fontWeight: 800,
+          lineHeight: 1.2,
           cursor: disabled ? "not-allowed" : "pointer",
           width: "100%",
         } as CSSProperties),
@@ -1140,7 +1157,7 @@ export default function Home() {
       },
       cardTitle: { fontSize: textScale.sectionTitle, fontWeight: 900, margin: 0 },
       muted: {
-        color: "rgba(255,255,255,0.62)",
+        color: "rgba(255,255,255,0.68)",
         fontSize: textScale.small,
         marginTop: space.xs,
       },
@@ -1152,11 +1169,13 @@ export default function Home() {
       input: {
         width: "100%",
         padding: space.xs,
+        minHeight: touchTarget,
         borderRadius: 12,
         background: "rgba(0,0,0,0.35)",
         border: "1px solid rgba(255,255,255,0.12)",
         color: "white",
         outline: "none",
+        fontSize: isMobile ? 16 : 14,
       },
       textarea: {
         width: "100%",
@@ -1236,7 +1255,7 @@ export default function Home() {
       } as CSSProperties,
       qHint: {
         fontSize: textScale.tiny,
-        color: "rgba(255,255,255,0.65)",
+        color: "rgba(255,255,255,0.72)",
         marginTop: space.xs,
         lineHeight: 1.55,
       } as CSSProperties,
@@ -1389,6 +1408,7 @@ export default function Home() {
       } as CSSProperties,
       selectorBtn: (active: boolean) =>
         ({
+          minHeight: touchTarget,
           borderRadius: 12,
           border: active
             ? "1px solid rgba(179,0,255,0.35)"
@@ -1410,6 +1430,7 @@ export default function Home() {
       } as CSSProperties,
       sessionModeCard: (active: boolean) =>
         ({
+          minHeight: touchTarget,
           borderRadius: 14,
           border: active
             ? "1px solid rgba(0,229,255,0.28)"
@@ -1432,12 +1453,12 @@ export default function Home() {
         marginTop: 5,
         fontSize: 11.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.66)",
+        color: "rgba(255,255,255,0.72)",
       } as CSSProperties,
       smallMuted: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.66)",
+        color: "rgba(255,255,255,0.72)",
         lineHeight: 1.5,
       } as CSSProperties,
       summaryMetaGrid: {
@@ -1506,7 +1527,7 @@ export default function Home() {
       } as CSSProperties,
       statLabel: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.62)",
+        color: "rgba(255,255,255,0.7)",
         marginBottom: 4,
       } as CSSProperties,
       statValue: {
@@ -1744,6 +1765,8 @@ export default function Home() {
         display: "flex",
         gap: 8,
         alignItems: "center",
+        minHeight: touchTarget,
+        padding: "4px 2px",
       } as CSSProperties,
       textNeutralSmall72: {
         fontSize: 12,
@@ -1785,7 +1808,7 @@ export default function Home() {
       } as CSSProperties,
       reportHintText: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.62)",
+        color: "rgba(255,255,255,0.7)",
         marginTop: 2,
       } as CSSProperties,
       reportTextarea: {
@@ -1802,6 +1825,16 @@ export default function Home() {
         fontSize: 13,
         color: "rgba(255,255,255,0.9)",
         lineHeight: 1.7,
+      } as CSSProperties,
+      compactGhostBtn: {
+        width: "auto",
+        minHeight: touchTarget,
+        padding: "8px 12px",
+        borderRadius: 999,
+        fontSize: 12,
+        lineHeight: 1.2,
+        border: "1px solid rgba(255,255,255,0.14)",
+        background: "rgba(255,255,255,0.03)",
       } as CSSProperties,
       sideDurationText: {
         marginTop: 10,
@@ -2000,6 +2033,15 @@ export default function Home() {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+          outline: 2px solid rgba(0, 229, 255, 0.95);
+          outline-offset: 2px;
+          box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.16);
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -2704,13 +2746,7 @@ export default function Home() {
                         <button
                           style={{
                             ...styles.ghostBtn,
-                            width: "auto",
-                            padding: "7px 10px",
-                            borderRadius: 999,
-                            fontSize: 12,
-                            lineHeight: 1.1,
-                            border: "1px solid rgba(255,255,255,0.14)",
-                            background: "rgba(255,255,255,0.03)",
+                            ...styles.compactGhostBtn,
                           }}
                           onClick={copyExecutiveDecision}
                         >
