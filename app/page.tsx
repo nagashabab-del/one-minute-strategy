@@ -192,6 +192,7 @@ type ActionTaskItem = {
 type RiskLevel = "منخفض" | "متوسط" | "مرتفع";
 type RiskStatus = "مفتوح" | "قيد المعالجة" | "مغلق" | "مصعّد";
 type RiskSeverity = "low" | "medium" | "high" | "critical";
+type TimelineTone = "ok" | "warn" | "info" | "idle";
 
 type LiveRiskItem = {
   id: string;
@@ -1315,6 +1316,119 @@ export default function Home() {
   }
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
+  const advancedTimelineInfo = useMemo(() => {
+    const oneDayMs = 1000 * 60 * 60 * 24;
+    const toDate = (value: string) => {
+      if (!value.trim()) return null;
+      const d = new Date(value);
+      return Number.isFinite(d.getTime()) ? d : null;
+    };
+    const commissioning = toDate(commissioningDate);
+    const projectStart = toDate(projectStartDate);
+    const eventStart = toDate(startAt);
+    const eventEnd = toDate(endAt);
+    const issues: string[] = [];
+
+    if (commissioning && eventStart && commissioning.getTime() > eventStart.getTime()) {
+      issues.push("تاريخ التعميد يجب أن يكون قبل بداية الفعالية.");
+    }
+    if (projectStart && commissioning && projectStart.getTime() < commissioning.getTime()) {
+      issues.push("تاريخ بداية المشروع لا يمكن أن يكون قبل تاريخ التعميد.");
+    }
+    if (projectStart && eventStart && projectStart.getTime() > eventStart.getTime()) {
+      issues.push("تاريخ بداية المشروع يجب أن يكون قبل بداية الفعالية.");
+    }
+    if (eventStart && eventEnd && eventEnd.getTime() <= eventStart.getTime()) {
+      issues.push("وقت نهاية الفعالية يجب أن يكون بعد وقت البداية.");
+    }
+
+    const prepFromCommissioningDays =
+      commissioning && eventStart
+        ? Math.ceil((eventStart.getTime() - commissioning.getTime()) / oneDayMs)
+        : null;
+    const prepFromProjectStartDays =
+      projectStart && eventStart
+        ? Math.ceil((eventStart.getTime() - projectStart.getTime()) / oneDayMs)
+        : null;
+    const executionDays =
+      eventStart && eventEnd
+        ? Math.ceil((eventEnd.getTime() - eventStart.getTime()) / oneDayMs)
+        : null;
+
+    const dateStatus = {
+      commissioning: {
+        tone: commissioning ? "ok" : "warn",
+        label: commissioning ? "محدد" : "مطلوب",
+      } as { tone: TimelineTone; label: string },
+      projectStart: {
+        tone: !projectStart
+          ? "info"
+          : projectStart && commissioning && projectStart.getTime() < commissioning.getTime()
+            ? "warn"
+            : "ok",
+        label: !projectStart
+          ? "اختياري"
+          : projectStart && commissioning && projectStart.getTime() < commissioning.getTime()
+            ? "بحاجة مراجعة"
+            : "محدد",
+      } as { tone: TimelineTone; label: string },
+      eventStart: {
+        tone: !eventStart
+          ? "warn"
+          : commissioning && commissioning.getTime() > eventStart.getTime()
+            ? "warn"
+            : "ok",
+        label: !eventStart
+          ? "غير محدد"
+          : commissioning && commissioning.getTime() > eventStart.getTime()
+            ? "بحاجة مراجعة"
+            : "محدد",
+      } as { tone: TimelineTone; label: string },
+      eventEnd: {
+        tone: !eventEnd
+          ? "warn"
+          : eventStart && eventEnd.getTime() <= eventStart.getTime()
+            ? "warn"
+            : "ok",
+        label: !eventEnd
+          ? "غير محدد"
+          : eventStart && eventEnd.getTime() <= eventStart.getTime()
+            ? "بحاجة مراجعة"
+            : "محدد",
+      } as { tone: TimelineTone; label: string },
+    };
+
+    const prepFromCommissioning = !commissioning || !eventStart
+      ? { label: "غير مكتمل", tone: "idle" as TimelineTone }
+      : prepFromCommissioningDays !== null && prepFromCommissioningDays >= 0
+        ? { label: `${toArabicDigits(prepFromCommissioningDays)} يوم`, tone: "ok" as TimelineTone }
+        : { label: "غير صحيح", tone: "warn" as TimelineTone };
+
+    const prepFromProjectStart = !projectStart || !eventStart
+      ? { label: "اختياري", tone: "info" as TimelineTone }
+      : prepFromProjectStartDays !== null && prepFromProjectStartDays >= 0
+        ? { label: `${toArabicDigits(prepFromProjectStartDays)} يوم`, tone: "ok" as TimelineTone }
+        : { label: "غير صحيح", tone: "warn" as TimelineTone };
+
+    const executionDuration = !eventStart || !eventEnd
+      ? { label: "غير مكتمل", tone: "idle" as TimelineTone }
+      : executionDays !== null && executionDays > 0
+        ? { label: `${toArabicDigits(executionDays)} يوم`, tone: "ok" as TimelineTone }
+        : { label: "غير صحيح", tone: "warn" as TimelineTone };
+
+    return {
+      issues,
+      dateStatus,
+      prepFromCommissioning,
+      prepFromProjectStart,
+      executionDuration,
+    };
+  }, [commissioningDate, projectStartDate, startAt, endAt]);
+  const advancedTimelineStatus = advancedTimelineInfo.issues.length > 0
+    ? { tone: "working" as const, label: "بحاجة مراجعة" }
+    : !commissioningDate.trim() || !startAt.trim() || !endAt.trim()
+      ? { tone: "active" as const, label: "غير مكتمل" }
+      : { tone: "ready" as const, label: "متماسك" };
 
   // ============ Save (no save while loading) ============
   useEffect(() => {
@@ -4357,6 +4471,91 @@ export default function Home() {
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 12,
       } as CSSProperties,
+      timelineGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+        marginTop: 10,
+      } as CSSProperties,
+      timelineFieldCard: {
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        padding: 10,
+      } as CSSProperties,
+      timelineFieldHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        marginBottom: 7,
+      } as CSSProperties,
+      timelineFieldLabel: {
+        fontSize: 12.5,
+        fontWeight: 800,
+        color: "rgba(255,255,255,0.94)",
+      } as CSSProperties,
+      timelineStatusChip: (tone: TimelineTone) =>
+        ({
+          borderRadius: 999,
+          border:
+            tone === "ok"
+              ? "1px solid rgba(0,255,133,0.30)"
+              : tone === "warn"
+                ? "1px solid rgba(255,122,69,0.32)"
+                : tone === "info"
+                  ? "1px solid rgba(0,229,255,0.28)"
+                  : "1px solid rgba(255,255,255,0.20)",
+          background:
+            tone === "ok"
+              ? "rgba(0,255,133,0.10)"
+              : tone === "warn"
+                ? "rgba(255,122,69,0.10)"
+                : tone === "info"
+                  ? "rgba(0,229,255,0.10)"
+                  : "rgba(255,255,255,0.06)",
+          color: "white",
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: "4px 8px",
+          whiteSpace: "nowrap",
+        } as CSSProperties),
+      timelineFieldHint: {
+        marginTop: 7,
+        fontSize: 11.5,
+        lineHeight: 1.5,
+        color: "rgba(255,255,255,0.68)",
+      } as CSSProperties,
+      timelineSummaryGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      timelineSummaryItem: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "8px 9px",
+      } as CSSProperties,
+      timelineSummaryLabel: {
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      timelineSummaryValue: (tone: TimelineTone) =>
+        ({
+          marginTop: 4,
+          fontSize: 13,
+          fontWeight: 900,
+          color:
+            tone === "ok"
+              ? "#00FF85"
+              : tone === "warn"
+                ? "#FF7A45"
+                : tone === "info"
+                  ? "#00E5FF"
+                  : "rgba(255,255,255,0.9)",
+        } as CSSProperties),
       selectorRow: {
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
@@ -6719,27 +6918,125 @@ export default function Home() {
                 <h3 style={styles.sectionHeading}>6) المسار المتقدم: نطاق واستراتيجية</h3>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>تاريخ التعميد</div>
-                  <input
-                    type="date"
-                    value={commissioningDate}
-                    onChange={(e) => setCommissioningDate(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.input}
-                  />
-                </div>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div style={styles.qTitle}>الإطار الزمني للمشروع</div>
+                      <div style={styles.stageStatusChip(advancedTimelineStatus.tone)}>
+                        {advancedTimelineStatus.label}
+                      </div>
+                    </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>تاريخ بداية المشروع (اختياري)</div>
-                  <input
-                    type="date"
-                    value={projectStartDate}
-                    onChange={(e) => setProjectStartDate(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.input}
-                  />
-                  <div style={styles.textMutedSmallTop8}>
-                    إذا تركته فارغًا سيتم اعتماد تاريخ التعميد كبداية للمشروع.
+                    <div style={styles.timelineGrid}>
+                      <div style={styles.timelineFieldCard}>
+                        <div style={styles.timelineFieldHead}>
+                          <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
+                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.commissioning.tone)}>
+                            {advancedTimelineInfo.dateStatus.commissioning.label}
+                          </div>
+                        </div>
+                        <input
+                          type="date"
+                          value={commissioningDate}
+                          onChange={(e) => setCommissioningDate(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={styles.input}
+                        />
+                        <div style={styles.timelineFieldHint}>
+                          نقطة بداية التجهيز الرسمية للمشروع.
+                        </div>
+                      </div>
+
+                      <div style={styles.timelineFieldCard}>
+                        <div style={styles.timelineFieldHead}>
+                          <div style={styles.timelineFieldLabel}>تاريخ بداية المشروع</div>
+                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.projectStart.tone)}>
+                            {advancedTimelineInfo.dateStatus.projectStart.label}
+                          </div>
+                        </div>
+                        <input
+                          type="date"
+                          value={projectStartDate}
+                          onChange={(e) => setProjectStartDate(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={styles.input}
+                        />
+                        <div style={styles.timelineFieldHint}>
+                          اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
+                        </div>
+                      </div>
+
+                      <div style={styles.timelineFieldCard}>
+                        <div style={styles.timelineFieldHead}>
+                          <div style={styles.timelineFieldLabel}>بداية الفعالية</div>
+                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventStart.tone)}>
+                            {advancedTimelineInfo.dateStatus.eventStart.label}
+                          </div>
+                        </div>
+                        <input
+                          type="datetime-local"
+                          value={startAt}
+                          onChange={(e) => setStartAt(e.target.value)}
+                          disabled={!canEditProjectCore}
+                          style={styles.input}
+                        />
+                        <div style={styles.timelineFieldHint}>
+                          يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
+                        </div>
+                      </div>
+
+                      <div style={styles.timelineFieldCard}>
+                        <div style={styles.timelineFieldHead}>
+                          <div style={styles.timelineFieldLabel}>نهاية الفعالية</div>
+                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventEnd.tone)}>
+                            {advancedTimelineInfo.dateStatus.eventEnd.label}
+                          </div>
+                        </div>
+                        <input
+                          type="datetime-local"
+                          value={endAt}
+                          onChange={(e) => setEndAt(e.target.value)}
+                          disabled={!canEditProjectCore}
+                          style={styles.input}
+                        />
+                        <div style={styles.timelineFieldHint}>
+                          يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.timelineSummaryGrid}>
+                      <div style={styles.timelineSummaryItem}>
+                        <div style={styles.timelineSummaryLabel}>مدة التجهيز (تعميد ← بداية فعالية)</div>
+                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromCommissioning.tone)}>
+                          {advancedTimelineInfo.prepFromCommissioning.label}
+                        </div>
+                      </div>
+                      <div style={styles.timelineSummaryItem}>
+                        <div style={styles.timelineSummaryLabel}>مدة التجهيز (بداية مشروع ← بداية فعالية)</div>
+                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromProjectStart.tone)}>
+                          {advancedTimelineInfo.prepFromProjectStart.label}
+                        </div>
+                      </div>
+                      <div style={styles.timelineSummaryItem}>
+                        <div style={styles.timelineSummaryLabel}>مدة التنفيذ التشغيلي</div>
+                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.executionDuration.tone)}>
+                          {advancedTimelineInfo.executionDuration.label}
+                        </div>
+                      </div>
+                    </div>
+
+                    {advancedTimelineInfo.issues.length > 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه زمني:</strong>
+                        <div style={styles.blockTop8}>
+                          {advancedTimelineInfo.issues.map((issue, idx) => (
+                            <div key={idx} style={styles.listItemGap4}>
+                              • {issue}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
