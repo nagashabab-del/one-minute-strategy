@@ -114,6 +114,7 @@ type PersistedState = {
   responseSla?: string;
   closureRemovalHours?: string;
   boqItems?: BoqItem[];
+  orgRoles?: OrgRole[];
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
@@ -128,6 +129,25 @@ type BoqItem = {
   qty: string;
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
+};
+
+type OrgRoleId =
+  | "operations_manager"
+  | "creative_director"
+  | "finance_manager"
+  | "marketing_manager"
+  | "sponsorship_manager"
+  | "visitor_experience_manager"
+  | "program_director";
+
+type OrgRole = {
+  id: OrgRoleId;
+  title: string;
+  summary: string;
+  responsibilities: string[];
+  kpis: string[];
+  enabled: boolean;
+  assignee: string;
 };
 
 type LoadingContext =
@@ -283,6 +303,101 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   },
 ];
 
+const ORG_ROLE_TEMPLATES: Omit<OrgRole, "enabled" | "assignee">[] = [
+  {
+    id: "operations_manager",
+    title: "مدير العمليات",
+    summary: "قيادة التنفيذ الميداني وضمان الجاهزية التشغيلية.",
+    responsibilities: [
+      "إعداد خطة التشغيل التفصيلية",
+      "إدارة الموردين والمقاولين",
+      "ضمان الالتزام بالجدول الزمني",
+    ],
+    kpis: ["الالتزام بالجدول", "صفر تعطل تشغيلي", "كفاءة إدارة الموردين"],
+  },
+  {
+    id: "creative_director",
+    title: "المدير الإبداعي",
+    summary: "قيادة الرؤية البصرية والتجربة العامة للفعالية.",
+    responsibilities: [
+      "اعتماد المفهوم الإبداعي والهوية البصرية",
+      "الإشراف على مخرجات الجرافيك و3D",
+      "ضمان تطابق التنفيذ مع الرندر المعتمد",
+    ],
+    kpis: ["جودة المخرجات", "رضا العميل", "تطابق التنفيذ مع الاعتماد"],
+  },
+  {
+    id: "finance_manager",
+    title: "المدير المالي",
+    summary: "ضبط الميزانية وحماية ربحية المشروع.",
+    responsibilities: [
+      "إعداد الميزانية التفصيلية",
+      "متابعة المصروفات والانحرافات",
+      "تقرير الأداء المالي",
+    ],
+    kpis: ["الالتزام بالميزانية", "هامش الربح", "دقة التقارير المالية"],
+  },
+  {
+    id: "marketing_manager",
+    title: "مدير التسويق والاتصال",
+    summary: "إدارة الصورة الإعلامية وجذب الجمهور المستهدف.",
+    responsibilities: [
+      "إعداد الخطة التسويقية",
+      "إدارة الحملات الرقمية والإعلام",
+      "قياس الأداء التسويقي",
+    ],
+    kpis: ["عدد الحضور", "معدل التفاعل", "تكلفة الاكتساب"],
+  },
+  {
+    id: "sponsorship_manager",
+    title: "مدير الرعايات والشراكات",
+    summary: "تعظيم الإيرادات عبر الرعاة والشركاء.",
+    responsibilities: [
+      "إعداد باقات الرعاية",
+      "إغلاق عقود الرعاة",
+      "إدارة حقوق الرعاية",
+    ],
+    kpis: ["قيمة الرعايات المغلقة", "نسبة تجديد الرعاة", "رضا الشركاء"],
+  },
+  {
+    id: "visitor_experience_manager",
+    title: "مدير تجربة الزائر",
+    summary: "ضمان رحلة زائر سلسة من الدخول حتى الخروج.",
+    responsibilities: [
+      "تصميم رحلة الزائر",
+      "إدارة التسجيل والاستقبال",
+      "متابعة تجربة الحضور بعد الحدث",
+    ],
+    kpis: ["رضا الزوار", "سرعة الدخول", "انخفاض الشكاوى"],
+  },
+  {
+    id: "program_director",
+    title: "مدير البرنامج والمحتوى",
+    summary: "إدارة جدول الجلسات والمحتوى أثناء التنفيذ.",
+    responsibilities: [
+      "إعداد جدول الجلسات",
+      "إدارة المتحدثين وتوقيت الفقرات",
+      "تنسيق المسرح أثناء الحدث",
+    ],
+    kpis: ["الالتزام بالوقت", "رضا المتحدثين", "تقييم المحتوى"],
+  },
+];
+
+function hydrateOrgRoles(saved?: OrgRole[]) {
+  const savedMap = new Map((saved || []).map((role) => [role.id, role]));
+  return ORG_ROLE_TEMPLATES.map((template) => {
+    const current = savedMap.get(template.id);
+    return {
+      ...template,
+      enabled: current?.enabled ?? true,
+      assignee: current?.assignee ?? "",
+      responsibilities:
+        current?.responsibilities?.length ? current.responsibilities : template.responsibilities,
+      kpis: current?.kpis?.length ? current.kpis : template.kpis,
+    };
+  });
+}
+
 export default function Home() {
   const [initialSaved] = useState<PersistedState>(() => {
     if (typeof window === "undefined") return {};
@@ -349,6 +464,9 @@ export default function Home() {
   const [boqItems, setBoqItems] = useState<BoqItem[]>(
     initialSaved.boqItems?.length ? initialSaved.boqItems : DEFAULT_BOQ_ITEMS
   );
+  const [orgRoles, setOrgRoles] = useState<OrgRole[]>(
+    () => hydrateOrgRoles(initialSaved.orgRoles)
+  );
   const [advancedPlanText, setAdvancedPlanText] = useState(
     initialSaved.advancedPlanText ?? ""
   );
@@ -403,6 +521,7 @@ export default function Home() {
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
+  const activeOrgRoles = orgRoles.filter((role) => role.enabled);
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
@@ -456,6 +575,7 @@ export default function Home() {
       responseSla,
       closureRemovalHours,
       boqItems,
+      orgRoles,
       advancedPlanText,
       advancedApproved,
       demoMode,
@@ -498,6 +618,7 @@ export default function Home() {
     responseSla,
     closureRemovalHours,
     boqItems,
+    orgRoles,
     advancedPlanText,
     advancedApproved,
     demoMode,
@@ -682,6 +803,12 @@ export default function Home() {
     });
   }
 
+  function updateOrgRole(id: OrgRoleId, patch: Partial<OrgRole>) {
+    setOrgRoles((prev) =>
+      prev.map((role) => (role.id === id ? { ...role, ...patch } : role))
+    );
+  }
+
   function openAdvancedTrack() {
     if (!commissioningDate.trim() && startAt) {
       setCommissioningDate(startAt.slice(0, 10));
@@ -793,6 +920,19 @@ export default function Home() {
       { name: "إقفال وتسليم الموقع", at: fmt(closureEnd, true) },
     ];
 
+    const roleProfile = (id: OrgRoleId) => orgRoles.find((role) => role.id === id);
+    const isRoleEnabled = (id: OrgRoleId) => !!roleProfile(id)?.enabled;
+    const roleOwner = (id: OrgRoleId, fallback: string) => {
+      const role = roleProfile(id);
+      if (!role || !role.enabled) return fallback;
+      const assignee = role.assignee.trim();
+      return assignee ? `${role.title} (${assignee})` : role.title;
+    };
+    const activeRoleLines = activeOrgRoles.map((role, idx) => {
+      const lead = role.assignee.trim() ? `${role.title} — ${role.assignee.trim()}` : role.title;
+      return `- ${toArabicDigits(idx + 1)}) ${lead} | KPIs: ${role.kpis.join("، ")}`;
+    });
+
     type PlanTask = {
       phase: "الإعداد" | "التنفيذ" | "المتابعة" | "الإقفال";
       stream: string;
@@ -811,7 +951,7 @@ export default function Home() {
         phase: "الإعداد",
         stream: "الحوكمة والتخطيط",
         task: "اعتماد نطاق العمل، الاستراتيجية، وخط الأساس الزمني",
-        owner: "مدير المشروع",
+        owner: roleOwner("operations_manager", "مدير المشروع"),
         start: fmt(prepStart),
         end: fmt(prepStart),
         duration: "يوم اعتماد",
@@ -823,7 +963,7 @@ export default function Home() {
         phase: "الإعداد",
         stream: "التصاميم والاعتمادات",
         task: "إنهاء واعتماد مخططات 3D والجرافيك والهوية البصرية",
-        owner: "مدير الإبداع/التصميم",
+        owner: roleOwner("creative_director", "مدير الإبداع/التصميم"),
         start: fmt(prepStart),
         end: fmt(prepEnd),
         duration: prepDays === null ? "مرحلة الإعداد" : `${toArabicDigits(Math.max(1, Math.floor(prepDays * 0.5)))} يوم`,
@@ -835,7 +975,7 @@ export default function Home() {
         phase: "الإعداد",
         stream: "الموقع والتجهيزات",
         task: "حجز القاعات وتجهيز مناطق التشغيل وVIP والضيافة",
-        owner: "قائد العمليات",
+        owner: roleOwner("operations_manager", "قائد العمليات"),
         start: fmt(prepStart),
         end: fmt(prepEnd),
         duration: "حسب الجاهزية",
@@ -847,7 +987,7 @@ export default function Home() {
         phase: "الإعداد",
         stream: "التجهيزات الفنية",
         task: "اختبار شامل للصوت والإضاءة والشاشات + بروفة تشغيل",
-        owner: "مدير تقني",
+        owner: roleOwner("operations_manager", "مدير تقني"),
         start: fmt(prepStart),
         end: fmt(prepEnd),
         duration: "قبل الافتتاح",
@@ -859,7 +999,7 @@ export default function Home() {
         phase: "التنفيذ",
         stream: "البرنامج التنفيذي",
         task: "تشغيل السيناريو وإدارة الفقرات وفق الجدول المعتمد",
-        owner: "مدير التشغيل",
+        owner: roleOwner("program_director", "مدير التشغيل"),
         start: fmt(execStart, true),
         end: fmt(execEnd, true),
         duration: `${execDaysText} يوم`,
@@ -871,7 +1011,7 @@ export default function Home() {
         phase: "التنفيذ",
         stream: "المراسم والتوثيق",
         task: "تنفيذ خطة الاستقبال والإجلاس والتوثيق والبث",
-        owner: "قائد المراسم والإعلام",
+        owner: roleOwner("visitor_experience_manager", "قائد المراسم والإعلام"),
         start: fmt(execStart, true),
         end: fmt(execEnd, true),
         duration: `${execDaysText} يوم`,
@@ -883,7 +1023,7 @@ export default function Home() {
         phase: "المتابعة",
         stream: "قيادة الميدان",
         task: "غرفة عمليات: متابعة حيّة، تسجيل الملاحظات، وقرارات التصعيد",
-        owner: "مدير المشروع",
+        owner: roleOwner("operations_manager", "مدير المشروع"),
         start: fmt(execStart, true),
         end: fmt(execEnd, true),
         duration: "طوال التنفيذ",
@@ -895,7 +1035,7 @@ export default function Home() {
         phase: "المتابعة",
         stream: "الجودة والمخاطر",
         task: "مراجعة دورية للجودة، تحديث سجل المخاطر، وتفعيل البدائل",
-        owner: "مدير الجودة والمخاطر",
+        owner: roleOwner("operations_manager", "مدير الجودة والمخاطر"),
         start: fmt(execStart, true),
         end: fmt(execEnd, true),
         duration: "طوال التنفيذ",
@@ -907,7 +1047,7 @@ export default function Home() {
         phase: "الإقفال",
         stream: "الإزالة والتسليم",
         task: "فك التجهيزات وإعادة الموقع وتسليم الإغلاق",
-        owner: "قائد الإقفال",
+        owner: roleOwner("operations_manager", "قائد الإقفال"),
         start: fmt(closureStart, true),
         end: fmt(closureEnd, true),
         duration: `${toArabicDigits(removalHours)} ساعة`,
@@ -916,6 +1056,66 @@ export default function Home() {
         kpi: "إقفال كامل ضمن المدة المعتمدة",
       },
     ];
+
+    if (isRoleEnabled("finance_manager")) {
+      tasks.push({
+        phase: "المتابعة",
+        stream: "الرقابة المالية",
+        task: "متابعة الانحرافات المالية واعتماد المصروفات الحرجة أثناء التنفيذ",
+        owner: roleOwner("finance_manager", "المدير المالي"),
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: "طوال التنفيذ",
+        dependsOn: "اعتماد الميزانية التفصيلية",
+        acceptance: "تقرير انحراف مالي يومي مع قرارات تصحيحية",
+        kpi: "الانحراف المالي ضمن الحد المعتمد",
+      });
+    }
+
+    if (isRoleEnabled("marketing_manager")) {
+      tasks.push({
+        phase: "الإعداد",
+        stream: "التسويق والاتصال",
+        task: "تنفيذ خطة الحملة الإعلامية وجدولة المحتوى قبل وأثناء الفعالية",
+        owner: roleOwner("marketing_manager", "مدير التسويق والاتصال"),
+        start: fmt(prepStart),
+        end: fmt(execEnd, true),
+        duration: "الإعداد + التنفيذ",
+        dependsOn: "اعتماد الرسائل والهوية",
+        acceptance: "خطة محتوى معتمدة وتقارير أداء يوم التنفيذ",
+        kpi: "تحقق مستهدف التفاعل والحضور",
+      });
+    }
+
+    if (isRoleEnabled("sponsorship_manager")) {
+      tasks.push({
+        phase: "الإعداد",
+        stream: "الرعايات والشراكات",
+        task: "إغلاق عقود الرعاة وتثبيت حقوق الرعاية في المخطط التنفيذي",
+        owner: roleOwner("sponsorship_manager", "مدير الرعايات والشراكات"),
+        start: fmt(prepStart),
+        end: fmt(prepEnd),
+        duration: "قبل التنفيذ",
+        dependsOn: "اعتماد باقات الرعاية",
+        acceptance: "عقود موقعة وخارطة حقوق واضحة لكل راعٍ",
+        kpi: "تحقيق مستهدف الرعايات المعتمد",
+      });
+    }
+
+    if (isRoleEnabled("visitor_experience_manager")) {
+      tasks.push({
+        phase: "التنفيذ",
+        stream: "تجربة الزائر",
+        task: "إدارة رحلة الزائر والتسجيل والاستقبال ومعالجة الشكاوى الفورية",
+        owner: roleOwner("visitor_experience_manager", "مدير تجربة الزائر"),
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: `${execDaysText} يوم`,
+        dependsOn: "جاهزية نقاط الدخول",
+        acceptance: "تدفق دخول سلس ومستوى رضا مرتفع",
+        kpi: "انخفاض الشكاوى وزمن دخول ضمن الهدف",
+      });
+    }
 
     boqFilled.forEach((row) => {
         const leadDays = parsePositiveInt(row.leadTimeDays, 3);
@@ -1003,6 +1203,11 @@ export default function Home() {
       "استراتيجية التنفيذ:",
       executionStrategy || "- غير مدخلة.",
       "",
+      "الهيكل التشغيلي المعتمد:",
+      ...(activeRoleLines.length > 0
+        ? activeRoleLines
+        : ["- لا توجد أدوار مفعلة. سيتم التعامل مع المهام عبر الهيكل الأساسي فقط."]),
+      "",
       "BOQ المختصر:",
       boqSummary || "- لا توجد بنود BOQ مدخلة بعد.",
       "",
@@ -1085,6 +1290,22 @@ export default function Home() {
         },
       ];
     });
+
+    const defaultLeads: Record<OrgRoleId, string> = {
+      operations_manager: "خالد",
+      creative_director: "نورة",
+      finance_manager: "فهد",
+      marketing_manager: "سارة",
+      sponsorship_manager: "عبدالله",
+      visitor_experience_manager: "ريم",
+      program_director: "ليان",
+    };
+    setOrgRoles((prev) =>
+      prev.map((role) => ({
+        ...role,
+        assignee: role.assignee.trim() || defaultLeads[role.id],
+      }))
+    );
 
     showSuccess("تم تعبئة بيانات اختبار سريعة للمسار المتقدم.");
   }
@@ -1266,6 +1487,24 @@ export default function Home() {
         leadTimeDays: "2",
       },
     ]);
+    const demoLeads: Record<OrgRoleId, string> = {
+      operations_manager: "خالد",
+      creative_director: "نورة",
+      finance_manager: "فهد",
+      marketing_manager: "سارة",
+      sponsorship_manager: "عبدالله",
+      visitor_experience_manager: "ريم",
+      program_director: "ليان",
+    };
+    setOrgRoles(
+      hydrateOrgRoles(
+        ORG_ROLE_TEMPLATES.map((role) => ({
+          ...role,
+          enabled: true,
+          assignee: demoLeads[role.id],
+        }))
+      )
+    );
     setAdvancedPlanText(demoPlan);
     setAdvancedApproved(false);
     setNeedsReanalysisHint(false);
@@ -1485,6 +1724,12 @@ export default function Home() {
       alerts.push({
         text: "تاريخ التعميد غير محدد، وهذا يؤثر على دقة خطة التنفيذ.",
         tone: "info",
+      });
+    }
+    if (deliveryTrack === "advanced" && activeOrgRoles.length === 0) {
+      alerts.push({
+        text: "لا توجد أدوار تشغيلية مفعلة في المسار المتقدم.",
+        tone: "warn",
       });
     }
     if (stage === "advanced_plan" && !advancedApproved) {
@@ -2738,6 +2983,44 @@ export default function Home() {
       blockTop12: { marginTop: 12 } as CSSProperties,
       blockTop10: { marginTop: 10 } as CSSProperties,
       blockTop8: { marginTop: 8 } as CSSProperties,
+      orgRolesGrid: {
+        marginTop: 10,
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      orgRoleCard: (active: boolean) =>
+        ({
+          borderRadius: 14,
+          border: active
+            ? "1px solid rgba(0,229,255,0.22)"
+            : "1px solid rgba(255,255,255,0.08)",
+          background: active
+            ? "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02))"
+            : "rgba(255,255,255,0.02)",
+          padding: 12,
+        } as CSSProperties),
+      orgRoleHeader: {
+        display: "flex",
+        gap: 10,
+        alignItems: "flex-start",
+      } as CSSProperties,
+      orgRoleTitle: {
+        fontSize: 14,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      orgRoleSummary: {
+        marginTop: 3,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      orgRoleMetaText: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.78)",
+        lineHeight: 1.6,
+      } as CSSProperties,
       radioLabel: {
         display: "flex",
         gap: 8,
@@ -4113,6 +4396,50 @@ export default function Home() {
                   />
                 </div>
 
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>٢.٨ الهيكل التشغيلي للكوادر</div>
+                  <div style={styles.textMutedSmallTop8}>
+                    فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
+                  </div>
+                  <div style={styles.orgRolesGrid}>
+                    {orgRoles.map((role) => (
+                      <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
+                        <label style={styles.orgRoleHeader}>
+                          <input
+                            type="checkbox"
+                            checked={role.enabled}
+                            onChange={(e) =>
+                              updateOrgRole(role.id, { enabled: e.target.checked })
+                            }
+                          />
+                          <div>
+                            <div style={styles.orgRoleTitle}>{role.title}</div>
+                            <div style={styles.orgRoleSummary}>{role.summary}</div>
+                          </div>
+                        </label>
+
+                        <div style={styles.blockTop8}>
+                          <input
+                            value={role.assignee}
+                            onChange={(e) =>
+                              updateOrgRole(role.id, { assignee: e.target.value })
+                            }
+                            style={styles.input}
+                            placeholder="اسم المسؤول (اختياري)"
+                          />
+                        </div>
+
+                        <div style={styles.orgRoleMetaText}>
+                          المهام: {role.responsibilities.join(" • ")}
+                        </div>
+                        <div style={styles.orgRoleMetaText}>
+                          KPIs: {role.kpis.join(" • ")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.secondaryBtn(isProcessing())}
@@ -4576,6 +4903,26 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {deliveryTrack === "advanced" ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>الهيكل التشغيلي</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  الأدوار المفعلة: <strong>{toArabicDigits(activeOrgRoles.length)}</strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  {activeOrgRoles.length > 0
+                    ? activeOrgRoles
+                        .map((role) =>
+                          role.assignee.trim()
+                            ? `${role.title} (${role.assignee.trim()})`
+                            : role.title
+                        )
+                        .join("، ")
+                    : "لا توجد أدوار مفعلة حالياً."}
+                </div>
+              </div>
+            ) : null}
 
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
