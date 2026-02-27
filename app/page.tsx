@@ -586,14 +586,17 @@ function readinessAccent(level?: string) {
   }
 }
 
+const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
 function toArabicDigits(value: number | string) {
-  return String(value).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+  // Backward-compatible name: normalize any Arabic-Indic digits to English digits.
+  return String(value).replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)));
 }
 
 function parseNumericInput(value: string) {
   if (!value.trim()) return 0;
   const normalizedDigits = value
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)))
     .replace(/[^\d.-]/g, "");
   const n = Number.parseFloat(normalizedDigits);
   return Number.isFinite(n) ? n : 0;
@@ -606,7 +609,7 @@ function formatMoney(value: number) {
 
 function formatMoneyWithoutUnit(value: number) {
   const abs = Math.abs(value);
-  const formatted = abs.toLocaleString("ar-SA", {
+  const formatted = abs.toLocaleString("en-US", {
     minimumFractionDigits: abs % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   });
@@ -1780,12 +1783,13 @@ export default function Home() {
   function formatDateTimeLabel(iso: string) {
     const d = new Date(iso);
     if (!Number.isFinite(d.getTime())) return "غير محدد";
-    return d.toLocaleString("ar-SA", {
+    return d.toLocaleString("en-GB", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   }
 
@@ -2924,10 +2928,10 @@ export default function Home() {
     const demoPlan = [
       "خطة تنفيذ متكاملة (نموذج تجريبي كامل)",
       "",
-      "١) الإعداد: اعتماد النطاق والتصاميم وتجهيز الموردين.",
-      "٢) التنفيذ: تشغيل البرنامج وإدارة الفقرات والمراسم.",
-      "٣) المتابعة: مراقبة الجودة والمخاطر ورفع التقارير.",
-      "٤) الإقفال: إزالة التجهيزات وتسليم الموقع خلال 6 ساعات.",
+      "1) الإعداد: اعتماد النطاق والتصاميم وتجهيز الموردين.",
+      "2) التنفيذ: تشغيل البرنامج وإدارة الفقرات والمراسم.",
+      "3) المتابعة: مراقبة الجودة والمخاطر ورفع التقارير.",
+      "4) الإقفال: إزالة التجهيزات وتسليم الموقع خلال 6 ساعات.",
     ].join("\n");
 
     setDeliveryTrack("advanced");
@@ -6544,7 +6548,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.١ نطاق العمل - الموقع والتجهيزات</div>
+                  <div style={styles.label}>2.1 نطاق العمل - الموقع والتجهيزات</div>
                   <textarea
                     value={scopeSite}
                     onChange={(e) => setScopeSite(e.target.value)}
@@ -6555,7 +6559,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.١ نطاق العمل - التجهيزات الفنية</div>
+                  <div style={styles.label}>2.1 نطاق العمل - التجهيزات الفنية</div>
                   <textarea
                     value={scopeTechnical}
                     onChange={(e) => setScopeTechnical(e.target.value)}
@@ -6566,7 +6570,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.١ نطاق العمل - البرنامج التنفيذي / المراسم</div>
+                  <div style={styles.label}>2.1 نطاق العمل - البرنامج التنفيذي / المراسم</div>
                   <textarea
                     value={scopeProgram}
                     onChange={(e) => setScopeProgram(e.target.value)}
@@ -6577,7 +6581,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.١ نطاق العمل - المراسم والتوثيق</div>
+                  <div style={styles.label}>2.1 نطاق العمل - المراسم والتوثيق</div>
                   <textarea
                     value={scopeCeremony}
                     onChange={(e) => setScopeCeremony(e.target.value)}
@@ -6588,7 +6592,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٢ استراتيجية التنفيذ</div>
+                  <div style={styles.label}>2.2 استراتيجية التنفيذ</div>
                   <textarea
                     value={executionStrategy}
                     onChange={(e) => setExecutionStrategy(e.target.value)}
@@ -6599,7 +6603,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٨ الهيكل التشغيلي للكوادر</div>
+                  <div style={styles.label}>2.8 الهيكل التشغيلي للكوادر</div>
                   <div style={styles.textMutedSmallTop8}>
                     فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
                   </div>
@@ -6729,7 +6733,7 @@ export default function Home() {
                 <h3 style={styles.sectionHeading}>7) المسار المتقدم: BOQ والجودة والمخاطر</h3>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٣ جدول الكميات والمواصفات (مختصر V1)</div>
+                  <div style={styles.label}>2.3 جدول الكميات والمواصفات (مختصر V1)</div>
                   <div style={styles.textMutedSmallTop8}>
                     خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
                   </div>
@@ -7135,7 +7139,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٥ معايير الجودة</div>
+                  <div style={styles.label}>2.5 معايير الجودة</div>
                   <textarea
                     value={qualityStandards}
                     onChange={(e) => setQualityStandards(e.target.value)}
@@ -7146,7 +7150,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٦ إدارة المخاطر</div>
+                  <div style={styles.label}>2.6 إدارة المخاطر</div>
                   <textarea
                     value={riskManagement}
                     onChange={(e) => setRiskManagement(e.target.value)}
@@ -7355,7 +7359,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>٢.٧ سرعة الاستجابة (SLA)</div>
+                  <div style={styles.label}>2.7 سرعة الاستجابة (SLA)</div>
                   <textarea
                     value={responseSla}
                     onChange={(e) => setResponseSla(e.target.value)}
