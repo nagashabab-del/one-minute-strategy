@@ -4557,29 +4557,53 @@ export default function Home() {
                   : "rgba(255,255,255,0.9)",
         } as CSSProperties),
       scopeFieldsGrid: {
-        marginTop: 12,
+        marginTop: 10,
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
-        gap: 10,
+        gap: 12,
       } as CSSProperties,
       scopeFieldCard: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        border: "1px solid rgba(255,255,255,0.11)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
         padding: 10,
+      } as CSSProperties,
+      scopeSectionTitle: {
+        fontSize: 15,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      scopeSectionHint: {
+        marginTop: 4,
+        fontSize: 12.5,
+        lineHeight: 1.6,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      scopeFieldTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.92)",
+        marginBottom: 8,
       } as CSSProperties,
       scopeTextarea: {
-        minHeight: isNarrowMobile ? 130 : 140,
+        minHeight: isNarrowMobile ? 145 : 156,
       } as CSSProperties,
       scopeStrategyCard: {
-        marginTop: 12,
+        marginTop: 10,
         borderRadius: 12,
-        border: "1px solid rgba(0,229,255,0.22)",
-        background: "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02))",
+        border: "1px solid rgba(255,255,255,0.12)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+        boxShadow: "inset 0 0 0 1px rgba(0,229,255,0.08)",
         padding: 10,
       } as CSSProperties,
+      scopeStrategyTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.94)",
+        marginBottom: 8,
+      } as CSSProperties,
       scopeStrategyTextarea: {
-        minHeight: isNarrowMobile ? 130 : 150,
+        minHeight: isNarrowMobile ? 148 : 160,
       } as CSSProperties,
       selectorRow: {
         display: "grid",
@@ -7066,61 +7090,77 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.scopeFieldsGrid}>
-                    <div style={styles.scopeFieldCard}>
-                      <div style={styles.label}>2.1 نطاق العمل - الموقع والتجهيزات</div>
-                      <textarea
-                        value={scopeSite}
-                        onChange={(e) => setScopeSite(e.target.value)}
-                        disabled={!canEditAdvancedExecution}
-                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                        placeholder="اكتب نطاق الموقع والتجهيزات..."
-                      />
+                  <div style={styles.qCard}>
+                    <div style={styles.scopeSectionTitle}>2.1 نطاق العمل</div>
+                    <div style={styles.scopeSectionHint}>
+                      حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى BOQ.
                     </div>
 
-                    <div style={styles.scopeFieldCard}>
-                      <div style={styles.label}>2.1 نطاق العمل - التجهيزات الفنية</div>
-                      <textarea
-                        value={scopeTechnical}
-                        onChange={(e) => setScopeTechnical(e.target.value)}
-                        disabled={!canEditAdvancedExecution}
-                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                        placeholder="اكتب نطاق التجهيزات الفنية..."
-                      />
-                    </div>
+                    <div style={styles.scopeFieldsGrid}>
+                      <div style={styles.scopeFieldCard}>
+                        <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
+                        <textarea
+                          value={scopeSite}
+                          onChange={(e) => setScopeSite(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                          placeholder="اكتب نطاق الموقع والتجهيزات..."
+                        />
+                      </div>
 
-                    <div style={styles.scopeFieldCard}>
-                      <div style={styles.label}>2.1 نطاق العمل - البرنامج التنفيذي / المراسم</div>
-                      <textarea
-                        value={scopeProgram}
-                        onChange={(e) => setScopeProgram(e.target.value)}
-                        disabled={!canEditAdvancedExecution}
-                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                        placeholder="اكتب نطاق البرنامج التنفيذي..."
-                      />
-                    </div>
+                      <div style={styles.scopeFieldCard}>
+                        <div style={styles.scopeFieldTitle}>التجهيزات الفنية</div>
+                        <textarea
+                          value={scopeTechnical}
+                          onChange={(e) => setScopeTechnical(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                          placeholder="اكتب نطاق التجهيزات الفنية..."
+                        />
+                      </div>
 
-                    <div style={styles.scopeFieldCard}>
-                      <div style={styles.label}>2.1 نطاق العمل - المراسم والتوثيق</div>
-                      <textarea
-                        value={scopeCeremony}
-                        onChange={(e) => setScopeCeremony(e.target.value)}
-                        disabled={!canEditAdvancedExecution}
-                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                        placeholder="اكتب نطاق المراسم والتوثيق..."
-                      />
+                      <div style={styles.scopeFieldCard}>
+                        <div style={styles.scopeFieldTitle}>البرنامج التنفيذي / المراسم</div>
+                        <textarea
+                          value={scopeProgram}
+                          onChange={(e) => setScopeProgram(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                          placeholder="اكتب نطاق البرنامج التنفيذي..."
+                        />
+                      </div>
+
+                      <div style={styles.scopeFieldCard}>
+                        <div style={styles.scopeFieldTitle}>المراسم والتوثيق</div>
+                        <textarea
+                          value={scopeCeremony}
+                          onChange={(e) => setScopeCeremony(e.target.value)}
+                          disabled={!canEditAdvancedExecution}
+                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                          placeholder="اكتب نطاق المراسم والتوثيق..."
+                        />
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  <div style={styles.scopeStrategyCard}>
-                    <div style={styles.label}>2.2 استراتيجية التنفيذ</div>
-                    <textarea
-                      value={executionStrategy}
-                      onChange={(e) => setExecutionStrategy(e.target.value)}
-                      disabled={!canEditAdvancedExecution}
-                      style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                      placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
-                    />
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.scopeSectionTitle}>2.2 استراتيجية التنفيذ</div>
+                    <div style={styles.scopeSectionHint}>
+                      اكتب منهجية التنفيذ والتنسيق والتشغيل الميداني بشكل مباشر.
+                    </div>
+
+                    <div style={styles.scopeStrategyCard}>
+                      <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
+                      <textarea
+                        value={executionStrategy}
+                        onChange={(e) => setExecutionStrategy(e.target.value)}
+                        disabled={!canEditAdvancedExecution}
+                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                        placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
+                      />
+                    </div>
                   </div>
                 </div>
 
