@@ -17,8 +17,9 @@ type StageUI =
 
 type DeliveryTrack = "fast" | "advanced";
 
-const SAUDI_RIYAL_SIGN = "\u20C1";
 const SAUDI_RIYAL_FALLBACK = "ر.س";
+const SAUDI_RIYAL_ICON_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Saudi_Riyal_Symbol.svg/32px-Saudi_Riyal_Symbol.svg.png";
 
 type AdvisorKey =
   | "financial_advisor"
@@ -626,22 +627,6 @@ function formatNumericForInput(value: number) {
   return fixed.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
-function supportsGlyph(glyph: string) {
-  if (typeof document === "undefined") return false;
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
-  ctx.font = '16px "Noto Sans Arabic", "Segoe UI Symbol", Arial, sans-serif';
-  const glyphWidth = ctx.measureText(glyph).width;
-  const replacementWidth = ctx.measureText("\uFFFD").width;
-  const emptySquareWidth = ctx.measureText("□").width;
-  return glyphWidth > 0 && glyphWidth !== replacementWidth && glyphWidth !== emptySquareWidth;
-}
-
-function resolveRiyalSymbol() {
-  return supportsGlyph(SAUDI_RIYAL_SIGN) ? SAUDI_RIYAL_SIGN : SAUDI_RIYAL_FALLBACK;
-}
-
 const STORAGE_KEY = "oms_dashboard_full_v1";
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
@@ -939,7 +924,7 @@ export default function Home() {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
-  const [riyalSymbol, setRiyalSymbol] = useState(SAUDI_RIYAL_FALLBACK);
+  const [useRiyalIcon, setUseRiyalIcon] = useState(true);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1413,10 +1398,6 @@ export default function Home() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    setRiyalSymbol(resolveRiyalSymbol());
-  }, []);
-
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
     if (!uiError && !uiSuccess) return;
@@ -1638,6 +1619,20 @@ export default function Home() {
           targetMarginPct: normalizedMargin,
         };
       })
+    );
+  }
+
+  function renderRiyalSuffix() {
+    if (!useRiyalIcon) return SAUDI_RIYAL_FALLBACK;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={SAUDI_RIYAL_ICON_URL}
+        alt=""
+        aria-hidden="true"
+        style={styles.riyalIcon}
+        onError={() => setUseRiyalIcon(false)}
+      />
     );
   }
 
@@ -4043,6 +4038,13 @@ export default function Home() {
         pointerEvents: "none",
         userSelect: "none",
       } as CSSProperties,
+      riyalIcon: {
+        width: 16,
+        height: 16,
+        objectFit: "contain",
+        display: "block",
+        opacity: 0.94,
+      } as CSSProperties,
       textarea: {
         width: "100%",
         padding: space.sm,
@@ -5776,7 +5778,7 @@ export default function Home() {
                         style={{ ...styles.input, paddingLeft: 44 }}
                         placeholder="مثال: 250000"
                       />
-                      <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                      <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
                     </div>
                   </div>
 
@@ -6800,7 +6802,7 @@ export default function Home() {
                               disabled={!canEditBoqPricing}
                               placeholder="سعر التكلفة للوحدة"
                             />
-                            <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                            <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
                           </div>
                           <div style={styles.inputSuffixWrap}>
                             <input
@@ -6825,7 +6827,7 @@ export default function Home() {
                               disabled={!canEditBoqPricing}
                               placeholder="سعر البيع للوحدة (يدوي)"
                             />
-                            <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                            <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
                           </div>
                           <select
                             value={row.source}
