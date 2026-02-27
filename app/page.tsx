@@ -191,6 +191,7 @@ type ActionTaskItem = {
 
 type RiskLevel = "منخفض" | "متوسط" | "مرتفع";
 type RiskStatus = "مفتوح" | "قيد المعالجة" | "مغلق" | "مصعّد";
+type RiskSeverity = "low" | "medium" | "high" | "critical";
 
 type LiveRiskItem = {
   id: string;
@@ -301,6 +302,26 @@ function riskLevelScore(level: RiskLevel) {
   if (level === "مرتفع") return 3;
   if (level === "متوسط") return 2;
   return 1;
+}
+
+function riskSeverityFromScore(score: number): RiskSeverity {
+  if (score >= 9) return "critical";
+  if (score >= 6) return "high";
+  if (score >= 3) return "medium";
+  return "low";
+}
+
+function riskSeverityLabel(severity: RiskSeverity) {
+  switch (severity) {
+    case "critical":
+      return "حرج";
+    case "high":
+      return "عالي";
+    case "medium":
+      return "متوسط";
+    default:
+      return "منخفض";
+  }
 }
 
 function userRoleLabel(role: UserRole) {
@@ -4988,34 +5009,183 @@ export default function Home() {
         fontWeight: 900,
         color: "rgba(255,255,255,0.95)",
       } as CSSProperties,
-      riskCard: (score: number, status: RiskStatus) =>
+      riskLegendRow: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gap: 8,
+      } as CSSProperties,
+      riskLegendItem: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "7px 8px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.88)",
+      } as CSSProperties,
+      riskLegendDot: (severity: RiskSeverity) =>
+        ({
+          width: 8,
+          height: 8,
+          borderRadius: 999,
+          background:
+            severity === "critical"
+              ? "#FF4F8B"
+              : severity === "high"
+                ? "#FF7A45"
+                : severity === "medium"
+                  ? "#FFC24D"
+                  : "#00E5FF",
+          boxShadow:
+            severity === "critical"
+              ? "0 0 10px rgba(255,79,139,0.5)"
+              : severity === "high"
+                ? "0 0 10px rgba(255,122,69,0.45)"
+                : severity === "medium"
+                  ? "0 0 10px rgba(255,194,77,0.45)"
+                  : "0 0 10px rgba(0,229,255,0.45)",
+          flexShrink: 0,
+        } as CSSProperties),
+      riskCard: (severity: RiskSeverity, status: RiskStatus) =>
         ({
           marginTop: 10,
           borderRadius: 12,
           border:
             status === "مغلق"
-              ? "1px solid rgba(0,255,133,0.26)"
-              : status === "مصعّد" || score >= 6
-                ? "1px solid rgba(255,122,69,0.30)"
-                : "1px solid rgba(0,229,255,0.24)",
+              ? "1px solid rgba(0,255,133,0.28)"
+              : severity === "critical"
+                ? "1px solid rgba(255,79,139,0.42)"
+                : severity === "high"
+                  ? "1px solid rgba(255,122,69,0.38)"
+                  : severity === "medium"
+                    ? "1px solid rgba(255,194,77,0.34)"
+                    : "1px solid rgba(0,229,255,0.28)",
           background:
             status === "مغلق"
               ? "rgba(0,255,133,0.06)"
-              : status === "مصعّد" || score >= 6
-                ? "rgba(255,122,69,0.08)"
-                : "rgba(0,229,255,0.06)",
+              : severity === "critical"
+                ? "linear-gradient(180deg, rgba(255,79,139,0.14), rgba(255,255,255,0.02))"
+                : severity === "high"
+                  ? "linear-gradient(180deg, rgba(255,122,69,0.13), rgba(255,255,255,0.02))"
+                  : severity === "medium"
+                    ? "linear-gradient(180deg, rgba(255,194,77,0.11), rgba(255,255,255,0.02))"
+                    : "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02))",
+          boxShadow:
+            status === "مغلق"
+              ? "none"
+              : severity === "critical"
+                ? "0 10px 24px rgba(255,79,139,0.14)"
+                : severity === "high"
+                  ? "0 10px 24px rgba(255,122,69,0.12)"
+                  : severity === "medium"
+                    ? "0 8px 20px rgba(255,194,77,0.10)"
+                    : "0 8px 18px rgba(0,229,255,0.09)",
           padding: 10,
         } as CSSProperties),
+      riskCardHead: {
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        justifyContent: "space-between",
+        gap: 8,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
       riskCardTitle: {
         fontSize: 13,
         fontWeight: 900,
         color: "rgba(255,255,255,0.96)",
       } as CSSProperties,
+      riskSeverityBadge: (severity: RiskSeverity) =>
+        ({
+          borderRadius: 999,
+          border:
+            severity === "critical"
+              ? "1px solid rgba(255,79,139,0.38)"
+              : severity === "high"
+                ? "1px solid rgba(255,122,69,0.34)"
+                : severity === "medium"
+                  ? "1px solid rgba(255,194,77,0.30)"
+                  : "1px solid rgba(0,229,255,0.28)",
+          background:
+            severity === "critical"
+              ? "rgba(255,79,139,0.14)"
+              : severity === "high"
+                ? "rgba(255,122,69,0.12)"
+                : severity === "medium"
+                  ? "rgba(255,194,77,0.10)"
+                  : "rgba(0,229,255,0.10)",
+          padding: "5px 9px",
+          fontSize: 11.5,
+          fontWeight: 800,
+          color: "white",
+          width: "fit-content",
+        } as CSSProperties),
+      riskStatusBadge: (status: RiskStatus) =>
+        ({
+          borderRadius: 999,
+          border:
+            status === "مغلق"
+              ? "1px solid rgba(0,255,133,0.30)"
+              : status === "مصعّد"
+                ? "1px solid rgba(255,79,139,0.36)"
+                : status === "قيد المعالجة"
+                  ? "1px solid rgba(255,194,77,0.30)"
+                  : "1px solid rgba(0,229,255,0.28)",
+          background:
+            status === "مغلق"
+              ? "rgba(0,255,133,0.10)"
+              : status === "مصعّد"
+                ? "rgba(255,79,139,0.12)"
+                : status === "قيد المعالجة"
+                  ? "rgba(255,194,77,0.10)"
+                  : "rgba(0,229,255,0.10)",
+          padding: "5px 9px",
+          fontSize: 11.5,
+          fontWeight: 800,
+          color: "white",
+          width: "fit-content",
+        } as CSSProperties),
       riskCardMeta: {
         marginTop: 4,
         fontSize: 11.5,
         color: "rgba(255,255,255,0.72)",
       } as CSSProperties,
+      riskLevelSelect: (level: RiskLevel) =>
+        ({
+          border:
+            level === "مرتفع"
+              ? "1px solid rgba(255,79,139,0.40)"
+              : level === "متوسط"
+                ? "1px solid rgba(255,194,77,0.34)"
+                : "1px solid rgba(0,229,255,0.30)",
+          background:
+            level === "مرتفع"
+              ? "rgba(255,79,139,0.10)"
+              : level === "متوسط"
+                ? "rgba(255,194,77,0.10)"
+                : "rgba(0,229,255,0.08)",
+        } as CSSProperties),
+      riskStatusSelect: (status: RiskStatus) =>
+        ({
+          border:
+            status === "مغلق"
+              ? "1px solid rgba(0,255,133,0.32)"
+              : status === "مصعّد"
+                ? "1px solid rgba(255,79,139,0.38)"
+                : status === "قيد المعالجة"
+                  ? "1px solid rgba(255,194,77,0.34)"
+                  : "1px solid rgba(0,229,255,0.30)",
+          background:
+            status === "مغلق"
+              ? "rgba(0,255,133,0.09)"
+              : status === "مصعّد"
+                ? "rgba(255,79,139,0.10)"
+                : status === "قيد المعالجة"
+                  ? "rgba(255,194,77,0.10)"
+                  : "rgba(0,229,255,0.08)",
+        } as CSSProperties),
       governanceBadge: (tone: "frozen" | "changed" | "idle") =>
         ({
           borderRadius: 999,
@@ -7215,6 +7385,25 @@ export default function Home() {
                       </div>
                     </div>
 
+                    <div style={styles.riskLegendRow}>
+                      <div style={styles.riskLegendItem}>
+                        <span style={styles.riskLegendDot("low")} />
+                        منخفض (1-2)
+                      </div>
+                      <div style={styles.riskLegendItem}>
+                        <span style={styles.riskLegendDot("medium")} />
+                        متوسط (3-4)
+                      </div>
+                      <div style={styles.riskLegendItem}>
+                        <span style={styles.riskLegendDot("high")} />
+                        عالي (6)
+                      </div>
+                      <div style={styles.riskLegendItem}>
+                        <span style={styles.riskLegendDot("critical")} />
+                        حرج (9)
+                      </div>
+                    </div>
+
                     <div style={styles.stackAfterBlock}>
                       <button
                         style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
@@ -7239,13 +7428,21 @@ export default function Home() {
                     ) : (
                       liveRiskItems.map((risk, idx) => {
                         const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
+                        const severity = riskSeverityFromScore(score);
                         return (
-                          <div key={risk.id} style={styles.riskCard(score, risk.status)}>
-                            <div style={styles.riskCardTitle}>
-                              {toArabicDigits(idx + 1)}. {risk.title || "خطر بدون عنوان"}
+                          <div key={risk.id} style={styles.riskCard(severity, risk.status)}>
+                            <div style={styles.riskCardHead}>
+                              <div style={styles.riskCardTitle}>
+                                {toArabicDigits(idx + 1)}. {risk.title || "خطر بدون عنوان"}
+                              </div>
+                              <div style={styles.riskSeverityBadge(severity)}>
+                                شدة: {riskSeverityLabel(severity)} ({toArabicDigits(score)}/9)
+                              </div>
                             </div>
                             <div style={styles.riskCardMeta}>
-                              درجة الخطر: {toArabicDigits(score)}/9
+                              <span style={styles.riskStatusBadge(risk.status)}>
+                                الحالة: {risk.status}
+                              </span>
                             </div>
 
                             <div style={styles.actionTaskGrid}>
@@ -7270,7 +7467,7 @@ export default function Home() {
                                       probability: e.target.value as RiskLevel,
                                     })
                                   }
-                                  style={styles.input}
+                                  style={{ ...styles.input, ...styles.riskLevelSelect(risk.probability) }}
                                   disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="منخفض">منخفض</option>
@@ -7287,7 +7484,7 @@ export default function Home() {
                                       impact: e.target.value as RiskLevel,
                                     })
                                   }
-                                  style={styles.input}
+                                  style={{ ...styles.input, ...styles.riskLevelSelect(risk.impact) }}
                                   disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="منخفض">منخفض</option>
@@ -7307,7 +7504,7 @@ export default function Home() {
                                       status: e.target.value as RiskStatus,
                                     })
                                   }
-                                  style={styles.input}
+                                  style={{ ...styles.input, ...styles.riskStatusSelect(risk.status) }}
                                   disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="مفتوح">مفتوح</option>
