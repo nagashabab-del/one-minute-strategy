@@ -143,6 +143,7 @@ type BoqItem = {
   qty: string;
   unitCost: string;
   unitSellPrice: string;
+  targetMarginPct: string;
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
   ownerRoleId: OrgRoleId | "";
@@ -603,6 +604,19 @@ function formatMoney(value: number) {
   return `${value < 0 ? "-" : ""}${formatted} ر.س`;
 }
 
+function suggestedSellFromMargin(unitCost: number, targetMarginPct: number) {
+  if (!Number.isFinite(unitCost) || unitCost <= 0) return null;
+  if (!Number.isFinite(targetMarginPct) || targetMarginPct < 0) return null;
+  return unitCost * (1 + targetMarginPct / 100);
+}
+
+function formatNumericForInput(value: number) {
+  if (!Number.isFinite(value)) return "";
+  const rounded = Math.round(value * 100) / 100;
+  const fixed = rounded.toFixed(2);
+  return fixed.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
@@ -614,6 +628,7 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     qty: "",
     unitCost: "",
     unitSellPrice: "",
+    targetMarginPct: "",
     source: "مورد",
     leadTimeDays: "",
     ownerRoleId: "",
@@ -723,6 +738,7 @@ function normalizeBoqItems(saved?: BoqItem[]) {
     ...row,
     unitCost: row.unitCost ?? "",
     unitSellPrice: row.unitSellPrice ?? "",
+    targetMarginPct: row.targetMarginPct ?? "",
     ownerRoleId: row.ownerRoleId ?? "",
     dependsOnBoqId: row.dependsOnBoqId ?? "",
     dependencyType: "FS",
@@ -1161,16 +1177,35 @@ export default function Home() {
     const rows = boqItems.map((row, idx) => {
       const qty = parseNumericInput(row.qty);
       const unitCost = parseNumericInput(row.unitCost);
-      const unitSellPrice = parseNumericInput(row.unitSellPrice);
+      const manualUnitSellPrice = parseNumericInput(row.unitSellPrice);
+      const hasTargetMargin = row.targetMarginPct.trim().length > 0;
+      const targetMarginPct = hasTargetMargin ? parseNumericInput(row.targetMarginPct) : 0;
+      const suggestedUnitSellPrice = hasTargetMargin
+        ? suggestedSellFromMargin(unitCost, targetMarginPct)
+        : null;
+      const usesManualSellPrice = row.unitSellPrice.trim().length > 0;
+      const unitSellPrice = usesManualSellPrice
+        ? manualUnitSellPrice
+        : (suggestedUnitSellPrice ?? 0);
       const totalCost = qty * unitCost;
       const totalSell = qty * unitSellPrice;
       const profit = totalSell - totalCost;
+      const sellGapVsSuggested =
+        usesManualSellPrice && suggestedUnitSellPrice !== null
+          ? manualUnitSellPrice - suggestedUnitSellPrice
+          : null;
       return {
         id: row.id,
         index: idx,
         label: boqRowLabel(row, idx),
         qty,
         unitCost,
+        manualUnitSellPrice,
+        targetMarginPct,
+        suggestedUnitSellPrice,
+        usesManualSellPrice,
+        usesSuggestedSellPrice: !usesManualSellPrice && suggestedUnitSellPrice !== null,
+        sellGapVsSuggested,
         unitSellPrice,
         totalCost,
         totalSell,
@@ -1574,6 +1609,7 @@ export default function Home() {
         qty: "",
         unitCost: "",
         unitSellPrice: "",
+        targetMarginPct: "",
         source: "مورد",
         leadTimeDays: "",
         ownerRoleId: defaultOwnerRoleId,
@@ -2199,12 +2235,11 @@ export default function Home() {
         const assignedRole = row.ownerRoleId
           ? orgRoles.find((role) => role.id === row.ownerRoleId)
           : null;
-        const qtyNum = parseNumericInput(row.qty);
-        const unitCostNum = parseNumericInput(row.unitCost);
-        const unitSellNum = parseNumericInput(row.unitSellPrice);
-        const lineCost = qtyNum * unitCostNum;
-        const lineSell = qtyNum * unitSellNum;
-        const lineProfit = lineSell - lineCost;
+        const financialRow = boqFinancialRowMap.get(row.id);
+        const qtyNum = financialRow?.qty ?? parseNumericInput(row.qty);
+        const lineCost = financialRow?.totalCost ?? qtyNum * parseNumericInput(row.unitCost);
+        const lineSell = financialRow?.totalSell ?? qtyNum * parseNumericInput(row.unitSellPrice);
+        const lineProfit = financialRow?.profit ?? lineSell - lineCost;
         const ownerSummary = assignedRole
           ? `${orgRoleDisplay(assignedRole)}${assignedRole.enabled ? "" : " (غير مفعّل)"}`
           : row.source === "أصل داخلي"
@@ -2213,7 +2248,13 @@ export default function Home() {
         const dependencySummary = row.dependsOnBoqId
           ? resolveBoqDependencyText(row)
           : "لا يوجد";
-        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}`;
+        const pricingModeSummary = financialRow?.usesSuggestedSellPrice
+          ? " (مقترح تلقائي)"
+          : "";
+        const targetMarginSummary = row.targetMarginPct.trim().length
+          ? ` — هامش مستهدف: ${toArabicDigits(row.targetMarginPct.trim())}%`
+          : "";
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع${pricingModeSummary}: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}${targetMarginSummary}`;
       })
       .join("\n");
 
@@ -2667,6 +2708,7 @@ export default function Home() {
           qty: "1",
           unitCost: "45000",
           unitSellPrice: "62000",
+          targetMarginPct: "30",
           source: "مورد",
           leadTimeDays: "5",
           ownerRoleId: "operations_manager",
@@ -2876,6 +2918,7 @@ export default function Home() {
         qty: "1",
         unitCost: "45000",
         unitSellPrice: "62000",
+        targetMarginPct: "30",
         source: "مورد",
         leadTimeDays: "5",
         ownerRoleId: "operations_manager",
@@ -2891,6 +2934,7 @@ export default function Home() {
         qty: "1",
         unitCost: "18000",
         unitSellPrice: "28500",
+        targetMarginPct: "35",
         source: "أصل داخلي",
         leadTimeDays: "2",
         ownerRoleId: "visitor_experience_manager",
@@ -3342,6 +3386,9 @@ export default function Home() {
     if (boqItems.length === 0) return 0;
     const fieldsPerRow = 10;
     const scorePerRow = boqItems.map((row) => {
+      const hasSellConfiguration =
+        row.unitSellPrice.trim().length > 0 ||
+        (row.targetMarginPct.trim().length > 0 && row.unitCost.trim().length > 0);
       const filled = [
         row.category.trim().length > 0,
         row.item.trim().length > 0,
@@ -3349,7 +3396,7 @@ export default function Home() {
         row.unit.trim().length > 0,
         row.qty.trim().length > 0,
         row.unitCost.trim().length > 0,
-        row.unitSellPrice.trim().length > 0,
+        hasSellConfiguration,
         row.source.trim().length > 0,
         row.leadTimeDays.trim().length > 0,
         row.ownerRoleId.trim().length > 0,
@@ -6622,6 +6669,14 @@ export default function Home() {
                       const hasIncompleteDependency =
                         !!dependencyRow && dependencyRow.item.trim().length === 0;
                       const isSelfDependency = row.dependsOnBoqId === row.id;
+                      const financialRow = boqFinancialRowMap.get(row.id);
+                      const suggestedUnitSellPrice = financialRow?.suggestedUnitSellPrice;
+                      const hasSuggestedSell = typeof suggestedUnitSellPrice === "number";
+                      const canApplySuggestedSell =
+                        !!financialRow &&
+                        hasSuggestedSell &&
+                        (row.unitSellPrice.trim().length === 0 ||
+                          Math.abs(financialRow.sellGapVsSuggested ?? 0) > 0.009);
                       return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.initFormGrid}>
@@ -6672,13 +6727,22 @@ export default function Home() {
                             placeholder="سعر التكلفة للوحدة"
                           />
                           <input
+                            value={row.targetMarginPct}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, { targetMarginPct: e.target.value })
+                            }
+                            style={styles.input}
+                            disabled={!canEditBoqPricing}
+                            placeholder="نسبة الربح المستهدفة % (اختياري)"
+                          />
+                          <input
                             value={row.unitSellPrice}
                             onChange={(e) =>
                               updateBoqItem(row.id, { unitSellPrice: e.target.value })
                             }
                             style={styles.input}
                             disabled={!canEditBoqPricing}
-                            placeholder="سعر البيع للوحدة"
+                            placeholder="سعر البيع للوحدة (يدوي)"
                           />
                           <select
                             value={row.source}
@@ -6728,15 +6792,47 @@ export default function Home() {
                         </div>
                         <div style={styles.textMutedSmallTop8}>
                           {(() => {
-                            const financialRow = boqFinancialRowMap.get(row.id);
-                            if (!financialRow) return "أدخل الكمية والتكلفة/البيع لحساب الربحية.";
+                            if (!financialRow) {
+                              return "أدخل الكمية والتكلفة وسعر البيع أو نسبة الربح لحساب الربحية.";
+                            }
+                            const suggestedLine =
+                              financialRow.suggestedUnitSellPrice !== null
+                                ? ` • البيع المقترح: ${formatMoney(financialRow.suggestedUnitSellPrice)}`
+                                : "";
+                            const modeLine = financialRow.usesSuggestedSellPrice
+                              ? " • التسعير الحالي: مقترح تلقائي"
+                              : row.unitSellPrice.trim().length > 0
+                                ? " • التسعير الحالي: يدوي"
+                                : "";
+                            const gapLine =
+                              financialRow.sellGapVsSuggested === null
+                                ? ""
+                                : ` • فرق اليدوي عن المقترح: ${formatMoney(financialRow.sellGapVsSuggested)}`;
                             return `التكلفة الإجمالية: ${formatMoney(
                               financialRow.totalCost
                             )} • البيع الإجمالي: ${formatMoney(
                               financialRow.totalSell
-                            )} • الربح: ${formatMoney(financialRow.profit)}`;
+                            )} • الربح: ${formatMoney(financialRow.profit)}${suggestedLine}${modeLine}${gapLine}`;
                           })()}
                         </div>
+                        {hasSuggestedSell ? (
+                          <div style={styles.blockTop8}>
+                            <button
+                              type="button"
+                              style={styles.compactGhostBtn}
+                              onClick={() =>
+                                updateBoqItem(row.id, {
+                                  unitSellPrice: formatNumericForInput(suggestedUnitSellPrice ?? 0),
+                                })
+                              }
+                              disabled={!canEditBoqPricing || !canApplySuggestedSell}
+                            >
+                              {row.unitSellPrice.trim().length > 0
+                                ? "اعتماد البيع المقترح"
+                                : "تثبيت البيع المقترح يدويًا"}
+                            </button>
+                          </div>
+                        ) : null}
                         <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
                           <select
                             value={row.dependsOnBoqId}
