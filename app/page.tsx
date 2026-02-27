@@ -4047,6 +4047,11 @@ export default function Home() {
         left: 12,
         top: "50%",
         transform: "translateY(-50%)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 16,
+        zIndex: 2,
         fontSize: 13,
         color: "rgba(255,255,255,0.74)",
         pointerEvents: "none",
@@ -8266,7 +8271,13 @@ export default function Home() {
                 </div>
                 <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>الميزانية</span>
-                  <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
+                  <span style={styles.v}>
+                    {budget?.trim()
+                      ? /[\d٠-٩]/.test(budget)
+                        ? renderMoneyValue(parseNumericInput(budget))
+                        : budget
+                      : "غير محدد"}
+                  </span>
                 </div>
                 <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>مدة الفعالية</span>
