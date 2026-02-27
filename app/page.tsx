@@ -1284,6 +1284,26 @@ export default function Home() {
     showError(`QA الصلاحيات: يوجد ${toArabicDigits(mismatches.length)} تعارض.`);
   }
 
+  async function copyRoleQaReport() {
+    if (roleQaReport.status === "idle") {
+      showError("شغّل فحص الصلاحيات أولًا قبل نسخ التقرير.");
+      return;
+    }
+
+    const lines = [
+      "تقرير QA الصلاحيات",
+      `النتيجة: ${roleQaReport.status === "pass" ? "ناجح" : "يوجد تعارض"}`,
+      `الملخص: ${roleQaReport.summary}`,
+      `وقت التشغيل: ${formatDateTimeLabel(roleQaReport.ranAt)}`,
+      "",
+      "التفاصيل:",
+      ...roleQaReport.lines.map((line, idx) => `${toArabicDigits(idx + 1)}. ${line}`),
+    ];
+
+    await navigator.clipboard.writeText(lines.join("\n"));
+    showSuccess("تم نسخ تقرير QA الصلاحيات.");
+  }
+
   function startLoading(context: LoadingContext) {
     clearStatus();
     setLoadingContext(context);
@@ -7184,6 +7204,15 @@ export default function Home() {
               <div style={styles.blockTop8}>
                 <button style={styles.secondaryBtn(false)} onClick={runRolePermissionQACheck}>
                   تشغيل فحص الصلاحيات (QA)
+                </button>
+              </div>
+              <div style={styles.blockTop8}>
+                <button
+                  style={styles.secondaryBtn(roleQaReport.status === "idle")}
+                  disabled={roleQaReport.status === "idle"}
+                  onClick={copyRoleQaReport}
+                >
+                  نسخ تقرير QA
                 </button>
               </div>
               <div style={styles.textMutedSmallTop8}>
