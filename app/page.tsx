@@ -117,6 +117,8 @@ type PersistedState = {
   boqItems?: BoqItem[];
   orgRoles?: OrgRole[];
   actionTrackerItems?: ActionTaskItem[];
+  baselineFreeze?: BaselineFreeze | null;
+  changeRequests?: ChangeRequest[];
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
@@ -165,6 +167,28 @@ type ActionTaskItem = {
   dueDate: string;
   notes: string;
   status: ActionTaskStatus;
+};
+
+type BaselineFreeze = {
+  id: string;
+  frozenAt: string;
+  signature: string;
+  note: string;
+};
+
+type ChangeRequestStatus = "مفتوح" | "معتمد" | "مرفوض";
+
+type ChangeRequest = {
+  id: string;
+  baselineId: string;
+  createdAt: string;
+  title: string;
+  reason: string;
+  impactTime: string;
+  impactCost: string;
+  impactScope: string;
+  requestedBy: string;
+  status: ChangeRequestStatus;
 };
 
 type LoadingContext =
@@ -516,6 +540,18 @@ export default function Home() {
   const [actionTrackerItems, setActionTrackerItems] = useState<ActionTaskItem[]>(
     initialSaved.actionTrackerItems ?? []
   );
+  const [baselineFreeze, setBaselineFreeze] = useState<BaselineFreeze | null>(
+    initialSaved.baselineFreeze ?? null
+  );
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>(
+    initialSaved.changeRequests ?? []
+  );
+  const [crTitle, setCrTitle] = useState("");
+  const [crReason, setCrReason] = useState("");
+  const [crImpactTime, setCrImpactTime] = useState("منخفض");
+  const [crImpactCost, setCrImpactCost] = useState("منخفض");
+  const [crImpactScope, setCrImpactScope] = useState("منخفض");
+  const [crRequestedBy, setCrRequestedBy] = useState("");
   const [advancedPlanText, setAdvancedPlanText] = useState(
     initialSaved.advancedPlanText ?? ""
   );
@@ -573,6 +609,32 @@ export default function Home() {
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
   const activeOrgRoles = orgRoles.filter((role) => role.enabled);
+  const advancedGovernanceSignature = JSON.stringify({
+    commissioningDate,
+    projectStartDate,
+    startAt,
+    endAt,
+    scopeSite,
+    scopeTechnical,
+    scopeProgram,
+    scopeCeremony,
+    executionStrategy,
+    qualityStandards,
+    riskManagement,
+    responseSla,
+    closureRemovalHours,
+    boqItems,
+    orgRoles,
+    advancedPlanText,
+    actionTrackerItems,
+  });
+  const hasFrozenBaseline = !!baselineFreeze;
+  const hasChangesAfterFreeze = hasFrozenBaseline
+    ? baselineFreeze.signature !== advancedGovernanceSignature
+    : false;
+  const openChangeRequests = changeRequests.filter((x) => x.status === "مفتوح").length;
+  const approvedChangeRequests = changeRequests.filter((x) => x.status === "معتمد").length;
+  const rejectedChangeRequests = changeRequests.filter((x) => x.status === "مرفوض").length;
   const actionTrackerStats = {
     total: actionTrackerItems.length,
     notStarted: actionTrackerItems.filter((item) => item.status === "لم تبدأ").length,
@@ -640,6 +702,8 @@ export default function Home() {
       boqItems,
       orgRoles,
       actionTrackerItems,
+      baselineFreeze,
+      changeRequests,
       advancedPlanText,
       advancedApproved,
       demoMode,
@@ -685,6 +749,8 @@ export default function Home() {
     boqItems,
     orgRoles,
     actionTrackerItems,
+    baselineFreeze,
+    changeRequests,
     advancedPlanText,
     advancedApproved,
     demoMode,
@@ -885,6 +951,73 @@ export default function Home() {
   function updateActionTrackerItem(id: string, patch: Partial<ActionTaskItem>) {
     setActionTrackerItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  }
+
+  function formatDateTimeLabel(iso: string) {
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) return "غير محدد";
+    return d.toLocaleString("ar-SA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function freezeCurrentBaseline() {
+    if (!advancedPlanText.trim()) {
+      showError("لا يمكن تجميد نسخة بدون توليد الخطة المتقدمة أولًا.");
+      return;
+    }
+
+    const freezeId = `baseline-${Date.now()}`;
+    setBaselineFreeze({
+      id: freezeId,
+      frozenAt: new Date().toISOString(),
+      signature: advancedGovernanceSignature,
+      note: advancedApproved ? "نسخة معتمدة" : "نسخة مجمّدة قبل الاعتماد النهائي",
+    });
+    showSuccess("تم تجميد النسخة الحالية بنجاح.");
+  }
+
+  function createChangeRequest() {
+    if (!baselineFreeze) {
+      showError("جمّد نسخة أولًا قبل إنشاء طلب تغيير.");
+      return;
+    }
+    if (!crTitle.trim() || !crReason.trim()) {
+      showError("اكتب عنوان طلب التغيير وسببه قبل الإضافة.");
+      return;
+    }
+
+    const request: ChangeRequest = {
+      id: `cr-${Date.now()}`,
+      baselineId: baselineFreeze.id,
+      createdAt: new Date().toISOString(),
+      title: crTitle.trim(),
+      reason: crReason.trim(),
+      impactTime: crImpactTime,
+      impactCost: crImpactCost,
+      impactScope: crImpactScope,
+      requestedBy: crRequestedBy.trim() || "غير محدد",
+      status: "مفتوح",
+    };
+
+    setChangeRequests((prev) => [request, ...prev]);
+    setCrTitle("");
+    setCrReason("");
+    setCrImpactTime("منخفض");
+    setCrImpactCost("منخفض");
+    setCrImpactScope("منخفض");
+    setCrRequestedBy("");
+    showSuccess("تم إنشاء طلب التغيير بنجاح.");
+  }
+
+  function updateChangeRequest(id: string, patch: Partial<ChangeRequest>) {
+    setChangeRequests((prev) =>
+      prev.map((request) => (request.id === id ? { ...request, ...patch } : request))
     );
   }
 
@@ -1618,6 +1751,14 @@ export default function Home() {
       )
     );
     setActionTrackerItems([]);
+    setBaselineFreeze(null);
+    setChangeRequests([]);
+    setCrTitle("");
+    setCrReason("");
+    setCrImpactTime("منخفض");
+    setCrImpactCost("منخفض");
+    setCrImpactScope("منخفض");
+    setCrRequestedBy("");
     setAdvancedPlanText(demoPlan);
     setAdvancedApproved(false);
     setNeedsReanalysisHint(false);
@@ -1865,6 +2006,18 @@ export default function Home() {
       alerts.push({
         text: "خطة التنفيذ المتقدمة تحتاج اعتماد نهائي قبل التجميد.",
         tone: "warn",
+      });
+    }
+    if (hasFrozenBaseline && hasChangesAfterFreeze && openChangeRequests === 0) {
+      alerts.push({
+        text: "تم تعديل النسخة بعد التجميد بدون طلب تغيير مفتوح.",
+        tone: "warn",
+      });
+    }
+    if (hasFrozenBaseline && openChangeRequests > 0) {
+      alerts.push({
+        text: `يوجد ${toArabicDigits(openChangeRequests)} طلب تغيير مفتوح للمراجعة.`,
+        tone: "info",
       });
     }
     if (stage === "advanced_plan" && actionTrackerStats.blocked > 0) {
@@ -3338,6 +3491,78 @@ export default function Home() {
       actionTaskNotes: {
         height: 84,
         marginTop: 8,
+      } as CSSProperties,
+      governanceBadge: (tone: "frozen" | "changed" | "idle") =>
+        ({
+          borderRadius: 999,
+          border:
+            tone === "frozen"
+              ? "1px solid rgba(0,255,133,0.30)"
+              : tone === "changed"
+                ? "1px solid rgba(255,194,77,0.30)"
+                : "1px solid rgba(255,255,255,0.16)",
+          background:
+            tone === "frozen"
+              ? "rgba(0,255,133,0.10)"
+              : tone === "changed"
+                ? "rgba(255,194,77,0.10)"
+                : "rgba(255,255,255,0.04)",
+          padding: "6px 10px",
+          fontSize: 12,
+          fontWeight: 800,
+          color: "white",
+          width: "fit-content",
+        } as CSSProperties),
+      governanceGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(3, 1fr)",
+        gap: 8,
+      } as CSSProperties,
+      governanceStat: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "8px 9px",
+      } as CSSProperties,
+      governanceStatLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.70)",
+      } as CSSProperties,
+      governanceStatValue: {
+        marginTop: 3,
+        fontSize: 14,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      crCard: (status: ChangeRequestStatus) =>
+        ({
+          marginTop: 8,
+          borderRadius: 10,
+          border:
+            status === "معتمد"
+              ? "1px solid rgba(0,255,133,0.26)"
+              : status === "مرفوض"
+                ? "1px solid rgba(255,79,216,0.28)"
+                : "1px solid rgba(0,229,255,0.24)",
+          background:
+            status === "معتمد"
+              ? "rgba(0,255,133,0.06)"
+              : status === "مرفوض"
+                ? "rgba(255,79,216,0.08)"
+                : "rgba(0,229,255,0.06)",
+          padding: "9px 10px",
+        } as CSSProperties),
+      crTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      crMeta: {
+        marginTop: 4,
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.74)",
+        lineHeight: 1.5,
       } as CSSProperties,
       radioLabel: {
         display: "flex",
@@ -5143,6 +5368,192 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.actionTrackerHead}>
+                      <div style={styles.qTitle}>حوكمة النسخة (Freeze + Change Request)</div>
+                      <div
+                        style={styles.governanceBadge(
+                          !hasFrozenBaseline
+                            ? "idle"
+                            : hasChangesAfterFreeze
+                              ? "changed"
+                              : "frozen"
+                        )}
+                      >
+                        {!hasFrozenBaseline
+                          ? "غير مجمّدة"
+                          : hasChangesAfterFreeze
+                            ? "مجمّدة مع تعديلات"
+                            : "مجمّدة بدون تعديلات"}
+                      </div>
+                    </div>
+
+                    <div style={styles.textMutedSmallTop8}>
+                      {hasFrozenBaseline
+                        ? `آخر تجميد: ${formatDateTimeLabel(baselineFreeze.frozenAt)}`
+                        : "جمّد النسخة بعد مراجعة الخطة، ثم استخدم طلبات التغيير لأي تعديل لاحق."}
+                    </div>
+
+                    <div style={styles.governanceGrid}>
+                      <div style={styles.governanceStat}>
+                        <div style={styles.governanceStatLabel}>طلبات مفتوحة</div>
+                        <div style={styles.governanceStatValue}>
+                          {toArabicDigits(openChangeRequests)}
+                        </div>
+                      </div>
+                      <div style={styles.governanceStat}>
+                        <div style={styles.governanceStatLabel}>طلبات معتمدة</div>
+                        <div style={styles.governanceStatValue}>
+                          {toArabicDigits(approvedChangeRequests)}
+                        </div>
+                      </div>
+                      <div style={styles.governanceStat}>
+                        <div style={styles.governanceStatLabel}>طلبات مرفوضة</div>
+                        <div style={styles.governanceStatValue}>
+                          {toArabicDigits(rejectedChangeRequests)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {hasFrozenBaseline && hasChangesAfterFreeze && openChangeRequests === 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه:</strong> تم تعديل البيانات بعد التجميد. أنشئ طلب تغيير
+                        قبل اعتماد نسخة جديدة.
+                      </div>
+                    ) : null}
+
+                    <div style={styles.blockTop12}>
+                      <button
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing() || !advancedPlanText.trim()}
+                        onClick={freezeCurrentBaseline}
+                      >
+                        {hasFrozenBaseline ? "تجميد نسخة جديدة" : "تجميد النسخة الحالية"}
+                      </button>
+                    </div>
+
+                    {hasFrozenBaseline ? (
+                      <>
+                        <div style={styles.blockTop12}>
+                          <div style={styles.label}>عنوان طلب التغيير</div>
+                          <input
+                            value={crTitle}
+                            onChange={(e) => setCrTitle(e.target.value)}
+                            style={styles.input}
+                            placeholder="مثال: تعديل جدول التوريد الفني"
+                          />
+                        </div>
+
+                        <div style={styles.blockTop8}>
+                          <div style={styles.label}>مقدّم الطلب</div>
+                          <input
+                            value={crRequestedBy}
+                            onChange={(e) => setCrRequestedBy(e.target.value)}
+                            style={styles.input}
+                            placeholder="اسم مقدم الطلب"
+                          />
+                        </div>
+
+                        <div style={styles.blockTop8}>
+                          <div style={styles.label}>سبب طلب التغيير</div>
+                          <textarea
+                            value={crReason}
+                            onChange={(e) => setCrReason(e.target.value)}
+                            style={styles.textarea}
+                            placeholder="اكتب سبب التغيير والأثر المتوقع..."
+                          />
+                        </div>
+
+                        <div style={{ ...styles.actionTaskGrid, marginTop: 8 }}>
+                          <div>
+                            <div style={styles.label}>أثر الوقت</div>
+                            <select
+                              value={crImpactTime}
+                              onChange={(e) => setCrImpactTime(e.target.value)}
+                              style={styles.input}
+                            >
+                              <option value="منخفض">منخفض</option>
+                              <option value="متوسط">متوسط</option>
+                              <option value="مرتفع">مرتفع</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={styles.label}>أثر التكلفة</div>
+                            <select
+                              value={crImpactCost}
+                              onChange={(e) => setCrImpactCost(e.target.value)}
+                              style={styles.input}
+                            >
+                              <option value="منخفض">منخفض</option>
+                              <option value="متوسط">متوسط</option>
+                              <option value="مرتفع">مرتفع</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={styles.label}>أثر النطاق</div>
+                            <select
+                              value={crImpactScope}
+                              onChange={(e) => setCrImpactScope(e.target.value)}
+                              style={styles.input}
+                            >
+                              <option value="منخفض">منخفض</option>
+                              <option value="متوسط">متوسط</option>
+                              <option value="مرتفع">مرتفع</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={styles.blockTop12}>
+                          <button
+                            style={styles.primaryBtn(isProcessing())}
+                            disabled={isProcessing()}
+                            onClick={createChangeRequest}
+                          >
+                            إنشاء طلب تغيير
+                          </button>
+                        </div>
+
+                        {changeRequests.length > 0 ? (
+                          <div style={styles.blockTop12}>
+                            <div style={styles.label}>سجل طلبات التغيير</div>
+                            {changeRequests.slice(0, 6).map((request) => (
+                              <div key={request.id} style={styles.crCard(request.status)}>
+                                <div style={styles.crTitle}>{request.title}</div>
+                                <div style={styles.crMeta}>
+                                  {request.reason}
+                                  <br />
+                                  مقدم الطلب: {request.requestedBy} • التاريخ:{" "}
+                                  {formatDateTimeLabel(request.createdAt)}
+                                  <br />
+                                  الأثر (وقت/تكلفة/نطاق): {request.impactTime} /{" "}
+                                  {request.impactCost} / {request.impactScope}
+                                </div>
+                                <div style={styles.blockTop8}>
+                                  <div style={styles.label}>حالة الطلب</div>
+                                  <select
+                                    value={request.status}
+                                    onChange={(e) =>
+                                      updateChangeRequest(request.id, {
+                                        status: e.target.value as ChangeRequestStatus,
+                                      })
+                                    }
+                                    style={styles.input}
+                                  >
+                                    <option value="مفتوح">مفتوح</option>
+                                    <option value="معتمد">معتمد</option>
+                                    <option value="مرفوض">مرفوض</option>
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
                   <label style={styles.radioLabel}>
                     <input
                       type="checkbox"
@@ -5319,6 +5730,26 @@ export default function Home() {
                 <div style={styles.textMutedSmallTop8}>
                   مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
                   {toArabicDigits(actionTrackerStats.blocked)}
+                </div>
+              </div>
+            ) : null}
+
+            {stage === "advanced_plan" ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>حوكمة التغيير</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  النسخة:{" "}
+                  <strong>
+                    {!hasFrozenBaseline
+                      ? "غير مجمّدة"
+                      : hasChangesAfterFreeze
+                        ? "مجمّدة مع تعديلات"
+                        : "مجمّدة"}
+                  </strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  طلبات مفتوحة: {toArabicDigits(openChangeRequests)} • معتمدة:{" "}
+                  {toArabicDigits(approvedChangeRequests)}
                 </div>
               </div>
             ) : null}
