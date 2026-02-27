@@ -120,6 +120,8 @@ type PersistedState = {
   liveRiskItems?: LiveRiskItem[];
   baselineFreeze?: BaselineFreeze | null;
   changeRequests?: ChangeRequest[];
+  managementBriefText?: string;
+  fieldChecklistText?: string;
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
@@ -243,6 +245,15 @@ function riskLevelScore(level: RiskLevel) {
   if (level === "مرتفع") return 3;
   if (level === "متوسط") return 2;
   return 1;
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function advisorIcon(key: string) {
@@ -576,6 +587,12 @@ export default function Home() {
   const [crImpactCost, setCrImpactCost] = useState("منخفض");
   const [crImpactScope, setCrImpactScope] = useState("منخفض");
   const [crRequestedBy, setCrRequestedBy] = useState("");
+  const [managementBriefText, setManagementBriefText] = useState(
+    initialSaved.managementBriefText ?? ""
+  );
+  const [fieldChecklistText, setFieldChecklistText] = useState(
+    initialSaved.fieldChecklistText ?? ""
+  );
   const [advancedPlanText, setAdvancedPlanText] = useState(
     initialSaved.advancedPlanText ?? ""
   );
@@ -744,6 +761,8 @@ export default function Home() {
       liveRiskItems,
       baselineFreeze,
       changeRequests,
+      managementBriefText,
+      fieldChecklistText,
       advancedPlanText,
       advancedApproved,
       demoMode,
@@ -792,6 +811,8 @@ export default function Home() {
     liveRiskItems,
     baselineFreeze,
     changeRequests,
+    managementBriefText,
+    fieldChecklistText,
     advancedPlanText,
     advancedApproved,
     demoMode,
@@ -1134,6 +1155,148 @@ export default function Home() {
     setChangeRequests((prev) =>
       prev.map((request) => (request.id === id ? { ...request, ...patch } : request))
     );
+  }
+
+  function buildExecutionOutputPack(
+    trackerItems: ActionTaskItem[] = actionTrackerItems,
+    riskItems: LiveRiskItem[] = liveRiskItems
+  ) {
+    const generatedAt = formatDateTimeLabel(new Date().toISOString());
+    const topOperationalItems = trackerItems.slice(0, 10);
+    const topRisks = [...riskItems]
+      .sort(
+        (a, b) =>
+          riskLevelScore(b.probability) * riskLevelScore(b.impact) -
+          riskLevelScore(a.probability) * riskLevelScore(a.impact)
+      )
+      .slice(0, 5);
+
+    const managementBrief = [
+      "ملخص تنفيذي للإدارة",
+      "",
+      `تاريخ التحديث: ${generatedAt}`,
+      `نوع المشروع: ${eventType}`,
+      `الموقع: ${venueType}`,
+      `بداية الفعالية: ${startAt || "غير محدد"}`,
+      `نهاية الفعالية: ${endAt || "غير محدد"}`,
+      `الميزانية: ${budget || "غير محدد"}`,
+      "",
+      "مؤشرات سريعة:",
+      `- إنجاز التنفيذ: ${toArabicDigits(actionTrackerProgress)}%`,
+      `- مهام مكتملة: ${toArabicDigits(actionTrackerStats.done)}/${toArabicDigits(actionTrackerStats.total)}`,
+      `- مخاطر حرجة نشطة: ${toArabicDigits(liveRiskStats.critical)}`,
+      `- مخاطر مصعّدة: ${toArabicDigits(liveRiskStats.escalated)}`,
+      "",
+      "أولوية العمل الحالية:",
+      ...topOperationalItems.map(
+        (item, idx) =>
+          `- ${toArabicDigits(idx + 1)}) ${item.task} | الحالة: ${item.status} | المسؤول: ${
+            item.owner || "غير محدد"
+          } | الاستحقاق: ${item.dueDate || "غير محدد"}`
+      ),
+      "",
+      "أهم المخاطر:",
+      ...(topRisks.length
+        ? topRisks.map(
+            (risk, idx) =>
+              `- ${toArabicDigits(idx + 1)}) ${risk.title || "خطر بدون عنوان"} | ${risk.status} | المالك: ${
+                risk.owner || "غير محدد"
+              } | المعالجة: ${risk.mitigation || "غير محددة"}`
+          )
+        : ["- لا توجد مخاطر مدخلة في اللوحة الحية."]),
+    ].join("\n");
+
+    const fieldChecklist = [
+      "نسخة تشغيل ميدانية (Checklist)",
+      "",
+      `تاريخ التحديث: ${generatedAt}`,
+      `الفعالية: ${eventType} | الموقع: ${venueType}`,
+      "",
+      "قبل بدء الفعالية:",
+      "☐ تأكيد جاهزية الموقع والقاعات",
+      "☐ اختبار الصوت/الإضاءة/الشاشات",
+      "☐ مراجعة خطة المراسم والاستقبال",
+      "☐ مراجعة خطة الطوارئ والتصعيد",
+      "",
+      "مهام التشغيل الفعلية:",
+      ...trackerItems.map(
+        (item, idx) =>
+          `☐ ${toArabicDigits(idx + 1)}) [${item.phase}] ${item.task} | الحالة الحالية: ${
+            item.status
+          } | المسؤول: ${item.owner || "غير محدد"} | الموعد: ${item.dueDate || "غير محدد"}`
+      ),
+      "",
+      "نقاط مخاطر يجب متابعتها:",
+      ...(riskItems.length
+        ? riskItems.map(
+            (risk, idx) =>
+              `☐ ${toArabicDigits(idx + 1)}) ${risk.title || "خطر بدون عنوان"} | ${risk.status} | مراجعة: ${
+                risk.reviewDate || "غير محدد"
+              }`
+          )
+        : ["☐ لا توجد مخاطر مضافة بعد."]),
+      "",
+      "الإقفال:",
+      "☐ توثيق الملاحظات النهائية",
+      "☐ استلام الموقع وإغلاق المحاضر",
+      "☐ رفع تقرير ما بعد التنفيذ",
+    ].join("\n");
+
+    return { managementBrief, fieldChecklist };
+  }
+
+  function refreshExecutionOutputPack(
+    trackerItems: ActionTaskItem[] = actionTrackerItems,
+    riskItems: LiveRiskItem[] = liveRiskItems
+  ) {
+    const outputs = buildExecutionOutputPack(trackerItems, riskItems);
+    setManagementBriefText(outputs.managementBrief);
+    setFieldChecklistText(outputs.fieldChecklist);
+    showSuccess("تم تحديث حزمة المخرجات التنفيذية.");
+  }
+
+  async function copyOutputText(text: string, successMessage: string) {
+    if (!text.trim()) {
+      showError("لا يوجد محتوى للنسخ بعد. اضغط تحديث حزمة المخرجات أولاً.");
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    showSuccess(successMessage);
+  }
+
+  function printOutputDocument(title: string, content: string) {
+    if (!content.trim()) {
+      showError("لا يوجد محتوى للطباعة بعد. اضغط تحديث حزمة المخرجات أولاً.");
+      return;
+    }
+    const w = window.open("", "_blank", "noopener,noreferrer,width=980,height=760");
+    if (!w) {
+      showError("تعذر فتح نافذة الطباعة. تحقق من إعدادات المتصفح.");
+      return;
+    }
+    const safeTitle = escapeHtml(title);
+    const safeContent = escapeHtml(content);
+    w.document.write(`
+      <!doctype html>
+      <html lang="ar" dir="rtl">
+        <head>
+          <meta charset="utf-8" />
+          <title>${safeTitle}</title>
+          <style>
+            body { font-family: Tahoma, Arial, sans-serif; margin: 24px; color: #111; }
+            h1 { font-size: 20px; margin: 0 0 14px 0; }
+            pre { white-space: pre-wrap; line-height: 1.8; font-size: 14px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <h1>${safeTitle}</h1>
+          <pre>${safeContent}</pre>
+        </body>
+      </html>
+    `);
+    w.document.close();
+    w.focus();
+    w.print();
   }
 
   function openAdvancedTrack() {
@@ -1608,6 +1771,9 @@ export default function Home() {
     ].join("\n");
 
     setActionTrackerItems(generatedTrackerItems);
+    const outputs = buildExecutionOutputPack(generatedTrackerItems, liveRiskItems);
+    setManagementBriefText(outputs.managementBrief);
+    setFieldChecklistText(outputs.fieldChecklist);
     setAdvancedPlanText(plan);
     setStage("advanced_plan");
     showSuccess("تم توليد خطة التنفيذ المتقدمة بنجاح.");
@@ -1912,6 +2078,8 @@ export default function Home() {
       },
     ]);
     setActionTrackerItems([]);
+    setManagementBriefText("");
+    setFieldChecklistText("");
     setBaselineFreeze(null);
     setChangeRequests([]);
     setCrTitle("");
@@ -3691,6 +3859,35 @@ export default function Home() {
       actionTaskNotes: {
         height: 84,
         marginTop: 8,
+      } as CSSProperties,
+      outputPackRow: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      outputPackCard: {
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: 10,
+      } as CSSProperties,
+      outputPackTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      outputPackActions: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      outputPackTextarea: {
+        height: isMobile ? 220 : 260,
+        marginTop: 8,
+        fontSize: 13,
+        lineHeight: 1.75,
       } as CSSProperties,
       riskBoardHead: {
         display: "flex",
@@ -6010,6 +6207,88 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.actionTrackerHead}>
+                      <div style={styles.qTitle}>حزمة مخرجات التنفيذ الجاهزة للطباعة</div>
+                      <button
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing()}
+                        onClick={() => refreshExecutionOutputPack()}
+                      >
+                        تحديث حزمة المخرجات
+                      </button>
+                    </div>
+                    <div style={styles.textMutedSmallTop8}>
+                      يمكنك نسخ المخرجات مباشرة أو فتح نافذة الطباعة وتحويلها إلى PDF.
+                    </div>
+
+                    <div style={styles.outputPackRow}>
+                      <div style={styles.outputPackCard}>
+                        <div style={styles.outputPackTitle}>نسخة الإدارة المختصرة</div>
+                        <div style={styles.outputPackActions}>
+                          <button
+                            style={styles.ghostBtn}
+                            onClick={() =>
+                              copyOutputText(
+                                managementBriefText,
+                                "تم نسخ نسخة الإدارة المختصرة."
+                              )
+                            }
+                          >
+                            نسخ
+                          </button>
+                          <button
+                            style={styles.ghostBtn}
+                            onClick={() =>
+                              printOutputDocument("نسخة الإدارة المختصرة", managementBriefText)
+                            }
+                          >
+                            طباعة / PDF
+                          </button>
+                        </div>
+                        <textarea
+                          readOnly
+                          value={managementBriefText}
+                          style={{ ...styles.textarea, ...styles.outputPackTextarea }}
+                          placeholder="اضغط تحديث حزمة المخرجات لتوليد نسخة الإدارة."
+                        />
+                      </div>
+
+                      <div style={styles.outputPackCard}>
+                        <div style={styles.outputPackTitle}>نسخة التشغيل الميداني (Checklist)</div>
+                        <div style={styles.outputPackActions}>
+                          <button
+                            style={styles.ghostBtn}
+                            onClick={() =>
+                              copyOutputText(
+                                fieldChecklistText,
+                                "تم نسخ نسخة التشغيل الميداني."
+                              )
+                            }
+                          >
+                            نسخ
+                          </button>
+                          <button
+                            style={styles.ghostBtn}
+                            onClick={() =>
+                              printOutputDocument("نسخة التشغيل الميداني", fieldChecklistText)
+                            }
+                          >
+                            طباعة / PDF
+                          </button>
+                        </div>
+                        <textarea
+                          readOnly
+                          value={fieldChecklistText}
+                          style={{ ...styles.textarea, ...styles.outputPackTextarea }}
+                          placeholder="اضغط تحديث حزمة المخرجات لتوليد نسخة التشغيل الميداني."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
                   <label style={styles.radioLabel}>
                     <input
                       type="checkbox"
@@ -6221,6 +6500,20 @@ export default function Home() {
                 <div style={styles.textMutedSmallTop8}>
                   طلبات مفتوحة: {toArabicDigits(openChangeRequests)} • معتمدة:{" "}
                   {toArabicDigits(approvedChangeRequests)}
+                </div>
+              </div>
+            ) : null}
+
+            {stage === "advanced_plan" ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>مخرجات الطباعة</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  نسخة الإدارة:{" "}
+                  <strong>{managementBriefText.trim() ? "جاهزة" : "غير محدثة"}</strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  نسخة الميدان:{" "}
+                  <strong>{fieldChecklistText.trim() ? "جاهزة" : "غير محدثة"}</strong>
                 </div>
               </div>
             ) : null}
