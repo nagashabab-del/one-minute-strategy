@@ -269,6 +269,16 @@ function userRoleLabel(role: UserRole) {
   }
 }
 
+function allowedRolesLabel(roles: UserRole[]) {
+  return roles.map(userRoleLabel).join(" أو ");
+}
+
+function permissionHintText(scope: string, roles: UserRole[], currentRole: UserRole) {
+  return `لا يمكنك ${scope} بدور ${userRoleLabel(currentRole)}. الصلاحية متاحة لـ ${allowedRolesLabel(
+    roles
+  )}.`;
+}
+
 function escapeHtml(text: string) {
   return text
     .replaceAll("&", "&amp;")
@@ -692,6 +702,141 @@ export default function Home() {
   const canApproveAdvancedPlan = userRole === "project_manager";
   const canResetSession = userRole === "project_manager";
   const canLoadDemo = userRole !== "viewer";
+  const roleCapabilities = [
+    { id: "session", label: "إعداد الجلسة", enabled: canEditSessionSetup },
+    { id: "project", label: "بيانات المشروع", enabled: canEditProjectCore },
+    { id: "budget", label: "الميزانية", enabled: canEditBudget },
+    {
+      id: "analysis",
+      label: "الإجابات والتحليل",
+      enabled: canEditAnswers && canRunAnalysisFlow,
+    },
+    { id: "advanced_exec", label: "المسار المتقدم", enabled: canEditAdvancedExecution },
+    { id: "governance", label: "الحوكمة", enabled: canEditGovernance },
+    { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
+  ] as const;
+  const stagePermissionHints = useMemo(() => {
+    const hints: string[] = [];
+
+    if (stage === "init" && initStep === "session" && !canEditSessionSetup) {
+      hints.push(
+        permissionHintText("تعديل إعدادات الجلسة", ["project_manager", "operations_manager"], userRole)
+      );
+    }
+
+    if (stage === "init" && initStep === "project") {
+      if (!canEditProjectCore) {
+        hints.push(
+          permissionHintText(
+            "تعديل بيانات المشروع الأساسية",
+            ["project_manager", "operations_manager"],
+            userRole
+          )
+        );
+      }
+      if (!canEditBudget) {
+        hints.push(
+          permissionHintText(
+            "تعديل الميزانية",
+            ["project_manager", "finance_manager"],
+            userRole
+          )
+        );
+      }
+      if (!canRunAnalysisFlow) {
+        hints.push(
+          permissionHintText(
+            "بدء الجلسة والتحليل",
+            ["project_manager", "operations_manager"],
+            userRole
+          )
+        );
+      }
+    }
+
+    if ((stage === "round1" || stage === "round2" || stage === "addition") && !canEditAnswers) {
+      hints.push(
+        permissionHintText("تعديل إجابات الأسئلة", ["project_manager", "operations_manager"], userRole)
+      );
+    }
+    if (
+      (stage === "round1" || stage === "round2" || stage === "dialogue" || stage === "addition") &&
+      !canRunAnalysisFlow
+    ) {
+      hints.push(
+        permissionHintText("متابعة خطوات التحليل", ["project_manager", "operations_manager"], userRole)
+      );
+    }
+
+    if (stage === "done") {
+      if (!canEditAdvancedExecution && !canEditGovernance) {
+        hints.push(
+          permissionHintText(
+            "الدخول للمسار المتقدم",
+            ["project_manager", "operations_manager", "finance_manager"],
+            userRole
+          )
+        );
+      }
+      if (!canRunAnalysisFlow) {
+        hints.push(
+          permissionHintText(
+            "الرجوع لتعديل المدخلات وإعادة التحليل",
+            ["project_manager", "operations_manager"],
+            userRole
+          )
+        );
+      }
+    }
+
+    if ((stage === "advanced_scope" || stage === "advanced_boq") && !canEditAdvancedExecution) {
+      hints.push(
+        permissionHintText(
+          "تعديل بيانات التنفيذ المتقدم",
+          ["project_manager", "operations_manager"],
+          userRole
+        )
+      );
+    }
+
+    if (stage === "advanced_plan") {
+      if (!canEditAdvancedExecution) {
+        hints.push(
+          permissionHintText(
+            "تعديل متابعة التنفيذ (Action Tracker)",
+            ["project_manager", "operations_manager"],
+            userRole
+          )
+        );
+      }
+      if (!canEditGovernance) {
+        hints.push(
+          permissionHintText(
+            "تجميد النسخة وطلبات التغيير",
+            ["project_manager", "finance_manager"],
+            userRole
+          )
+        );
+      }
+      if (!canApproveAdvancedPlan) {
+        hints.push(permissionHintText("الاعتماد النهائي للخطة", ["project_manager"], userRole));
+      }
+    }
+
+    return hints;
+  }, [
+    stage,
+    initStep,
+    userRole,
+    canEditSessionSetup,
+    canEditProjectCore,
+    canEditBudget,
+    canEditAnswers,
+    canRunAnalysisFlow,
+    canEditAdvancedExecution,
+    canEditGovernance,
+    canApproveAdvancedPlan,
+  ]);
   const advancedGovernanceSignature = JSON.stringify({
     commissioningDate,
     projectStartDate,
@@ -3374,6 +3519,26 @@ export default function Home() {
         border: "1px solid rgba(255, 200, 0, 0.18)",
         marginTop: 10,
       },
+      permissionHintBox: {
+        marginTop: 8,
+        marginBottom: 10,
+        padding: "10px 12px",
+        borderRadius: 12,
+        background: "rgba(0, 229, 255, 0.08)",
+        border: "1px solid rgba(0, 229, 255, 0.22)",
+      } as CSSProperties,
+      permissionHintTitle: {
+        fontSize: 12.5,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+        marginBottom: 6,
+      } as CSSProperties,
+      permissionHintItem: {
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.88)",
+        lineHeight: 1.55,
+        marginTop: 4,
+      } as CSSProperties,
       successBox: {
         padding: 12,
         borderRadius: 14,
@@ -3772,6 +3937,23 @@ export default function Home() {
         gridTemplateColumns: "1fr 1fr",
         gap: 10,
       } as CSSProperties,
+      roleGuideGrid: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      roleGuideChip: (enabled: boolean) =>
+        ({
+          borderRadius: 10,
+          border: enabled
+            ? "1px solid rgba(0,255,133,0.24)"
+            : "1px solid rgba(255,255,255,0.12)",
+          background: enabled ? "rgba(0,255,133,0.08)" : "rgba(255,255,255,0.03)",
+          padding: "7px 8px",
+          fontSize: 11.5,
+          lineHeight: 1.45,
+          color: "rgba(255,255,255,0.92)",
+        } as CSSProperties),
       miniStat: {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.06)",
@@ -4626,6 +4808,15 @@ export default function Home() {
                   width: isMobile ? "100%" : 280,
                 }}
                 disabled={!canLoadDemo}
+                title={
+                  canLoadDemo
+                    ? undefined
+                    : permissionHintText(
+                        "تحميل النموذج التجريبي",
+                        ["project_manager", "operations_manager", "finance_manager"],
+                        userRole
+                      )
+                }
                 onClick={fillFullTestModel}
               >
                 🧪 تحميل نموذج تجريبي كامل
@@ -4680,6 +4871,11 @@ export default function Home() {
                     style={styles.ghostBtn}
                     onClick={clearSession}
                     disabled={!canResetSession}
+                    title={
+                      canResetSession
+                        ? undefined
+                        : permissionHintText("مسح الجلسة", ["project_manager"], userRole)
+                    }
                   >
                     مسح الجلسة
                   </button>
@@ -4720,6 +4916,17 @@ export default function Home() {
             </p>
 
             <hr style={styles.hr} />
+
+            {stagePermissionHints.length > 0 ? (
+              <div style={styles.permissionHintBox}>
+                <div style={styles.permissionHintTitle}>قيود الصلاحية في هذه المرحلة</div>
+                {stagePermissionHints.map((hint, idx) => (
+                  <div key={idx} style={styles.permissionHintItem}>
+                    • {hint}
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {/* INIT */}
             {stage === "init" && (
@@ -4876,6 +5083,15 @@ export default function Home() {
                       <button
                         style={styles.primaryBtn(!canMoveToProjectStep || !canEditSessionSetup)}
                         disabled={!canMoveToProjectStep || !canEditSessionSetup}
+                        title={
+                          !canEditSessionSetup
+                            ? permissionHintText(
+                                "الانتقال لتفاصيل المشروع",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                            : undefined
+                        }
                         onClick={() => setInitStep("project")}
                       >
                         التالي: تفاصيل المشروع
@@ -4981,6 +5197,15 @@ export default function Home() {
                           !canStart || isProcessing() || hasInvalidTimeRange() || !canRunAnalysisFlow
                         )}
                         disabled={!canStart || isProcessing() || hasInvalidTimeRange() || !canRunAnalysisFlow}
+                        title={
+                          !canRunAnalysisFlow
+                            ? permissionHintText(
+                                "بدء الجلسة",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                            : undefined
+                        }
                         onClick={startSession}
                       >
                         {actionLabel("ابدأ الجلسة", "start_session")}
@@ -5045,6 +5270,15 @@ export default function Home() {
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
+                    title={
+                      !canRunAnalysisFlow
+                        ? permissionHintText(
+                            "متابعة الجولة التالية",
+                            ["project_manager", "operations_manager"],
+                            userRole
+                          )
+                        : undefined
+                    }
                     onClick={submitRound1}
                   >
                     {actionLabel("التالي: تدقيق إضافي", "submit_round1")}
@@ -5105,6 +5339,15 @@ export default function Home() {
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
+                    title={
+                      !canRunAnalysisFlow
+                        ? permissionHintText(
+                            "متابعة الحوار",
+                            ["project_manager", "operations_manager"],
+                            userRole
+                          )
+                        : undefined
+                    }
                     onClick={submitRound2}
                   >
                     {actionLabel("التالي: حوار المستشارين", "build_dialogue")}
@@ -5162,6 +5405,15 @@ export default function Home() {
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
+                    title={
+                      !canRunAnalysisFlow
+                        ? permissionHintText(
+                            "الانتقال لمرحلة الإضافة",
+                            ["project_manager", "operations_manager"],
+                            userRole
+                          )
+                        : undefined
+                    }
                     onClick={() => setStage("addition")}
                   >
                     التالي: هل لديك إضافة؟
@@ -5278,6 +5530,15 @@ export default function Home() {
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
+                    title={
+                      !canRunAnalysisFlow
+                        ? permissionHintText(
+                            "تشغيل التحليل",
+                            ["project_manager", "operations_manager"],
+                            userRole
+                          )
+                        : undefined
+                    }
                     onClick={runAnalysis}
                   >
                     {actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis")}
@@ -5553,15 +5814,24 @@ export default function Home() {
                 </div>
 
                 <div style={styles.stackAfterSection}>
-	                  <button
-	                    style={styles.primaryBtn(
-	                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
-	                    )}
-	                    disabled={
-	                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
-	                    }
-	                    onClick={openAdvancedTrack}
-	                  >
+		                  <button
+		                    style={styles.primaryBtn(
+		                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+		                    )}
+		                    disabled={
+		                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+		                    }
+                        title={
+                          !canEditAdvancedExecution && !canEditGovernance
+                            ? permissionHintText(
+                                "فتح المسار المتقدم",
+                                ["project_manager", "operations_manager", "finance_manager"],
+                                userRole
+                              )
+                            : undefined
+                        }
+		                    onClick={openAdvancedTrack}
+		                  >
                     {deliveryTrack === "advanced"
                       ? "التالي: استكمال المسار المتقدم"
                       : "ترقية إلى المسار المتقدم"}
@@ -6150,6 +6420,15 @@ export default function Home() {
                       !canBuildAdvancedPlan || isProcessing() || !canEditAdvancedExecution
                     )}
                     disabled={!canBuildAdvancedPlan || isProcessing() || !canEditAdvancedExecution}
+                    title={
+                      !canEditAdvancedExecution
+                        ? permissionHintText(
+                            "توليد خطة التنفيذ المتقدمة",
+                            ["project_manager", "operations_manager"],
+                            userRole
+                          )
+                        : undefined
+                    }
                     onClick={buildAdvancedPlan}
                   >
                     توليد خطة التنفيذ المتقدمة
@@ -6358,6 +6637,15 @@ export default function Home() {
                       <button
                         style={styles.secondaryBtn(isProcessing() || !canEditGovernance)}
                         disabled={isProcessing() || !advancedPlanText.trim() || !canEditGovernance}
+                        title={
+                          !canEditGovernance
+                            ? permissionHintText(
+                                "تجميد النسخة",
+                                ["project_manager", "finance_manager"],
+                                userRole
+                              )
+                            : undefined
+                        }
                         onClick={freezeCurrentBaseline}
                       >
                         {hasFrozenBaseline ? "تجميد نسخة جديدة" : "تجميد النسخة الحالية"}
@@ -6445,6 +6733,15 @@ export default function Home() {
                           <button
                             style={styles.primaryBtn(isProcessing() || !canEditGovernance)}
                             disabled={isProcessing() || !canEditGovernance}
+                            title={
+                              !canEditGovernance
+                                ? permissionHintText(
+                                    "إنشاء طلب تغيير",
+                                    ["project_manager", "finance_manager"],
+                                    userRole
+                                  )
+                                : undefined
+                            }
                             onClick={createChangeRequest}
                           >
                             إنشاء طلب تغيير
@@ -6595,6 +6892,11 @@ export default function Home() {
                   <button
                     style={styles.primaryBtn(isProcessing() || !canApproveAdvancedPlan)}
                     disabled={isProcessing() || !canApproveAdvancedPlan}
+                    title={
+                      !canApproveAdvancedPlan
+                        ? permissionHintText("اعتماد الخطة", ["project_manager"], userRole)
+                        : undefined
+                    }
                     onClick={() =>
                       showSuccess(
                         advancedApproved
@@ -6665,6 +6967,20 @@ export default function Home() {
                   : userRole === "finance_manager"
                     ? "يمكنك تعديل الميزانية والحوكمة."
                     : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
+              </div>
+            </div>
+
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>دليل الصلاحيات</div>
+              <div style={styles.roleGuideGrid}>
+                {roleCapabilities.map((cap) => (
+                  <div key={cap.id} style={styles.roleGuideChip(cap.enabled)}>
+                    {cap.enabled ? "✓" : "—"} {cap.label}
+                  </div>
+                ))}
+              </div>
+              <div style={styles.textMutedSmallTop8}>
+                غيّر الدور من أعلى الصفحة لمراجعة الصلاحيات المتاحة لكل شاشة.
               </div>
             </div>
 
