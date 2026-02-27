@@ -4556,6 +4556,31 @@ export default function Home() {
                   ? "#00E5FF"
                   : "rgba(255,255,255,0.9)",
         } as CSSProperties),
+      scopeFieldsGrid: {
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      scopeFieldCard: {
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        padding: 10,
+      } as CSSProperties,
+      scopeTextarea: {
+        minHeight: isNarrowMobile ? 130 : 140,
+      } as CSSProperties,
+      scopeStrategyCard: {
+        marginTop: 12,
+        borderRadius: 12,
+        border: "1px solid rgba(0,229,255,0.22)",
+        background: "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02))",
+        padding: 10,
+      } as CSSProperties,
+      scopeStrategyTextarea: {
+        minHeight: isNarrowMobile ? 130 : 150,
+      } as CSSProperties,
       selectorRow: {
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
@@ -7041,58 +7066,62 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.1 نطاق العمل - الموقع والتجهيزات</div>
-                  <textarea
-                    value={scopeSite}
-                    onChange={(e) => setScopeSite(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.textarea}
-                    placeholder="اكتب نطاق الموقع والتجهيزات..."
-                  />
-                </div>
+                  <div style={styles.scopeFieldsGrid}>
+                    <div style={styles.scopeFieldCard}>
+                      <div style={styles.label}>2.1 نطاق العمل - الموقع والتجهيزات</div>
+                      <textarea
+                        value={scopeSite}
+                        onChange={(e) => setScopeSite(e.target.value)}
+                        disabled={!canEditAdvancedExecution}
+                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                        placeholder="اكتب نطاق الموقع والتجهيزات..."
+                      />
+                    </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.1 نطاق العمل - التجهيزات الفنية</div>
-                  <textarea
-                    value={scopeTechnical}
-                    onChange={(e) => setScopeTechnical(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.textarea}
-                    placeholder="اكتب نطاق التجهيزات الفنية..."
-                  />
-                </div>
+                    <div style={styles.scopeFieldCard}>
+                      <div style={styles.label}>2.1 نطاق العمل - التجهيزات الفنية</div>
+                      <textarea
+                        value={scopeTechnical}
+                        onChange={(e) => setScopeTechnical(e.target.value)}
+                        disabled={!canEditAdvancedExecution}
+                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                        placeholder="اكتب نطاق التجهيزات الفنية..."
+                      />
+                    </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.1 نطاق العمل - البرنامج التنفيذي / المراسم</div>
-                  <textarea
-                    value={scopeProgram}
-                    onChange={(e) => setScopeProgram(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.textarea}
-                    placeholder="اكتب نطاق البرنامج التنفيذي..."
-                  />
-                </div>
+                    <div style={styles.scopeFieldCard}>
+                      <div style={styles.label}>2.1 نطاق العمل - البرنامج التنفيذي / المراسم</div>
+                      <textarea
+                        value={scopeProgram}
+                        onChange={(e) => setScopeProgram(e.target.value)}
+                        disabled={!canEditAdvancedExecution}
+                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                        placeholder="اكتب نطاق البرنامج التنفيذي..."
+                      />
+                    </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.1 نطاق العمل - المراسم والتوثيق</div>
-                  <textarea
-                    value={scopeCeremony}
-                    onChange={(e) => setScopeCeremony(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.textarea}
-                    placeholder="اكتب نطاق المراسم والتوثيق..."
-                  />
-                </div>
+                    <div style={styles.scopeFieldCard}>
+                      <div style={styles.label}>2.1 نطاق العمل - المراسم والتوثيق</div>
+                      <textarea
+                        value={scopeCeremony}
+                        onChange={(e) => setScopeCeremony(e.target.value)}
+                        disabled={!canEditAdvancedExecution}
+                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                        placeholder="اكتب نطاق المراسم والتوثيق..."
+                      />
+                    </div>
+                  </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.2 استراتيجية التنفيذ</div>
-                  <textarea
-                    value={executionStrategy}
-                    onChange={(e) => setExecutionStrategy(e.target.value)}
-                    disabled={!canEditAdvancedExecution}
-                    style={styles.textarea}
-                    placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
-                  />
+                  <div style={styles.scopeStrategyCard}>
+                    <div style={styles.label}>2.2 استراتيجية التنفيذ</div>
+                    <textarea
+                      value={executionStrategy}
+                      onChange={(e) => setExecutionStrategy(e.target.value)}
+                      disabled={!canEditAdvancedExecution}
+                      style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                      placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
+                    />
+                  </div>
                 </div>
 
                 <div style={styles.blockTop12}>
