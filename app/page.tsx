@@ -4139,23 +4139,67 @@ export default function Home() {
           cursor: disabled ? "not-allowed" : "pointer",
           width: "100%",
         } as CSSProperties),
-      progressWrapper: { marginBottom: 18 },
-      progressLabel: {
-        marginBottom: space.xs,
-        fontSize: textScale.small,
-        lineHeight: 1.6,
+      progressWrapper: {
+        marginBottom: 18,
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        padding: isMobile ? "10px 11px" : "11px 12px",
+      } as CSSProperties,
+      progressHeadRow: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+      } as CSSProperties,
+      progressTitle: {
+        fontSize: 12.5,
+        fontWeight: 800,
+        color: "rgba(255,255,255,0.86)",
+        lineHeight: 1.4,
+      } as CSSProperties,
+      progressPercentBadge: {
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.30)",
+        background: "rgba(0,229,255,0.12)",
+        color: "rgba(255,255,255,0.95)",
+        fontSize: 12,
+        fontWeight: 900,
+        padding: "4px 8px",
+        whiteSpace: "nowrap",
+      } as CSSProperties,
+      progressCurrentStage: {
+        marginTop: 8,
+        fontSize: isMobile ? 14 : 14.5,
+        lineHeight: 1.5,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      progressMetaLine: {
+        marginTop: 4,
+        fontSize: 12,
+        lineHeight: 1.5,
         color: "rgba(255,255,255,0.72)",
-      },
+      } as CSSProperties,
       progressBar: {
-        height: 8,
-        background: "rgba(255,255,255,0.10)",
+        marginTop: 9,
+        height: 9,
+        background: "rgba(255,255,255,0.11)",
+        border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 20,
         overflow: "hidden",
-      },
+      } as CSSProperties,
       progressFill: {
         height: "100%",
-        background: "linear-gradient(90deg, #6a00ff, #b300ff)",
-      },
+        background: "linear-gradient(90deg, #00e5ff, #6a00ff, #b300ff)",
+        boxShadow: "0 0 16px rgba(0,229,255,0.22)",
+        transition: "width 260ms ease",
+      } as CSSProperties,
+      progressFooterText: {
+        marginTop: 6,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.74)",
+      } as CSSProperties,
       grid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
@@ -4862,6 +4906,29 @@ export default function Home() {
         color: "rgba(255,255,255,0.96)",
         marginBottom: 7,
         lineHeight: 1.45,
+      } as CSSProperties,
+      sideProgressRow: {
+        marginTop: 7,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      } as CSSProperties,
+      sideProgressBadge: {
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.26)",
+        background: "rgba(0,229,255,0.10)",
+        color: "rgba(255,255,255,0.94)",
+        fontSize: 11.5,
+        fontWeight: 900,
+        padding: "3px 7px",
+        whiteSpace: "nowrap",
+      } as CSSProperties,
+      sideProgressMeta: {
+        marginTop: 5,
+        fontSize: 11.5,
+        lineHeight: 1.45,
+        color: "rgba(255,255,255,0.70)",
       } as CSSProperties,
       stageStatusChip: (tone: "ready" | "active" | "working" | "idle") =>
         ({
@@ -5995,11 +6062,16 @@ export default function Home() {
         {/* Progress */}
         {!isWelcome && !isSelectionStep ? (
           <div style={styles.progressWrapper}>
-            <div style={styles.progressLabel}>
-              ✨ خطوة بخطوة لصنع القرار —{" "}
-              <strong style={styles.strongText92}>{stageLabel()}</strong>
-              {progressMetaText() ? ` — ${progressMetaText()}` : ""}
+            <div style={styles.progressHeadRow}>
+              <div style={styles.progressTitle}>✨ مسار التقدم</div>
+              <div style={styles.progressPercentBadge}>{progressPercent()}%</div>
             </div>
+            <div style={styles.progressCurrentStage}>
+              <strong style={styles.strongText95}>{stageLabel()}</strong>
+            </div>
+            {progressMetaText() ? (
+              <div style={styles.progressMetaLine}>{progressMetaText()}</div>
+            ) : null}
             <div style={styles.progressBar}>
               <div
                 style={{
@@ -6008,6 +6080,7 @@ export default function Home() {
                 }}
               />
             </div>
+            <div style={styles.progressFooterText}>{stageStatusText()}</div>
           </div>
         ) : null}
 
@@ -8604,9 +8677,13 @@ export default function Home() {
                   />
                 </div>
               </div>
-              <div style={styles.textSecondarySmall}>
-                {stageLabel()}
+              <div style={styles.sideProgressRow}>
+                <div style={styles.textSecondarySmall}>{stageLabel()}</div>
+                <div style={styles.sideProgressBadge}>{progressPercent()}%</div>
               </div>
+              {progressMetaText() ? (
+                <div style={styles.sideProgressMeta}>{progressMetaText()}</div>
+              ) : null}
             </div>
 
             <div style={styles.sideBlock}>
