@@ -956,6 +956,7 @@ export default function Home() {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
+  const [advancedScopeStep, setAdvancedScopeStep] = useState<"scope" | "org">("scope");
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
 
   const effectiveSelectedAdvisors =
@@ -1314,6 +1315,15 @@ export default function Home() {
   if (hasBoqDependencyIssues) {
     advancedMissingFields.push("معالجة تعارضات تبعيات BOQ");
   }
+  const advancedScopeChecklist = [
+    { id: "scope_site", done: scopeSite.trim().length > 0 },
+    { id: "scope_technical", done: scopeTechnical.trim().length > 0 },
+    { id: "scope_program", done: scopeProgram.trim().length > 0 },
+    { id: "scope_ceremony", done: scopeCeremony.trim().length > 0 },
+    { id: "execution_strategy", done: executionStrategy.trim().length > 0 },
+  ];
+  const advancedScopeCompletedCount = advancedScopeChecklist.filter((item) => item.done).length;
+  const advancedScopeTotalCount = advancedScopeChecklist.length;
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
   const advancedTimelineInfo = useMemo(() => {
@@ -1549,7 +1559,7 @@ export default function Home() {
       top: 0,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
-  }, [stage, initStep]);
+  }, [stage, initStep, advancedScopeStep]);
 
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
@@ -2353,6 +2363,7 @@ export default function Home() {
     }
 
     setDeliveryTrack("advanced");
+    setAdvancedScopeStep("scope");
     setStage("advanced_scope");
     showSuccess("تم تفعيل المسار المتقدم. أكمل البيانات لبناء خطة تنفيذ تفصيلية.");
   }
@@ -3321,7 +3332,10 @@ export default function Home() {
     }
 
     if (stage === "advanced_scope") {
-      return "تجهيز نطاق العمل والاستراتيجية";
+      if (advancedScopeStep === "scope") {
+        return `نطاق واستراتيجية (${toArabicDigits(advancedScopeCompletedCount)}/${toArabicDigits(advancedScopeTotalCount)})`;
+      }
+      return `هيكل تشغيلي (${toArabicDigits(activeOrgRoles.length)}/${toArabicDigits(orgRoles.length)})`;
     }
 
     if (stage === "advanced_boq") {
@@ -4656,6 +4670,42 @@ export default function Home() {
       } as CSSProperties,
       scopeStrategyTextarea: {
         minHeight: isNarrowMobile ? 148 : 160,
+      } as CSSProperties,
+      advancedScopeNavCard: {
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        padding: 10,
+      } as CSSProperties,
+      advancedScopeMetaRow: {
+        marginTop: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        flexWrap: "wrap",
+      } as CSSProperties,
+      advancedScopeMetaChip: (tone: "info" | "ok") =>
+        ({
+          borderRadius: 999,
+          border:
+            tone === "ok"
+              ? "1px solid rgba(0,255,133,0.28)"
+              : "1px solid rgba(0,229,255,0.28)",
+          background:
+            tone === "ok"
+              ? "rgba(0,255,133,0.10)"
+              : "rgba(0,229,255,0.10)",
+          color: "rgba(255,255,255,0.95)",
+          fontSize: 12,
+          fontWeight: 800,
+          padding: "4px 8px",
+          whiteSpace: "nowrap",
+        } as CSSProperties),
+      advancedScopeMetaText: {
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.78)",
+        lineHeight: 1.5,
       } as CSSProperties,
       selectorRow: {
         display: "grid",
@@ -7045,305 +7095,366 @@ export default function Home() {
 
             {stage === "advanced_scope" && (
               <>
-                <h3 style={styles.sectionHeading}>6) المسار المتقدم: نطاق واستراتيجية</h3>
+                <h3 style={styles.sectionHeading}>
+                  {advancedScopeStep === "scope"
+                    ? "6) المسار المتقدم: نطاق واستراتيجية"
+                    : "6) المسار المتقدم: الهيكل التشغيلي"}
+                </h3>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.qCard}>
-                    <div style={styles.sectionHeaderRow}>
-                      <div style={styles.qTitle}>الإطار الزمني للمشروع</div>
-                      <div style={styles.stageStatusChip(advancedTimelineStatus.tone)}>
-                        {advancedTimelineStatus.label}
-                      </div>
+                  <div style={styles.advancedScopeNavCard}>
+                    <div style={styles.selectorRow}>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advancedScopeStep === "scope")}
+                        disabled={isProcessing()}
+                        onClick={() => setAdvancedScopeStep("scope")}
+                      >
+                        6A: نطاق واستراتيجية
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advancedScopeStep === "org")}
+                        disabled={isProcessing()}
+                        onClick={() => setAdvancedScopeStep("org")}
+                      >
+                        6B: الهيكل التشغيلي
+                      </button>
                     </div>
-
-                    <div style={styles.timelineGrid}>
-                      <div style={styles.timelineFieldCard}>
-                        <div style={styles.timelineFieldHead}>
-                          <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
-                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.commissioning.tone)}>
-                            {advancedTimelineInfo.dateStatus.commissioning.label}
-                          </div>
-                        </div>
-                        <input
-                          type="date"
-                          value={commissioningDate}
-                          onChange={(e) => setCommissioningDate(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={styles.input}
-                        />
-                        <div style={styles.timelineFieldHint}>
-                          نقطة بداية التجهيز الرسمية للمشروع.
-                        </div>
-                      </div>
-
-                      <div style={styles.timelineFieldCard}>
-                        <div style={styles.timelineFieldHead}>
-                          <div style={styles.timelineFieldLabel}>تاريخ بداية المشروع</div>
-                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.projectStart.tone)}>
-                            {advancedTimelineInfo.dateStatus.projectStart.label}
-                          </div>
-                        </div>
-                        <input
-                          type="date"
-                          value={projectStartDate}
-                          onChange={(e) => setProjectStartDate(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={styles.input}
-                        />
-                        <div style={styles.timelineFieldHint}>
-                          اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
-                        </div>
-                      </div>
-
-                      <div style={styles.timelineFieldCard}>
-                        <div style={styles.timelineFieldHead}>
-                          <div style={styles.timelineFieldLabel}>بداية الفعالية</div>
-                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventStart.tone)}>
-                            {advancedTimelineInfo.dateStatus.eventStart.label}
-                          </div>
-                        </div>
-                        <input
-                          type="datetime-local"
-                          value={startAt}
-                          onChange={(e) => setStartAt(e.target.value)}
-                          disabled={!canEditProjectCore}
-                          style={styles.input}
-                        />
-                        <div style={styles.timelineFieldHint}>
-                          يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
-                        </div>
-                      </div>
-
-                      <div style={styles.timelineFieldCard}>
-                        <div style={styles.timelineFieldHead}>
-                          <div style={styles.timelineFieldLabel}>نهاية الفعالية</div>
-                          <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventEnd.tone)}>
-                            {advancedTimelineInfo.dateStatus.eventEnd.label}
-                          </div>
-                        </div>
-                        <input
-                          type="datetime-local"
-                          value={endAt}
-                          onChange={(e) => setEndAt(e.target.value)}
-                          disabled={!canEditProjectCore}
-                          style={styles.input}
-                        />
-                        <div style={styles.timelineFieldHint}>
-                          يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={styles.timelineSummaryGrid}>
-                      <div style={styles.timelineSummaryItem}>
-                        <div style={styles.timelineSummaryLabel}>مدة التجهيز (تعميد ← بداية فعالية)</div>
-                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromCommissioning.tone)}>
-                          {advancedTimelineInfo.prepFromCommissioning.label}
-                        </div>
-                      </div>
-                      <div style={styles.timelineSummaryItem}>
-                        <div style={styles.timelineSummaryLabel}>مدة التجهيز (بداية مشروع ← بداية فعالية)</div>
-                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromProjectStart.tone)}>
-                          {advancedTimelineInfo.prepFromProjectStart.label}
-                        </div>
-                      </div>
-                      <div style={styles.timelineSummaryItem}>
-                        <div style={styles.timelineSummaryLabel}>مدة التنفيذ التشغيلي</div>
-                        <div style={styles.timelineSummaryValue(advancedTimelineInfo.executionDuration.tone)}>
-                          {advancedTimelineInfo.executionDuration.label}
-                        </div>
-                      </div>
-                    </div>
-
-                    {advancedTimelineInfo.issues.length > 0 ? (
-                      <div style={styles.warnBox}>
-                        <strong>تنبيه زمني:</strong>
-                        <div style={styles.blockTop8}>
-                          {advancedTimelineInfo.issues.map((issue, idx) => (
-                            <div key={idx} style={styles.listItemGap4}>
-                              • {issue}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div style={styles.blockTop12}>
-                  <div style={styles.qCard}>
-                    <div style={styles.scopeSectionTitle}>2.1 نطاق العمل</div>
-                    <div style={styles.scopeSectionHint}>
-                      حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى BOQ.
-                    </div>
-
-                    <div style={styles.scopeFieldsGrid}>
-                      <div style={styles.scopeFieldCard}>
-                        <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
-                        <textarea
-                          value={scopeSite}
-                          onChange={(e) => setScopeSite(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                          placeholder="اكتب نطاق الموقع والتجهيزات..."
-                        />
-                      </div>
-
-                      <div style={styles.scopeFieldCard}>
-                        <div style={styles.scopeFieldTitle}>التجهيزات الفنية</div>
-                        <textarea
-                          value={scopeTechnical}
-                          onChange={(e) => setScopeTechnical(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                          placeholder="اكتب نطاق التجهيزات الفنية..."
-                        />
-                      </div>
-
-                      <div style={styles.scopeFieldCard}>
-                        <div style={styles.scopeFieldTitle}>البرنامج التنفيذي / المراسم</div>
-                        <textarea
-                          value={scopeProgram}
-                          onChange={(e) => setScopeProgram(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                          placeholder="اكتب نطاق البرنامج التنفيذي..."
-                        />
-                      </div>
-
-                      <div style={styles.scopeFieldCard}>
-                        <div style={styles.scopeFieldTitle}>المراسم والتوثيق</div>
-                        <textarea
-                          value={scopeCeremony}
-                          onChange={(e) => setScopeCeremony(e.target.value)}
-                          disabled={!canEditAdvancedExecution}
-                          style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                          placeholder="اكتب نطاق المراسم والتوثيق..."
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.blockTop12}>
-                  <div style={styles.qCard}>
-                    <div style={styles.scopeSectionTitle}>2.2 استراتيجية التنفيذ</div>
-                    <div style={styles.scopeSectionHint}>
-                      اكتب منهجية التنفيذ والتنسيق والتشغيل الميداني بشكل مباشر.
-                    </div>
-
-                    <div style={styles.scopeStrategyCard}>
-                      <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
-                      <textarea
-                        value={executionStrategy}
-                        onChange={(e) => setExecutionStrategy(e.target.value)}
-                        disabled={!canEditAdvancedExecution}
-                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                        placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.8 الهيكل التشغيلي للكوادر</div>
-                  <div style={styles.textMutedSmallTop8}>
-                    فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
-                  </div>
-                  <div style={styles.orgRolesGrid}>
-                    {orgRoles.map((role) => (
-                      <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
-                        <div style={styles.orgRoleHead}>
-                          <div style={styles.orgRoleIdentity}>
-                            <div style={styles.orgRoleTitle}>{role.title}</div>
-                            <div style={styles.orgRoleSummary}>{role.summary}</div>
-                          </div>
-                          <button
-                            type="button"
-                            style={styles.orgRoleToggle(role.enabled)}
-                            disabled={!canEditAdvancedExecution}
-                            onClick={() =>
-                              updateOrgRole(role.id, { enabled: !role.enabled })
-                            }
+                    <div style={styles.advancedScopeMetaRow}>
+                      {advancedScopeStep === "scope" ? (
+                        <>
+                          <div
+                            style={styles.advancedScopeMetaChip(
+                              advancedScopeCompletedCount === advancedScopeTotalCount ? "ok" : "info"
+                            )}
                           >
-                            {role.enabled ? "مفعّل" : "غير مفعّل"}
-                          </button>
+                            اكتمال النطاق:{" "}
+                            {toArabicDigits(advancedScopeCompletedCount)}/{toArabicDigits(advancedScopeTotalCount)}
+                          </div>
+                          <div style={styles.advancedScopeMetaText}>
+                            ابدأ بتجهيز النطاق والاستراتيجية ثم انتقل للهيكل التشغيلي.
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div
+                            style={styles.advancedScopeMetaChip(
+                              activeOrgRoles.length > 0 ? "ok" : "info"
+                            )}
+                          >
+                            الأدوار المفعلة: {toArabicDigits(activeOrgRoles.length)}/{toArabicDigits(orgRoles.length)}
+                          </div>
+                          <div style={styles.advancedScopeMetaText}>
+                            راجع توزيع المسؤوليات قبل الانتقال إلى BOQ.
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {advancedScopeStep === "scope" ? (
+                  <>
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div style={styles.qTitle}>الإطار الزمني للمشروع</div>
+                          <div style={styles.stageStatusChip(advancedTimelineStatus.tone)}>
+                            {advancedTimelineStatus.label}
+                          </div>
                         </div>
 
-                        <div style={styles.blockTop8}>
-                          <input
-                            value={role.assignee}
-                            onChange={(e) =>
-                              updateOrgRole(role.id, { assignee: e.target.value })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution || !role.enabled}
-                            placeholder="اسم المسؤول (اختياري)"
+                        <div style={styles.timelineGrid}>
+                          <div style={styles.timelineFieldCard}>
+                            <div style={styles.timelineFieldHead}>
+                              <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
+                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.commissioning.tone)}>
+                                {advancedTimelineInfo.dateStatus.commissioning.label}
+                              </div>
+                            </div>
+                            <input
+                              type="date"
+                              value={commissioningDate}
+                              onChange={(e) => setCommissioningDate(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={styles.input}
+                            />
+                            <div style={styles.timelineFieldHint}>
+                              نقطة بداية التجهيز الرسمية للمشروع.
+                            </div>
+                          </div>
+
+                          <div style={styles.timelineFieldCard}>
+                            <div style={styles.timelineFieldHead}>
+                              <div style={styles.timelineFieldLabel}>تاريخ بداية المشروع</div>
+                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.projectStart.tone)}>
+                                {advancedTimelineInfo.dateStatus.projectStart.label}
+                              </div>
+                            </div>
+                            <input
+                              type="date"
+                              value={projectStartDate}
+                              onChange={(e) => setProjectStartDate(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={styles.input}
+                            />
+                            <div style={styles.timelineFieldHint}>
+                              اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
+                            </div>
+                          </div>
+
+                          <div style={styles.timelineFieldCard}>
+                            <div style={styles.timelineFieldHead}>
+                              <div style={styles.timelineFieldLabel}>بداية الفعالية</div>
+                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventStart.tone)}>
+                                {advancedTimelineInfo.dateStatus.eventStart.label}
+                              </div>
+                            </div>
+                            <input
+                              type="datetime-local"
+                              value={startAt}
+                              onChange={(e) => setStartAt(e.target.value)}
+                              disabled={!canEditProjectCore}
+                              style={styles.input}
+                            />
+                            <div style={styles.timelineFieldHint}>
+                              يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
+                            </div>
+                          </div>
+
+                          <div style={styles.timelineFieldCard}>
+                            <div style={styles.timelineFieldHead}>
+                              <div style={styles.timelineFieldLabel}>نهاية الفعالية</div>
+                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventEnd.tone)}>
+                                {advancedTimelineInfo.dateStatus.eventEnd.label}
+                              </div>
+                            </div>
+                            <input
+                              type="datetime-local"
+                              value={endAt}
+                              onChange={(e) => setEndAt(e.target.value)}
+                              disabled={!canEditProjectCore}
+                              style={styles.input}
+                            />
+                            <div style={styles.timelineFieldHint}>
+                              يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={styles.timelineSummaryGrid}>
+                          <div style={styles.timelineSummaryItem}>
+                            <div style={styles.timelineSummaryLabel}>مدة التجهيز (تعميد ← بداية فعالية)</div>
+                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromCommissioning.tone)}>
+                              {advancedTimelineInfo.prepFromCommissioning.label}
+                            </div>
+                          </div>
+                          <div style={styles.timelineSummaryItem}>
+                            <div style={styles.timelineSummaryLabel}>مدة التجهيز (بداية مشروع ← بداية فعالية)</div>
+                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromProjectStart.tone)}>
+                              {advancedTimelineInfo.prepFromProjectStart.label}
+                            </div>
+                          </div>
+                          <div style={styles.timelineSummaryItem}>
+                            <div style={styles.timelineSummaryLabel}>مدة التنفيذ التشغيلي</div>
+                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.executionDuration.tone)}>
+                              {advancedTimelineInfo.executionDuration.label}
+                            </div>
+                          </div>
+                        </div>
+
+                        {advancedTimelineInfo.issues.length > 0 ? (
+                          <div style={styles.warnBox}>
+                            <strong>تنبيه زمني:</strong>
+                            <div style={styles.blockTop8}>
+                              {advancedTimelineInfo.issues.map((issue, idx) => (
+                                <div key={idx} style={styles.listItemGap4}>
+                                  • {issue}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.scopeSectionTitle}>2.1 نطاق العمل</div>
+                        <div style={styles.scopeSectionHint}>
+                          حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى BOQ.
+                        </div>
+
+                        <div style={styles.scopeFieldsGrid}>
+                          <div style={styles.scopeFieldCard}>
+                            <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
+                            <textarea
+                              value={scopeSite}
+                              onChange={(e) => setScopeSite(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                              placeholder="اكتب نطاق الموقع والتجهيزات..."
+                            />
+                          </div>
+
+                          <div style={styles.scopeFieldCard}>
+                            <div style={styles.scopeFieldTitle}>التجهيزات الفنية</div>
+                            <textarea
+                              value={scopeTechnical}
+                              onChange={(e) => setScopeTechnical(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                              placeholder="اكتب نطاق التجهيزات الفنية..."
+                            />
+                          </div>
+
+                          <div style={styles.scopeFieldCard}>
+                            <div style={styles.scopeFieldTitle}>البرنامج التنفيذي / المراسم</div>
+                            <textarea
+                              value={scopeProgram}
+                              onChange={(e) => setScopeProgram(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                              placeholder="اكتب نطاق البرنامج التنفيذي..."
+                            />
+                          </div>
+
+                          <div style={styles.scopeFieldCard}>
+                            <div style={styles.scopeFieldTitle}>المراسم والتوثيق</div>
+                            <textarea
+                              value={scopeCeremony}
+                              onChange={(e) => setScopeCeremony(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                              placeholder="اكتب نطاق المراسم والتوثيق..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.scopeSectionTitle}>2.2 استراتيجية التنفيذ</div>
+                        <div style={styles.scopeSectionHint}>
+                          اكتب منهجية التنفيذ والتنسيق والتشغيل الميداني بشكل مباشر.
+                        </div>
+
+                        <div style={styles.scopeStrategyCard}>
+                          <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
+                          <textarea
+                            value={executionStrategy}
+                            onChange={(e) => setExecutionStrategy(e.target.value)}
+                            disabled={!canEditAdvancedExecution}
+                            style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                            placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
                           />
                         </div>
-
-                        <div style={styles.orgRoleMetaRow}>
-                          <div style={styles.orgRoleMetaBox}>
-                            <div style={styles.orgRoleMetaHead}>
-                              <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
-                              <button
-                                type="button"
-                                style={styles.orgRoleInfoBtn}
-                                disabled={!canEditAdvancedExecution}
-                                onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
-                                aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
-                              >
-                                ؟
-                              </button>
-                            </div>
-                            <div style={styles.orgRoleMetaValue}>
-                              {toArabicDigits(role.responsibilities.length)}
-                            </div>
-                          </div>
-                          <div style={styles.orgRoleMetaBox}>
-                            <div style={styles.orgRoleMetaHead}>
-                              <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
-                              <button
-                                type="button"
-                                style={styles.orgRoleInfoBtn}
-                                disabled={!canEditAdvancedExecution}
-                                onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
-                                aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
-                              >
-                                ؟
-                              </button>
-                            </div>
-                            <div style={styles.orgRoleMetaValue}>
-                              {toArabicDigits(role.kpis.length)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {orgRoleDetailsOpen[role.id] ? (
-                          <div style={styles.orgRoleDetailsPanel}>
-                            <div style={styles.orgRoleDetailsTitle}>
-                              {orgRoleDetailsOpen[role.id] === "tasks"
-                                ? "المهام الكاملة"
-                                : "KPIs الكاملة"}
-                            </div>
-                            {(orgRoleDetailsOpen[role.id] === "tasks"
-                              ? role.responsibilities
-                              : role.kpis
-                            ).map((item, idx) => (
-                              <div key={idx} style={styles.orgRoleDetailsItem}>
-                                • {item}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={styles.orgRoleMetaText}>
-                            اضغط (؟) لعرض التفاصيل الكاملة.
-                          </div>
-                        )}
                       </div>
-                    ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={styles.blockTop12}>
+                    <div style={styles.label}>2.8 الهيكل التشغيلي للكوادر</div>
+                    <div style={styles.textMutedSmallTop8}>
+                      فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
+                    </div>
+                    <div style={styles.orgRolesGrid}>
+                      {orgRoles.map((role) => (
+                        <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
+                          <div style={styles.orgRoleHead}>
+                            <div style={styles.orgRoleIdentity}>
+                              <div style={styles.orgRoleTitle}>{role.title}</div>
+                              <div style={styles.orgRoleSummary}>{role.summary}</div>
+                            </div>
+                            <button
+                              type="button"
+                              style={styles.orgRoleToggle(role.enabled)}
+                              disabled={!canEditAdvancedExecution}
+                              onClick={() =>
+                                updateOrgRole(role.id, { enabled: !role.enabled })
+                              }
+                            >
+                              {role.enabled ? "مفعّل" : "غير مفعّل"}
+                            </button>
+                          </div>
+
+                          <div style={styles.blockTop8}>
+                            <input
+                              value={role.assignee}
+                              onChange={(e) =>
+                                updateOrgRole(role.id, { assignee: e.target.value })
+                              }
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution || !role.enabled}
+                              placeholder="اسم المسؤول (اختياري)"
+                            />
+                          </div>
+
+                          <div style={styles.orgRoleMetaRow}>
+                            <div style={styles.orgRoleMetaBox}>
+                              <div style={styles.orgRoleMetaHead}>
+                                <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                                <button
+                                  type="button"
+                                  style={styles.orgRoleInfoBtn}
+                                  disabled={!canEditAdvancedExecution}
+                                  onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
+                                  aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
+                                >
+                                  ؟
+                                </button>
+                              </div>
+                              <div style={styles.orgRoleMetaValue}>
+                                {toArabicDigits(role.responsibilities.length)}
+                              </div>
+                            </div>
+                            <div style={styles.orgRoleMetaBox}>
+                              <div style={styles.orgRoleMetaHead}>
+                                <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                                <button
+                                  type="button"
+                                  style={styles.orgRoleInfoBtn}
+                                  disabled={!canEditAdvancedExecution}
+                                  onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
+                                  aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
+                                >
+                                  ؟
+                                </button>
+                              </div>
+                              <div style={styles.orgRoleMetaValue}>
+                                {toArabicDigits(role.kpis.length)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {orgRoleDetailsOpen[role.id] ? (
+                            <div style={styles.orgRoleDetailsPanel}>
+                              <div style={styles.orgRoleDetailsTitle}>
+                                {orgRoleDetailsOpen[role.id] === "tasks"
+                                  ? "المهام الكاملة"
+                                  : "KPIs الكاملة"}
+                              </div>
+                              {(orgRoleDetailsOpen[role.id] === "tasks"
+                                ? role.responsibilities
+                                : role.kpis
+                              ).map((item, idx) => (
+                                <div key={idx} style={styles.orgRoleDetailsItem}>
+                                  • {item}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={styles.orgRoleMetaText}>
+                              اضغط (؟) لعرض التفاصيل الكاملة.
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div style={styles.stackAfterSection}>
                   <button
@@ -7353,13 +7464,32 @@ export default function Home() {
                   >
                     تعبئة سريعة للاختبار
                   </button>
-                  <button
-                    style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing() || !canEditAdvancedExecution}
-                    onClick={() => setStage("advanced_boq")}
-                  >
-                    التالي: BOQ + الجودة + المخاطر
-                  </button>
+                  {advancedScopeStep === "scope" ? (
+                    <button
+                      style={styles.primaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => setAdvancedScopeStep("org")}
+                    >
+                      التالي: 6B الهيكل التشغيلي
+                    </button>
+                  ) : (
+                    <button
+                      style={styles.primaryBtn(isProcessing())}
+                      disabled={isProcessing() || !canEditAdvancedExecution}
+                      onClick={() => setStage("advanced_boq")}
+                    >
+                      التالي: BOQ + الجودة + المخاطر
+                    </button>
+                  )}
+                  {advancedScopeStep === "org" ? (
+                    <button
+                      style={styles.secondaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => setAdvancedScopeStep("scope")}
+                    >
+                      رجوع: 6A نطاق واستراتيجية
+                    </button>
+                  ) : null}
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
@@ -8085,9 +8215,12 @@ export default function Home() {
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
-                    onClick={() => setStage("advanced_scope")}
+                    onClick={() => {
+                      setAdvancedScopeStep("org");
+                      setStage("advanced_scope");
+                    }}
                   >
-                    رجوع: النطاق والاستراتيجية
+                    رجوع: 6B الهيكل التشغيلي
                   </button>
                 </div>
               </>
