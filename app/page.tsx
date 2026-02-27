@@ -171,6 +171,21 @@ function isVenueType(value: string): value is VenueType {
   return ["منتجع", "فندق", "قاعة", "مساحة عامة", "غير محدد"].includes(value);
 }
 
+function isStageUI(value: unknown): value is StageUI {
+  return [
+    "welcome",
+    "init",
+    "round1",
+    "round2",
+    "dialogue",
+    "addition",
+    "done",
+    "advanced_scope",
+    "advanced_boq",
+    "advanced_plan",
+  ].includes(String(value));
+}
+
 function advisorIcon(key: string) {
   switch (key) {
     case "financial_advisor":
@@ -493,7 +508,9 @@ export default function Home() {
   const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
 
   // ============ Flow ============
-  const [stage, setStage] = useState<StageUI>("welcome");
+  const [stage, setStage] = useState<StageUI>(() =>
+    isStageUI(initialSaved.stage) ? initialSaved.stage : "welcome"
+  );
   const [loading, setLoading] = useState(false);
 
   const [round1Questions, setRound1Questions] = useState<Question[]>(
