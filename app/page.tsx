@@ -222,12 +222,51 @@ type LoadingContext =
   | "build_dialogue"
   | "run_analysis";
 
+type RolePermissionFlags = {
+  canEditSessionSetup: boolean;
+  canEditProjectCore: boolean;
+  canEditBudget: boolean;
+  canEditAnswers: boolean;
+  canRunAnalysisFlow: boolean;
+  canEditAdvancedExecution: boolean;
+  canEditGovernance: boolean;
+  canApproveAdvancedPlan: boolean;
+  canResetSession: boolean;
+  canLoadDemo: boolean;
+};
+
 const UX_MESSAGES = {
   reanalysisRequired:
     "إذا عدّلت الإجابات أو الإضافة، اضغط «ابدأ التحليل» مرة أخرى لتحديث النتائج.",
   openedCurrentResults: "تم فتح النتائج الحالية بدون إعادة تحليل جديد.",
   reusedCurrentAnalysis: "لا توجد تغييرات جديدة؛ تم فتح النتائج الحالية.",
 } as const;
+
+const ROLE_PERMISSION_FIELDS: Array<keyof RolePermissionFlags> = [
+  "canEditSessionSetup",
+  "canEditProjectCore",
+  "canEditBudget",
+  "canEditAnswers",
+  "canRunAnalysisFlow",
+  "canEditAdvancedExecution",
+  "canEditGovernance",
+  "canApproveAdvancedPlan",
+  "canResetSession",
+  "canLoadDemo",
+];
+
+const ROLE_PERMISSION_LABELS: Record<keyof RolePermissionFlags, string> = {
+  canEditSessionSetup: "إعداد الجلسة",
+  canEditProjectCore: "بيانات المشروع",
+  canEditBudget: "الميزانية",
+  canEditAnswers: "الإجابات",
+  canRunAnalysisFlow: "تشغيل التحليل",
+  canEditAdvancedExecution: "تنفيذ المسار المتقدم",
+  canEditGovernance: "الحوكمة",
+  canApproveAdvancedPlan: "الاعتماد النهائي",
+  canResetSession: "مسح الجلسة",
+  canLoadDemo: "النموذج التجريبي",
+};
 
 function isVenueType(value: string): value is VenueType {
   return ["منتجع", "فندق", "قاعة", "مساحة عامة", "غير محدد"].includes(value);
@@ -278,6 +317,127 @@ function permissionHintText(scope: string, roles: UserRole[], currentRole: UserR
     roles
   )}.`;
 }
+
+function computeRolePermissions(role: UserRole): RolePermissionFlags {
+  switch (role) {
+    case "project_manager":
+      return {
+        canEditSessionSetup: true,
+        canEditProjectCore: true,
+        canEditBudget: true,
+        canEditAnswers: true,
+        canRunAnalysisFlow: true,
+        canEditAdvancedExecution: true,
+        canEditGovernance: true,
+        canApproveAdvancedPlan: true,
+        canResetSession: true,
+        canLoadDemo: true,
+      };
+    case "operations_manager":
+      return {
+        canEditSessionSetup: true,
+        canEditProjectCore: true,
+        canEditBudget: false,
+        canEditAnswers: true,
+        canRunAnalysisFlow: true,
+        canEditAdvancedExecution: true,
+        canEditGovernance: false,
+        canApproveAdvancedPlan: false,
+        canResetSession: false,
+        canLoadDemo: true,
+      };
+    case "finance_manager":
+      return {
+        canEditSessionSetup: false,
+        canEditProjectCore: false,
+        canEditBudget: true,
+        canEditAnswers: false,
+        canRunAnalysisFlow: false,
+        canEditAdvancedExecution: false,
+        canEditGovernance: true,
+        canApproveAdvancedPlan: false,
+        canResetSession: false,
+        canLoadDemo: true,
+      };
+    case "viewer":
+      return {
+        canEditSessionSetup: false,
+        canEditProjectCore: false,
+        canEditBudget: false,
+        canEditAnswers: false,
+        canRunAnalysisFlow: false,
+        canEditAdvancedExecution: false,
+        canEditGovernance: false,
+        canApproveAdvancedPlan: false,
+        canResetSession: false,
+        canLoadDemo: false,
+      };
+    default:
+      return {
+        canEditSessionSetup: false,
+        canEditProjectCore: false,
+        canEditBudget: false,
+        canEditAnswers: false,
+        canRunAnalysisFlow: false,
+        canEditAdvancedExecution: false,
+        canEditGovernance: false,
+        canApproveAdvancedPlan: false,
+        canResetSession: false,
+        canLoadDemo: false,
+      };
+  }
+}
+
+const ROLE_PERMISSION_EXPECTED: Record<UserRole, RolePermissionFlags> = {
+  project_manager: {
+    canEditSessionSetup: true,
+    canEditProjectCore: true,
+    canEditBudget: true,
+    canEditAnswers: true,
+    canRunAnalysisFlow: true,
+    canEditAdvancedExecution: true,
+    canEditGovernance: true,
+    canApproveAdvancedPlan: true,
+    canResetSession: true,
+    canLoadDemo: true,
+  },
+  operations_manager: {
+    canEditSessionSetup: true,
+    canEditProjectCore: true,
+    canEditBudget: false,
+    canEditAnswers: true,
+    canRunAnalysisFlow: true,
+    canEditAdvancedExecution: true,
+    canEditGovernance: false,
+    canApproveAdvancedPlan: false,
+    canResetSession: false,
+    canLoadDemo: true,
+  },
+  finance_manager: {
+    canEditSessionSetup: false,
+    canEditProjectCore: false,
+    canEditBudget: true,
+    canEditAnswers: false,
+    canRunAnalysisFlow: false,
+    canEditAdvancedExecution: false,
+    canEditGovernance: true,
+    canApproveAdvancedPlan: false,
+    canResetSession: false,
+    canLoadDemo: true,
+  },
+  viewer: {
+    canEditSessionSetup: false,
+    canEditProjectCore: false,
+    canEditBudget: false,
+    canEditAnswers: false,
+    canRunAnalysisFlow: false,
+    canEditAdvancedExecution: false,
+    canEditGovernance: false,
+    canApproveAdvancedPlan: false,
+    canResetSession: false,
+    canLoadDemo: false,
+  },
+};
 
 function escapeHtml(text: string) {
   return text
@@ -676,6 +836,12 @@ export default function Home() {
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
+  const [roleQaReport, setRoleQaReport] = useState<{
+    status: "idle" | "pass" | "fail";
+    summary: string;
+    lines: string[];
+    ranAt: string;
+  }>({ status: "idle", summary: "", lines: [], ranAt: "" });
   const [loadingContext, setLoadingContext] = useState<LoadingContext>("");
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
@@ -685,23 +851,19 @@ export default function Home() {
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
   const activeOrgRoles = orgRoles.filter((role) => role.enabled);
-  const canEditSessionSetup =
-    userRole === "project_manager" || userRole === "operations_manager";
-  const canEditProjectCore =
-    userRole === "project_manager" || userRole === "operations_manager";
-  const canEditBudget =
-    userRole === "project_manager" || userRole === "finance_manager";
-  const canEditAnswers =
-    userRole === "project_manager" || userRole === "operations_manager";
-  const canRunAnalysisFlow =
-    userRole === "project_manager" || userRole === "operations_manager";
-  const canEditAdvancedExecution =
-    userRole === "project_manager" || userRole === "operations_manager";
-  const canEditGovernance =
-    userRole === "project_manager" || userRole === "finance_manager";
-  const canApproveAdvancedPlan = userRole === "project_manager";
-  const canResetSession = userRole === "project_manager";
-  const canLoadDemo = userRole !== "viewer";
+  const currentRolePermissions = computeRolePermissions(userRole);
+  const {
+    canEditSessionSetup,
+    canEditProjectCore,
+    canEditBudget,
+    canEditAnswers,
+    canRunAnalysisFlow,
+    canEditAdvancedExecution,
+    canEditGovernance,
+    canApproveAdvancedPlan,
+    canResetSession,
+    canLoadDemo,
+  } = currentRolePermissions;
   const roleCapabilities = [
     { id: "session", label: "إعداد الجلسة", enabled: canEditSessionSetup },
     { id: "project", label: "بيانات المشروع", enabled: canEditProjectCore },
@@ -716,16 +878,17 @@ export default function Home() {
     { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
   ] as const;
   const stagePermissionHints = useMemo(() => {
+    const p = computeRolePermissions(userRole);
     const hints: string[] = [];
 
-    if (stage === "init" && initStep === "session" && !canEditSessionSetup) {
+    if (stage === "init" && initStep === "session" && !p.canEditSessionSetup) {
       hints.push(
         permissionHintText("تعديل إعدادات الجلسة", ["project_manager", "operations_manager"], userRole)
       );
     }
 
     if (stage === "init" && initStep === "project") {
-      if (!canEditProjectCore) {
+      if (!p.canEditProjectCore) {
         hints.push(
           permissionHintText(
             "تعديل بيانات المشروع الأساسية",
@@ -734,7 +897,7 @@ export default function Home() {
           )
         );
       }
-      if (!canEditBudget) {
+      if (!p.canEditBudget) {
         hints.push(
           permissionHintText(
             "تعديل الميزانية",
@@ -743,7 +906,7 @@ export default function Home() {
           )
         );
       }
-      if (!canRunAnalysisFlow) {
+      if (!p.canRunAnalysisFlow) {
         hints.push(
           permissionHintText(
             "بدء الجلسة والتحليل",
@@ -754,14 +917,14 @@ export default function Home() {
       }
     }
 
-    if ((stage === "round1" || stage === "round2" || stage === "addition") && !canEditAnswers) {
+    if ((stage === "round1" || stage === "round2" || stage === "addition") && !p.canEditAnswers) {
       hints.push(
         permissionHintText("تعديل إجابات الأسئلة", ["project_manager", "operations_manager"], userRole)
       );
     }
     if (
       (stage === "round1" || stage === "round2" || stage === "dialogue" || stage === "addition") &&
-      !canRunAnalysisFlow
+      !p.canRunAnalysisFlow
     ) {
       hints.push(
         permissionHintText("متابعة خطوات التحليل", ["project_manager", "operations_manager"], userRole)
@@ -769,7 +932,7 @@ export default function Home() {
     }
 
     if (stage === "done") {
-      if (!canEditAdvancedExecution && !canEditGovernance) {
+      if (!p.canEditAdvancedExecution && !p.canEditGovernance) {
         hints.push(
           permissionHintText(
             "الدخول للمسار المتقدم",
@@ -778,7 +941,7 @@ export default function Home() {
           )
         );
       }
-      if (!canRunAnalysisFlow) {
+      if (!p.canRunAnalysisFlow) {
         hints.push(
           permissionHintText(
             "الرجوع لتعديل المدخلات وإعادة التحليل",
@@ -789,7 +952,7 @@ export default function Home() {
       }
     }
 
-    if ((stage === "advanced_scope" || stage === "advanced_boq") && !canEditAdvancedExecution) {
+    if ((stage === "advanced_scope" || stage === "advanced_boq") && !p.canEditAdvancedExecution) {
       hints.push(
         permissionHintText(
           "تعديل بيانات التنفيذ المتقدم",
@@ -800,7 +963,7 @@ export default function Home() {
     }
 
     if (stage === "advanced_plan") {
-      if (!canEditAdvancedExecution) {
+      if (!p.canEditAdvancedExecution) {
         hints.push(
           permissionHintText(
             "تعديل متابعة التنفيذ (Action Tracker)",
@@ -809,7 +972,7 @@ export default function Home() {
           )
         );
       }
-      if (!canEditGovernance) {
+      if (!p.canEditGovernance) {
         hints.push(
           permissionHintText(
             "تجميد النسخة وطلبات التغيير",
@@ -818,25 +981,13 @@ export default function Home() {
           )
         );
       }
-      if (!canApproveAdvancedPlan) {
+      if (!p.canApproveAdvancedPlan) {
         hints.push(permissionHintText("الاعتماد النهائي للخطة", ["project_manager"], userRole));
       }
     }
 
     return hints;
-  }, [
-    stage,
-    initStep,
-    userRole,
-    canEditSessionSetup,
-    canEditProjectCore,
-    canEditBudget,
-    canEditAnswers,
-    canRunAnalysisFlow,
-    canEditAdvancedExecution,
-    canEditGovernance,
-    canApproveAdvancedPlan,
-  ]);
+  }, [stage, initStep, userRole]);
   const advancedGovernanceSignature = JSON.stringify({
     commissioningDate,
     projectStartDate,
@@ -1080,6 +1231,57 @@ export default function Home() {
   function showSuccess(message: string) {
     setUiError("");
     setUiSuccess(message);
+  }
+
+  function runRolePermissionQACheck() {
+    const roles: UserRole[] = [
+      "project_manager",
+      "operations_manager",
+      "finance_manager",
+      "viewer",
+    ];
+    const mismatches: string[] = [];
+    const lines: string[] = [];
+
+    roles.forEach((role) => {
+      const actual = computeRolePermissions(role);
+      const expected = ROLE_PERMISSION_EXPECTED[role];
+      const roleDiffs = ROLE_PERMISSION_FIELDS.filter((field) => actual[field] !== expected[field]);
+
+      if (roleDiffs.length === 0) {
+        lines.push(`${userRoleLabel(role)}: مطابق`);
+        return;
+      }
+
+      lines.push(`${userRoleLabel(role)}: ${toArabicDigits(roleDiffs.length)} تعارض`);
+      roleDiffs.forEach((field) => {
+        mismatches.push(
+          `${userRoleLabel(role)} — ${ROLE_PERMISSION_LABELS[field]}: المتوقع ${
+            expected[field] ? "مفعّل" : "غير مفعّل"
+          }، الفعلي ${actual[field] ? "مفعّل" : "غير مفعّل"}`
+        );
+      });
+    });
+
+    const ranAt = new Date().toISOString();
+    if (mismatches.length === 0) {
+      setRoleQaReport({
+        status: "pass",
+        summary: `الفحص ناجح: ${toArabicDigits(roles.length)} أدوار بدون تعارض.`,
+        lines,
+        ranAt,
+      });
+      showSuccess("QA الصلاحيات: الفحص ناجح بدون تعارض.");
+      return;
+    }
+
+    setRoleQaReport({
+      status: "fail",
+      summary: `يوجد ${toArabicDigits(mismatches.length)} تعارض في مصفوفة الصلاحيات.`,
+      lines: mismatches,
+      ranAt,
+    });
+    showError(`QA الصلاحيات: يوجد ${toArabicDigits(mismatches.length)} تعارض.`);
   }
 
   function startLoading(context: LoadingContext) {
@@ -6979,9 +7181,34 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+              <div style={styles.blockTop8}>
+                <button style={styles.secondaryBtn(false)} onClick={runRolePermissionQACheck}>
+                  تشغيل فحص الصلاحيات (QA)
+                </button>
+              </div>
               <div style={styles.textMutedSmallTop8}>
                 غيّر الدور من أعلى الصفحة لمراجعة الصلاحيات المتاحة لكل شاشة.
               </div>
+              {roleQaReport.status !== "idle" ? (
+                <div style={roleQaReport.status === "pass" ? styles.successBox : styles.warnBox}>
+                  <div style={styles.permissionHintTitle}>
+                    {roleQaReport.status === "pass"
+                      ? "نتيجة فحص QA: ناجح"
+                      : "نتيجة فحص QA: يوجد تعارض"}
+                  </div>
+                  <div style={styles.textMutedSmall}>{roleQaReport.summary}</div>
+                  <div style={styles.textMutedSmallTop8}>
+                    آخر تشغيل: {formatDateTimeLabel(roleQaReport.ranAt)}
+                  </div>
+                  <div style={styles.blockTop8}>
+                    {roleQaReport.lines.slice(0, 6).map((line, idx) => (
+                      <div key={idx} style={styles.listItemGap4}>
+                        • {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div style={styles.sideBlock}>
