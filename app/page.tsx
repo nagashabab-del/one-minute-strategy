@@ -116,6 +116,7 @@ type PersistedState = {
   closureRemovalHours?: string;
   boqItems?: BoqItem[];
   orgRoles?: OrgRole[];
+  actionTrackerItems?: ActionTaskItem[];
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
@@ -152,6 +153,19 @@ type OrgRole = {
 };
 
 type OrgRoleDetailPanel = "tasks" | "kpis" | null;
+
+type ActionTaskStatus = "لم تبدأ" | "جاري" | "مكتمل" | "متعثر";
+
+type ActionTaskItem = {
+  id: string;
+  phase: "الإعداد" | "التنفيذ" | "المتابعة" | "الإقفال";
+  stream: string;
+  task: string;
+  owner: string;
+  dueDate: string;
+  notes: string;
+  status: ActionTaskStatus;
+};
 
 type LoadingContext =
   | ""
@@ -499,6 +513,9 @@ export default function Home() {
     visitor_experience_manager: null,
     program_director: null,
   });
+  const [actionTrackerItems, setActionTrackerItems] = useState<ActionTaskItem[]>(
+    initialSaved.actionTrackerItems ?? []
+  );
   const [advancedPlanText, setAdvancedPlanText] = useState(
     initialSaved.advancedPlanText ?? ""
   );
@@ -556,6 +573,17 @@ export default function Home() {
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
   const activeOrgRoles = orgRoles.filter((role) => role.enabled);
+  const actionTrackerStats = {
+    total: actionTrackerItems.length,
+    notStarted: actionTrackerItems.filter((item) => item.status === "لم تبدأ").length,
+    inProgress: actionTrackerItems.filter((item) => item.status === "جاري").length,
+    done: actionTrackerItems.filter((item) => item.status === "مكتمل").length,
+    blocked: actionTrackerItems.filter((item) => item.status === "متعثر").length,
+  };
+  const actionTrackerProgress =
+    actionTrackerStats.total === 0
+      ? 0
+      : Math.round((actionTrackerStats.done / actionTrackerStats.total) * 100);
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
@@ -611,6 +639,7 @@ export default function Home() {
       closureRemovalHours,
       boqItems,
       orgRoles,
+      actionTrackerItems,
       advancedPlanText,
       advancedApproved,
       demoMode,
@@ -655,6 +684,7 @@ export default function Home() {
     closureRemovalHours,
     boqItems,
     orgRoles,
+    actionTrackerItems,
     advancedPlanText,
     advancedApproved,
     demoMode,
@@ -850,6 +880,12 @@ export default function Home() {
       ...prev,
       [id]: prev[id] === panel ? null : panel,
     }));
+  }
+
+  function updateActionTrackerItem(id: string, patch: Partial<ActionTaskItem>) {
+    setActionTrackerItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
   }
 
   function openAdvancedTrack() {
@@ -1225,6 +1261,24 @@ export default function Home() {
       )
       .join("\n");
 
+    const toDateInput = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
+    const previousTrackerMap = new Map(actionTrackerItems.map((item) => [item.id, item]));
+    const generatedTrackerItems: ActionTaskItem[] = tasksOrdered.map((t) => {
+      const id = `${t.phase}|${t.stream}|${t.task}`;
+      const prev = previousTrackerMap.get(id);
+      return {
+        id,
+        phase: t.phase,
+        stream: t.stream,
+        task: t.task,
+        owner: prev?.owner?.trim() ? prev.owner : t.owner,
+        dueDate: prev?.dueDate ?? toDateInput(t.end),
+        notes: prev?.notes ?? "",
+        status: prev?.status ?? "لم تبدأ",
+      };
+    });
+
     const plan = [
       "خطة تنفيذ تشغيلية متكاملة (المسار المتقدم - تفصيلي)",
       "",
@@ -1296,6 +1350,7 @@ export default function Home() {
       "ملاحظة حوكمة: أي تعديل لاحق على النطاق أو BOQ أو المخاطر يتطلب إعادة توليد الخطة قبل الاعتماد النهائي.",
     ].join("\n");
 
+    setActionTrackerItems(generatedTrackerItems);
     setAdvancedPlanText(plan);
     setStage("advanced_plan");
     showSuccess("تم توليد خطة التنفيذ المتقدمة بنجاح.");
@@ -1562,6 +1617,7 @@ export default function Home() {
         }))
       )
     );
+    setActionTrackerItems([]);
     setAdvancedPlanText(demoPlan);
     setAdvancedApproved(false);
     setNeedsReanalysisHint(false);
@@ -1808,6 +1864,12 @@ export default function Home() {
     if (stage === "advanced_plan" && !advancedApproved) {
       alerts.push({
         text: "خطة التنفيذ المتقدمة تحتاج اعتماد نهائي قبل التجميد.",
+        tone: "warn",
+      });
+    }
+    if (stage === "advanced_plan" && actionTrackerStats.blocked > 0) {
+      alerts.push({
+        text: `يوجد ${toArabicDigits(actionTrackerStats.blocked)} مهام متعثرة في المتابعة التنفيذية.`,
         tone: "warn",
       });
     }
@@ -3192,6 +3254,90 @@ export default function Home() {
         fontSize: 11.5,
         color: "rgba(255,255,255,0.78)",
         lineHeight: 1.5,
+      } as CSSProperties,
+      actionTrackerHead: {
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      actionTrackerBadge: {
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.26)",
+        background: "rgba(0,229,255,0.10)",
+        padding: "6px 10px",
+        fontSize: 12,
+        fontWeight: 800,
+        color: "white",
+      } as CSSProperties,
+      actionTrackerStatsGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gap: 8,
+      } as CSSProperties,
+      actionTrackerStat: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "7px 8px",
+      } as CSSProperties,
+      actionTrackerStatLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.70)",
+      } as CSSProperties,
+      actionTrackerStatValue: {
+        marginTop: 3,
+        fontSize: 14,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      actionTaskCard: (status: ActionTaskStatus) =>
+        ({
+          marginTop: 10,
+          borderRadius: 12,
+          border:
+            status === "مكتمل"
+              ? "1px solid rgba(0,255,133,0.26)"
+              : status === "متعثر"
+                ? "1px solid rgba(255,122,69,0.30)"
+                : status === "جاري"
+                  ? "1px solid rgba(0,229,255,0.25)"
+                  : "1px solid rgba(255,255,255,0.10)",
+          background:
+            status === "مكتمل"
+              ? "rgba(0,255,133,0.06)"
+              : status === "متعثر"
+                ? "rgba(255,122,69,0.08)"
+                : status === "جاري"
+                  ? "rgba(0,229,255,0.07)"
+                  : "rgba(255,255,255,0.025)",
+          padding: 10,
+        } as CSSProperties),
+      actionTaskHead: {
+        display: "grid",
+        gap: 4,
+      } as CSSProperties,
+      actionTaskTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      actionTaskMeta: {
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      actionTaskGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      actionTaskNotes: {
+        height: 84,
+        marginTop: 8,
       } as CSSProperties,
       radioLabel: {
         display: "flex",
@@ -4883,6 +5029,120 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.actionTrackerHead}>
+                      <div style={styles.qTitle}>متابعة التنفيذ (Action Tracker)</div>
+                      <div style={styles.actionTrackerBadge}>
+                        نسبة الإنجاز: {toArabicDigits(actionTrackerProgress)}%
+                      </div>
+                    </div>
+
+                    <div style={styles.actionTrackerStatsGrid}>
+                      <div style={styles.actionTrackerStat}>
+                        <div style={styles.actionTrackerStatLabel}>إجمالي المهام</div>
+                        <div style={styles.actionTrackerStatValue}>
+                          {toArabicDigits(actionTrackerStats.total)}
+                        </div>
+                      </div>
+                      <div style={styles.actionTrackerStat}>
+                        <div style={styles.actionTrackerStatLabel}>لم تبدأ</div>
+                        <div style={styles.actionTrackerStatValue}>
+                          {toArabicDigits(actionTrackerStats.notStarted)}
+                        </div>
+                      </div>
+                      <div style={styles.actionTrackerStat}>
+                        <div style={styles.actionTrackerStatLabel}>جاري</div>
+                        <div style={styles.actionTrackerStatValue}>
+                          {toArabicDigits(actionTrackerStats.inProgress)}
+                        </div>
+                      </div>
+                      <div style={styles.actionTrackerStat}>
+                        <div style={styles.actionTrackerStatLabel}>مكتمل / متعثر</div>
+                        <div style={styles.actionTrackerStatValue}>
+                          {toArabicDigits(actionTrackerStats.done)}
+                          {" / "}
+                          {toArabicDigits(actionTrackerStats.blocked)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {actionTrackerItems.length === 0 ? (
+                      <div style={styles.textMutedSmall}>
+                        لا توجد مهام متابعة حتى الآن. اضغط «توليد خطة التنفيذ المتقدمة» من
+                        المرحلة السابقة لإنشاء قائمة التنفيذ.
+                      </div>
+                    ) : (
+                      actionTrackerItems.map((item, idx) => (
+                        <div key={item.id} style={styles.actionTaskCard(item.status)}>
+                          <div style={styles.actionTaskHead}>
+                            <div style={styles.actionTaskTitle}>
+                              {toArabicDigits(idx + 1)}. {item.task}
+                            </div>
+                            <div style={styles.actionTaskMeta}>
+                              {item.phase} • {item.stream}
+                            </div>
+                          </div>
+
+                          <div style={styles.actionTaskGrid}>
+                            <div>
+                              <div style={styles.label}>الحالة</div>
+                              <select
+                                value={item.status}
+                                onChange={(e) =>
+                                  updateActionTrackerItem(item.id, {
+                                    status: e.target.value as ActionTaskStatus,
+                                  })
+                                }
+                                style={styles.input}
+                              >
+                                <option value="لم تبدأ">لم تبدأ</option>
+                                <option value="جاري">جاري</option>
+                                <option value="مكتمل">مكتمل</option>
+                                <option value="متعثر">متعثر</option>
+                              </select>
+                            </div>
+                            <div>
+                              <div style={styles.label}>المسؤول</div>
+                              <input
+                                value={item.owner}
+                                onChange={(e) =>
+                                  updateActionTrackerItem(item.id, { owner: e.target.value })
+                                }
+                                style={styles.input}
+                                placeholder="اسم المسؤول"
+                              />
+                            </div>
+                            <div>
+                              <div style={styles.label}>تاريخ الاستحقاق</div>
+                              <input
+                                type="date"
+                                value={item.dueDate}
+                                onChange={(e) =>
+                                  updateActionTrackerItem(item.id, { dueDate: e.target.value })
+                                }
+                                style={styles.input}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={styles.blockTop8}>
+                            <div style={styles.label}>ملاحظات تنفيذية</div>
+                            <textarea
+                              value={item.notes}
+                              onChange={(e) =>
+                                updateActionTrackerItem(item.id, { notes: e.target.value })
+                              }
+                              style={{ ...styles.textarea, ...styles.actionTaskNotes }}
+                              placeholder="اكتب تحديث الحالة أو سبب التعثر أو الإجراء المطلوب..."
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
                   <label style={styles.radioLabel}>
                     <input
                       type="checkbox"
@@ -5049,6 +5309,19 @@ export default function Home() {
                 })}
               </div>
             </div>
+
+            {stage === "advanced_plan" ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>متابعة التنفيذ</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  الإنجاز الحالي: <strong>{toArabicDigits(actionTrackerProgress)}%</strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
+                  {toArabicDigits(actionTrackerStats.blocked)}
+                </div>
+              </div>
+            ) : null}
 
             {(stage === "addition" || stage === "done") ? (
               <div style={styles.sideBlock}>
