@@ -677,6 +677,8 @@ export default function Home() {
   const openChangeRequests = changeRequests.filter((x) => x.status === "مفتوح").length;
   const approvedChangeRequests = changeRequests.filter((x) => x.status === "معتمد").length;
   const rejectedChangeRequests = changeRequests.filter((x) => x.status === "مرفوض").length;
+  const documentRevisionNumber = hasFrozenBaseline ? approvedChangeRequests + 1 : 0;
+  const documentRevisionLabel = `REV-${String(documentRevisionNumber).padStart(2, "0")}`;
   const actionTrackerStats = {
     total: actionTrackerItems.length,
     notStarted: actionTrackerItems.filter((item) => item.status === "لم تبدأ").length,
@@ -1175,6 +1177,7 @@ export default function Home() {
       "ملخص تنفيذي للإدارة",
       "",
       `تاريخ التحديث: ${generatedAt}`,
+      `رقم النسخة: ${documentRevisionLabel}`,
       `نوع المشروع: ${eventType}`,
       `الموقع: ${venueType}`,
       `بداية الفعالية: ${startAt || "غير محدد"}`,
@@ -1210,6 +1213,7 @@ export default function Home() {
       "نسخة تشغيل ميدانية (Checklist)",
       "",
       `تاريخ التحديث: ${generatedAt}`,
+      `رقم النسخة: ${documentRevisionLabel}`,
       `الفعالية: ${eventType} | الموقع: ${venueType}`,
       "",
       "قبل بدء الفعالية:",
@@ -1276,6 +1280,27 @@ export default function Home() {
     }
     const safeTitle = escapeHtml(title);
     const safeContent = escapeHtml(content);
+    const safeProject = escapeHtml(project || "غير محدد");
+    const safeEventType = escapeHtml(eventType || "غير محدد");
+    const safeVenue = escapeHtml(venueType || "غير محدد");
+    const safeStart = escapeHtml(startAt || "غير محدد");
+    const safeEnd = escapeHtml(endAt || "غير محدد");
+    const safeRevision = escapeHtml(documentRevisionLabel);
+    const generatedAt = escapeHtml(formatDateTimeLabel(new Date().toISOString()));
+    const stampText = !hasFrozenBaseline
+      ? "DRAFT"
+      : hasChangesAfterFreeze
+        ? "CHANGED AFTER FREEZE"
+        : "BASELINE FROZEN";
+    const safeStamp = escapeHtml(stampText);
+    const freezeMeta =
+      hasFrozenBaseline && baselineFreeze
+        ? escapeHtml(
+            `Baseline: ${baselineFreeze.id} • ${formatDateTimeLabel(baselineFreeze.frozenAt)}`
+          )
+        : "Baseline: غير مجمّدة";
+    const safeFreezeMeta = escapeHtml(freezeMeta);
+
     w.document.write(`
       <!doctype html>
       <html lang="ar" dir="rtl">
@@ -1283,20 +1308,121 @@ export default function Home() {
           <meta charset="utf-8" />
           <title>${safeTitle}</title>
           <style>
-            body { font-family: Tahoma, Arial, sans-serif; margin: 24px; color: #111; }
-            h1 { font-size: 20px; margin: 0 0 14px 0; }
-            pre { white-space: pre-wrap; line-height: 1.8; font-size: 14px; margin: 0; }
+            @page {
+              size: A4;
+              margin: 20mm 14mm 18mm;
+            }
+            body {
+              font-family: Tahoma, Arial, sans-serif;
+              color: #111;
+              margin: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              border-bottom: 1px solid #d7dbe3;
+              padding: 6mm 14mm 4mm;
+              background: #fff;
+            }
+            .brand {
+              font-size: 15px;
+              font-weight: 800;
+              color: #1a1f2b;
+              margin: 0;
+            }
+            .sub {
+              margin-top: 2px;
+              font-size: 10.5px;
+              color: #5f6b7c;
+            }
+            .meta {
+              margin-top: 6px;
+              font-size: 10.5px;
+              color: #2f3747;
+              line-height: 1.6;
+            }
+            .footer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              border-top: 1px solid #d7dbe3;
+              padding: 3.5mm 14mm 0;
+              font-size: 10px;
+              color: #5f6b7c;
+              background: #fff;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            .page-num::after {
+              content: counter(page);
+            }
+            .stamp {
+              position: fixed;
+              top: 42mm;
+              left: 12mm;
+              transform: rotate(-18deg);
+              border: 1px solid #8a98ad;
+              color: #6f7f95;
+              font-size: 10px;
+              font-weight: 800;
+              letter-spacing: 0.7px;
+              padding: 4px 10px;
+              background: rgba(255,255,255,0.7);
+            }
+            main {
+              padding: 43mm 14mm 20mm;
+            }
+            h1 {
+              font-size: 18px;
+              margin: 0 0 10px 0;
+              color: #111827;
+            }
+            pre {
+              white-space: pre-wrap;
+              line-height: 1.8;
+              font-size: 13px;
+              margin: 0;
+              color: #111827;
+            }
           </style>
         </head>
         <body>
-          <h1>${safeTitle}</h1>
-          <pre>${safeContent}</pre>
+          <div class="header">
+            <p class="brand">One Minute Strategy</p>
+            <div class="sub">Executive Decision Intelligence Platform</div>
+            <div class="meta">
+              ${safeTitle}<br />
+              المشروع: ${safeProject} • النوع: ${safeEventType} • الموقع: ${safeVenue}<br />
+              البداية: ${safeStart} • النهاية: ${safeEnd} • النسخة: ${safeRevision} • التوليد: ${generatedAt}<br />
+              ${safeFreezeMeta}
+            </div>
+          </div>
+
+          <div class="stamp">${safeStamp}</div>
+
+          <main>
+            <h1>${safeTitle}</h1>
+            <pre>${safeContent}</pre>
+          </main>
+
+          <div class="footer">
+            <div>One Minute Strategy • Internal Execution Copy</div>
+            <div>صفحة <span class="page-num"></span></div>
+          </div>
         </body>
       </html>
     `);
     w.document.close();
-    w.focus();
-    w.print();
+    w.onload = () => {
+      w.focus();
+      w.print();
+    };
   }
 
   function openAdvancedTrack() {
@@ -6507,6 +6633,9 @@ export default function Home() {
             {stage === "advanced_plan" ? (
               <div style={styles.sideBlock}>
                 <div style={styles.sideBlockTitle}>مخرجات الطباعة</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  رقم النسخة: <strong>{documentRevisionLabel}</strong>
+                </div>
                 <div style={styles.sideSummaryPrimaryText}>
                   نسخة الإدارة:{" "}
                   <strong>{managementBriefText.trim() ? "جاهزة" : "غير محدثة"}</strong>
