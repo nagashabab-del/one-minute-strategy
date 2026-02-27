@@ -143,6 +143,7 @@ type BoqItem = {
   qty: string;
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
+  ownerRoleId: OrgRoleId | "";
 };
 
 type OrgRoleId =
@@ -316,6 +317,11 @@ function permissionHintText(scope: string, roles: UserRole[], currentRole: UserR
   return `لا يمكنك ${scope} بدور ${userRoleLabel(currentRole)}. الصلاحية متاحة لـ ${allowedRolesLabel(
     roles
   )}.`;
+}
+
+function orgRoleDisplay(role: Pick<OrgRole, "title" | "assignee">) {
+  const assignee = role.assignee.trim();
+  return assignee ? `${role.title} (${assignee})` : role.title;
 }
 
 function computeRolePermissions(role: UserRole): RolePermissionFlags {
@@ -580,6 +586,7 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     qty: "",
     source: "مورد",
     leadTimeDays: "",
+    ownerRoleId: "",
   },
 ];
 
@@ -678,6 +685,14 @@ function hydrateOrgRoles(saved?: OrgRole[]) {
   });
 }
 
+function normalizeBoqItems(saved?: BoqItem[]) {
+  if (!saved?.length) return DEFAULT_BOQ_ITEMS;
+  return saved.map((row) => ({
+    ...row,
+    ownerRoleId: row.ownerRoleId ?? "",
+  }));
+}
+
 export default function Home() {
   const [initialSaved] = useState<PersistedState>(() => {
     if (typeof window === "undefined") return {};
@@ -748,7 +763,7 @@ export default function Home() {
     initialSaved.closureRemovalHours ?? "6"
   );
   const [boqItems, setBoqItems] = useState<BoqItem[]>(
-    initialSaved.boqItems?.length ? initialSaved.boqItems : DEFAULT_BOQ_ITEMS
+    normalizeBoqItems(initialSaved.boqItems)
   );
   const [orgRoles, setOrgRoles] = useState<OrgRole[]>(
     () => hydrateOrgRoles(initialSaved.orgRoles)
@@ -1388,6 +1403,10 @@ export default function Home() {
 
   function addBoqRow() {
     const nextId = String(Date.now());
+    const defaultOwnerRoleId =
+      orgRoles.find((role) => role.id === "operations_manager" && role.enabled)?.id ??
+      activeOrgRoles[0]?.id ??
+      "";
     setBoqItems((prev) => [
       ...prev,
       {
@@ -1399,6 +1418,7 @@ export default function Home() {
         qty: "",
         source: "مورد",
         leadTimeDays: "",
+        ownerRoleId: defaultOwnerRoleId,
       },
     ]);
   }
@@ -1968,10 +1988,17 @@ export default function Home() {
     const boqFilled = boqItems.filter((row) => row.item.trim().length > 0);
 
     const boqSummary = boqFilled
-      .map(
-        (row, idx) =>
-          `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source})`
-      )
+      .map((row, idx) => {
+        const assignedRole = row.ownerRoleId
+          ? orgRoles.find((role) => role.id === row.ownerRoleId)
+          : null;
+        const ownerSummary = assignedRole
+          ? `${orgRoleDisplay(assignedRole)}${assignedRole.enabled ? "" : " (غير مفعّل)"}`
+          : row.source === "أصل داخلي"
+            ? "المستودع/العمليات"
+            : "المشتريات";
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary}`;
+      })
       .join("\n");
 
     const riskLines = riskManagement
@@ -2192,7 +2219,15 @@ export default function Home() {
         const rowStart = prepStart;
         const rowEnd = rowStart ? addDays(rowStart, leadDays) : null;
         const stream = row.category.trim().length > 0 ? row.category : "توريد وتجهيز";
-        const owner = row.source === "أصل داخلي" ? "المستودع/العمليات" : "المشتريات";
+        let owner = row.source === "أصل داخلي" ? "المستودع/العمليات" : "المشتريات";
+        if (row.ownerRoleId) {
+          const assignedRole = roleProfile(row.ownerRoleId);
+          if (assignedRole) {
+            owner = assignedRole.enabled
+              ? roleOwner(row.ownerRoleId, assignedRole.title)
+              : `${orgRoleDisplay(assignedRole)} (غير مفعّل)`;
+          }
+        }
 
         tasks.push({
           phase: "الإعداد",
@@ -2391,6 +2426,7 @@ export default function Home() {
           qty: "1",
           source: "مورد",
           leadTimeDays: "5",
+          ownerRoleId: "operations_manager",
         },
       ];
     });
@@ -2595,6 +2631,7 @@ export default function Home() {
         qty: "1",
         source: "مورد",
         leadTimeDays: "5",
+        ownerRoleId: "operations_manager",
       },
       {
         id: "demo-2",
@@ -2605,6 +2642,7 @@ export default function Home() {
         qty: "1",
         source: "أصل داخلي",
         leadTimeDays: "2",
+        ownerRoleId: "visitor_experience_manager",
       },
     ]);
     const demoLeads: Record<OrgRoleId, string> = {
@@ -3049,7 +3087,7 @@ export default function Home() {
 
   function boqCompletenessScore() {
     if (boqItems.length === 0) return 0;
-    const fieldsPerRow = 7;
+    const fieldsPerRow = 8;
     const scorePerRow = boqItems.map((row) => {
       const filled = [
         row.category.trim().length > 0,
@@ -3059,6 +3097,7 @@ export default function Home() {
         row.qty.trim().length > 0,
         row.source.trim().length > 0,
         row.leadTimeDays.trim().length > 0,
+        row.ownerRoleId.trim().length > 0,
       ].filter(Boolean).length;
       return filled / fieldsPerRow;
     });
@@ -6290,8 +6329,22 @@ export default function Home() {
 
                 <div style={styles.blockTop12}>
                   <div style={styles.label}>٢.٣ جدول الكميات والمواصفات (مختصر V1)</div>
+                  <div style={styles.textMutedSmallTop8}>
+                    خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
+                  </div>
+                  {activeOrgRoles.length === 0 ? (
+                    <div style={styles.warnBox}>
+                      <strong>تنبيه:</strong> لا توجد أدوار مفعّلة حاليًا في الهيكل التشغيلي.
+                      فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في BOQ.
+                    </div>
+                  ) : null}
                   <div style={{ ...styles.qCard, marginTop: 0 }}>
-                    {boqItems.map((row) => (
+                    {boqItems.map((row) => {
+                      const assignedRole = row.ownerRoleId
+                        ? orgRoles.find((role) => role.id === row.ownerRoleId)
+                        : null;
+                      const hasAssignedInactiveRole = !!assignedRole && !assignedRole.enabled;
+                      return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.initFormGrid}>
                           <input
@@ -6356,6 +6409,28 @@ export default function Home() {
                             disabled={!canEditAdvancedExecution}
                             placeholder="زمن التوريد (يوم)"
                           />
+                          <select
+                            value={row.ownerRoleId}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, {
+                                ownerRoleId: e.target.value as OrgRoleId | "",
+                              })
+                            }
+                            style={styles.input}
+                            disabled={!canEditAdvancedExecution}
+                          >
+                            <option value="">المسؤول (اختياري)</option>
+                            {activeOrgRoles.map((role) => (
+                              <option key={role.id} value={role.id}>
+                                {orgRoleDisplay(role)}
+                              </option>
+                            ))}
+                            {hasAssignedInactiveRole ? (
+                              <option value={assignedRole.id}>
+                                {orgRoleDisplay(assignedRole)} (غير مفعّل)
+                              </option>
+                            ) : null}
+                          </select>
                         </div>
                         <div style={styles.blockTop8}>
                           <button
@@ -6367,7 +6442,8 @@ export default function Home() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
 
                     <div style={styles.blockTop12}>
                       <button
