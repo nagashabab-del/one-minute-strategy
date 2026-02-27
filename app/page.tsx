@@ -726,36 +726,254 @@ export default function Home() {
     const start = startAt ? new Date(startAt) : null;
     const end = endAt ? new Date(endAt) : null;
 
-    let prepDaysText = "غير محدد";
-    let execDaysText = "غير محدد";
+    const toFiniteDate = (d: Date | null) =>
+      d && Number.isFinite(d.getTime()) ? d : null;
+    const commissioningSafe = toFiniteDate(commissioning);
+    const startSafe = toFiniteDate(start);
+    const endSafe = toFiniteDate(end);
 
-    if (
-      commissioning &&
-      start &&
-      Number.isFinite(commissioning.getTime()) &&
-      Number.isFinite(start.getTime())
-    ) {
-      const days = Math.ceil(
-        (start.getTime() - commissioning.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      prepDaysText = toArabicDigits(Math.max(0, days));
-    }
+    const daysBetween = (from: Date, to: Date) =>
+      Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    const addDays = (date: Date, days: number) =>
+      new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+    const addHours = (date: Date, hours: number) =>
+      new Date(date.getTime() + hours * 60 * 60 * 1000);
+    const parsePositiveInt = (value: string, fallback: number) => {
+      const n = Number.parseInt(value, 10);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
 
-    if (start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())) {
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      execDaysText = toArabicDigits(Math.max(1, days));
-    }
+    const fmt = (date: Date | null, withTime = false) => {
+      if (!date || !Number.isFinite(date.getTime())) return "غير محدد";
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      if (!withTime) return `${y}-${m}-${d}`;
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${d} ${hh}:${mm}`;
+    };
 
-    const boqSummary = boqItems
-      .filter((row) => row.item.trim())
+    const removalHours = parsePositiveInt(closureRemovalHours, 6);
+    const prepStart = commissioningSafe ?? (startSafe ? addDays(startSafe, -7) : null);
+    const prepEnd = startSafe ? addDays(startSafe, -1) : null;
+    const execStart = startSafe;
+    const execEnd = endSafe;
+    const closureStart = endSafe;
+    const closureEnd = endSafe ? addHours(endSafe, removalHours) : null;
+
+    const prepDays =
+      commissioningSafe && startSafe ? Math.max(0, daysBetween(commissioningSafe, startSafe)) : null;
+    const execDays =
+      startSafe && endSafe ? Math.max(1, daysBetween(startSafe, endSafe)) : null;
+
+    const prepDaysText = prepDays === null ? "غير محدد" : toArabicDigits(prepDays);
+    const execDaysText = execDays === null ? "غير محدد" : toArabicDigits(execDays);
+    const boqFilled = boqItems.filter((row) => row.item.trim().length > 0);
+
+    const boqSummary = boqFilled
       .map(
         (row, idx) =>
           `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source})`
       )
       .join("\n");
 
+    const riskLines = riskManagement
+      .split(/\n|[؛.!؟]/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .slice(0, 6);
+
+    const milestones = [
+      { name: "تعميد المشروع", at: fmt(commissioningSafe) },
+      { name: "اعتماد النطاق والاستراتيجية", at: fmt(prepStart) },
+      { name: "إغلاق المشتريات الحرجة", at: fmt(prepEnd) },
+      { name: "بداية التنفيذ التشغيلي", at: fmt(execStart, true) },
+      { name: "نهاية التنفيذ", at: fmt(execEnd, true) },
+      { name: "إقفال وتسليم الموقع", at: fmt(closureEnd, true) },
+    ];
+
+    type PlanTask = {
+      phase: "الإعداد" | "التنفيذ" | "المتابعة" | "الإقفال";
+      stream: string;
+      task: string;
+      owner: string;
+      start: string;
+      end: string;
+      duration: string;
+      dependsOn: string;
+      acceptance: string;
+      kpi: string;
+    };
+
+    const tasks: PlanTask[] = [
+      {
+        phase: "الإعداد",
+        stream: "الحوكمة والتخطيط",
+        task: "اعتماد نطاق العمل، الاستراتيجية، وخط الأساس الزمني",
+        owner: "مدير المشروع",
+        start: fmt(prepStart),
+        end: fmt(prepStart),
+        duration: "يوم اعتماد",
+        dependsOn: "تعميد المشروع",
+        acceptance: "محضر اعتماد رسمي مع قائمة مخرجات معتمدة",
+        kpi: "اعتماد %100 قبل أي توريد",
+      },
+      {
+        phase: "الإعداد",
+        stream: "التصاميم والاعتمادات",
+        task: "إنهاء واعتماد مخططات 3D والجرافيك والهوية البصرية",
+        owner: "مدير الإبداع/التصميم",
+        start: fmt(prepStart),
+        end: fmt(prepEnd),
+        duration: prepDays === null ? "مرحلة الإعداد" : `${toArabicDigits(Math.max(1, Math.floor(prepDays * 0.5)))} يوم`,
+        dependsOn: "اعتماد النطاق",
+        acceptance: "اعتماد جميع التصاميم من العميل والبرنامج",
+        kpi: "0 ملاحظات حرجة مفتوحة قبل التنفيذ",
+      },
+      {
+        phase: "الإعداد",
+        stream: "الموقع والتجهيزات",
+        task: "حجز القاعات وتجهيز مناطق التشغيل وVIP والضيافة",
+        owner: "قائد العمليات",
+        start: fmt(prepStart),
+        end: fmt(prepEnd),
+        duration: "حسب الجاهزية",
+        dependsOn: "اعتماد الموقع",
+        acceptance: "قائمة فحص جاهزية موقعة",
+        kpi: "جاهزية موقع ≥ %95 قبل يوم التنفيذ",
+      },
+      {
+        phase: "الإعداد",
+        stream: "التجهيزات الفنية",
+        task: "اختبار شامل للصوت والإضاءة والشاشات + بروفة تشغيل",
+        owner: "مدير تقني",
+        start: fmt(prepStart),
+        end: fmt(prepEnd),
+        duration: "قبل الافتتاح",
+        dependsOn: "تركيب كامل للمعدات",
+        acceptance: "محضر اختبار فني ناجح بدون أعطال حرجة",
+        kpi: "نسبة نجاح الاختبارات %100",
+      },
+      {
+        phase: "التنفيذ",
+        stream: "البرنامج التنفيذي",
+        task: "تشغيل السيناريو وإدارة الفقرات وفق الجدول المعتمد",
+        owner: "مدير التشغيل",
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: `${execDaysText} يوم`,
+        dependsOn: "بروفة نهائية",
+        acceptance: "التزام زمني للفقرات وعدم وجود تعارض تشغيلي",
+        kpi: "انحراف الجدول ≤ 10 دقائق لكل فقرة",
+      },
+      {
+        phase: "التنفيذ",
+        stream: "المراسم والتوثيق",
+        task: "تنفيذ خطة الاستقبال والإجلاس والتوثيق والبث",
+        owner: "قائد المراسم والإعلام",
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: `${execDaysText} يوم`,
+        dependsOn: "جاهزية فرق الاستقبال والتوثيق",
+        acceptance: "تشغيل سلس وتوثيق كامل وفق المواصفات",
+        kpi: "زمن إدخال الضيوف ضمن الخطة بدون تكدس",
+      },
+      {
+        phase: "المتابعة",
+        stream: "قيادة الميدان",
+        task: "غرفة عمليات: متابعة حيّة، تسجيل الملاحظات، وقرارات التصعيد",
+        owner: "مدير المشروع",
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: "طوال التنفيذ",
+        dependsOn: "بدء التشغيل",
+        acceptance: "سجل قرارات محدث وإغلاق الملاحظات الحرجة",
+        kpi: "زمن تصعيد القرار ≤ 5 دقائق",
+      },
+      {
+        phase: "المتابعة",
+        stream: "الجودة والمخاطر",
+        task: "مراجعة دورية للجودة، تحديث سجل المخاطر، وتفعيل البدائل",
+        owner: "مدير الجودة والمخاطر",
+        start: fmt(execStart, true),
+        end: fmt(execEnd, true),
+        duration: "طوال التنفيذ",
+        dependsOn: "بدء التشغيل",
+        acceptance: "تقارير يومية وإغلاق الملاحظات الحرجة",
+        kpi: "إغلاق %100 من المخاطر الحرجة ضمن SLA",
+      },
+      {
+        phase: "الإقفال",
+        stream: "الإزالة والتسليم",
+        task: "فك التجهيزات وإعادة الموقع وتسليم الإغلاق",
+        owner: "قائد الإقفال",
+        start: fmt(closureStart, true),
+        end: fmt(closureEnd, true),
+        duration: `${toArabicDigits(removalHours)} ساعة`,
+        dependsOn: "نهاية التشغيل",
+        acceptance: "محضر تسليم موقع نهائي بلا ملاحظات",
+        kpi: "إقفال كامل ضمن المدة المعتمدة",
+      },
+    ];
+
+    boqFilled.forEach((row) => {
+        const leadDays = parsePositiveInt(row.leadTimeDays, 3);
+        const rowStart = prepStart;
+        const rowEnd = rowStart ? addDays(rowStart, leadDays) : null;
+        const stream = row.category.trim().length > 0 ? row.category : "توريد وتجهيز";
+        const owner = row.source === "أصل داخلي" ? "المستودع/العمليات" : "المشتريات";
+
+        tasks.push({
+          phase: "الإعداد",
+          stream,
+          task: `توريد/تجهيز بند BOQ: ${row.item}`,
+          owner,
+          start: fmt(rowStart),
+          end: fmt(rowEnd),
+          duration: `${toArabicDigits(leadDays)} يوم`,
+          dependsOn: "اعتماد البند والمواصفة",
+          acceptance: `استلام بند مطابق للمواصفة: ${row.spec || "وفق المتفق عليه"}`,
+          kpi: `توريد ضمن المهلة (${toArabicDigits(leadDays)} يوم)`,
+        });
+      });
+
+    const phaseOrder = ["الإعداد", "التنفيذ", "المتابعة", "الإقفال"];
+    const tasksOrdered = [...tasks].sort(
+      (a, b) => phaseOrder.indexOf(a.phase) - phaseOrder.indexOf(b.phase)
+    );
+
+    const controlRhythm = [
+      "اجتماع تشغيل صباحي يومي (15 دقيقة): تحديد أولويات اليوم.",
+      "اجتماع مواءمة قبل الفعالية: تأكيد الجاهزية الفنية والتشغيلية.",
+      "تقرير نهاية يوم التنفيذ: حالة الجودة، المخاطر، والإجراءات التصحيحية.",
+      "محضر إقفال خلال 24 ساعة: الدروس المستفادة وتوصيات التحسين.",
+    ];
+
+    const criticalPath = [
+      "اعتماد النطاق والتصاميم",
+      "توريد البنود الحرجة (LED/الصوت/الإضاءة)",
+      "الاختبارات الفنية والبروفة النهائية",
+      "بدء التنفيذ وفق السيناريو",
+      "الإقفال والتسليم",
+    ];
+
+    const readinessGate = [
+      "جاهزية الموقع معتمدة",
+      "جاهزية فنية مجتازة",
+      "جاهزية المراسم والتوثيق",
+      "خطة بدائل حرجة جاهزة",
+    ];
+
+    const taskRows = tasksOrdered
+      .map(
+        (t, idx) =>
+          `${toArabicDigits(idx + 1)} | ${t.phase} | ${t.stream} | ${t.task} | ${t.owner} | ${t.start} | ${t.end} | ${t.duration} | ${t.dependsOn} | ${t.acceptance} | ${t.kpi}`
+      )
+      .join("\n");
+
     const plan = [
-      "خطة تنفيذ متكاملة (V1)",
+      "خطة تنفيذ تشغيلية متكاملة (المسار المتقدم - تفصيلي)",
       "",
       "الأساس الزمني:",
       `- تاريخ التعميد: ${commissioningDate || "غير محدد"}`,
@@ -765,33 +983,34 @@ export default function Home() {
       `- مدة التنفيذ التقديرية: ${execDaysText} يوم`,
       `- مدة الإزالة/الإقفال: ${closureRemovalHours || "6"} ساعة`,
       "",
-      "١) الإعداد:",
-      "- اعتماد نطاق العمل والتصاميم.",
-      "- استكمال التوريد حسب BOQ المختصر.",
-      "- اختبارات ما قبل التشغيل (صوت/إضاءة/شاشة/ضيافة).",
+      "المعالم الرئيسية (Milestones):",
+      ...milestones.map(
+        (m, idx) => `- ${toArabicDigits(idx + 1)}) ${m.name}: ${m.at}`
+      ),
       "",
-      "٢) التنفيذ:",
-      "- تشغيل ميداني حسب السيناريو المعتمد.",
-      "- إدارة البرنامج والفقرات والمراسم.",
-      "- مراقبة فورية للمخاطر والاستجابة.",
+      "مراحل التشغيل:",
+      `- الإعداد: من ${fmt(prepStart)} إلى ${fmt(prepEnd)}`,
+      `- التنفيذ: من ${fmt(execStart, true)} إلى ${fmt(execEnd, true)}`,
+      `- المتابعة: متزامنة مع التنفيذ وتحديث يومي`,
+      `- الإقفال: من ${fmt(closureStart, true)} إلى ${fmt(closureEnd, true)}`,
       "",
-      "٣) المتابعة:",
-      "- مراجعة يومية للجودة ومؤشرات الأداء.",
-      "- معالجة الانحرافات ورفع تقارير الحالة.",
+      "نطاق العمل المعتمد:",
+      `- الموقع والتجهيزات: ${scopeSite || "- غير مدخل."}`,
+      `- التجهيزات الفنية: ${scopeTechnical || "- غير مدخل."}`,
+      `- البرنامج التنفيذي: ${scopeProgram || "- غير مدخل."}`,
+      `- المراسم والتوثيق: ${scopeCeremony || "- غير مدخل."}`,
       "",
-      "٤) الإقفال:",
-      "- إيقاف التشغيل وفق خطة آمنة.",
-      "- إزالة التجهيزات خلال المدة المحددة.",
-      "- تسليم الموقع وإغلاق المحاضر.",
-      "",
-      "نطاق البرنامج والمراسم:",
-      scopeProgram || "- غير مدخل.",
-      "",
-      "نطاق المراسم والتوثيق:",
-      scopeCeremony || "- غير مدخل.",
+      "استراتيجية التنفيذ:",
+      executionStrategy || "- غير مدخلة.",
       "",
       "BOQ المختصر:",
       boqSummary || "- لا توجد بنود BOQ مدخلة بعد.",
+      "",
+      "المسار الحرج (Critical Path):",
+      ...criticalPath.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
+      "",
+      "بوابات الجاهزية قبل التنفيذ:",
+      ...readinessGate.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
       "",
       "معايير الجودة:",
       qualityStandards || "- غير مدخلة.",
@@ -799,8 +1018,23 @@ export default function Home() {
       "إدارة المخاطر:",
       riskManagement || "- غير مدخلة.",
       "",
+      "أبرز المخاطر من المدخلات:",
+      ...(riskLines.length > 0
+        ? riskLines.map((line, idx) => `- ${toArabicDigits(idx + 1)}) ${line}`)
+        : ["- لا توجد مخاطر مدخلة بشكل تفصيلي حتى الآن."]),
+      "",
       "سرعة الاستجابة (SLA):",
       responseSla || "- غير مدخلة.",
+      "",
+      "إيقاع المتابعة والتشغيل:",
+      ...controlRhythm.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
+      "",
+      "مصفوفة المهام التشغيلية:",
+      "رقم | المرحلة | المسار | المهمة | المالك | البداية | النهاية | المدة | التبعية | معيار القبول | KPI",
+      taskRows || "- لا توجد مهام جاهزة.",
+      "",
+      `إجمالي المهام التشغيليّة: ${toArabicDigits(tasksOrdered.length)} مهمة`,
+      "ملاحظة حوكمة: أي تعديل لاحق على النطاق أو BOQ أو المخاطر يتطلب إعادة توليد الخطة قبل الاعتماد النهائي.",
     ].join("\n");
 
     setAdvancedPlanText(plan);
