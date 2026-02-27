@@ -941,7 +941,28 @@ export default function Home() {
 
   // ============ Styles ============
   const styles = useMemo(
-    () => ({
+    () => {
+      const space = {
+        xs: 8,
+        sm: 12,
+        md: 16,
+        lg: 24,
+        xl: 32,
+      };
+
+      const textScale = {
+        tiny: isMobile ? 11 : 12,
+        small: isMobile ? 12 : 13,
+        body: isMobile ? 14 : 15,
+        bodyStrong: isMobile ? 15 : 16,
+        sectionTitle: isMobile ? 15 : 16,
+        pageTitle: isMobile ? 20 : 24,
+        heroTitle: isMobile ? 24 : 34,
+        heroSubtitle: isMobile ? 13 : 16,
+        heroMessage: isMobile ? 14 : 18,
+      };
+
+      return ({
       page: {
         minHeight: "100vh",
         background: "#05070d",
@@ -964,7 +985,7 @@ export default function Home() {
       container: {
         maxWidth: 1320,
         margin: "0 auto",
-        padding: isMobile ? 14 : 34,
+        padding: isMobile ? space.md : space.xl,
         position: "relative" as const,
         zIndex: 1,
       },
@@ -973,37 +994,37 @@ export default function Home() {
         border: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(255,255,255,0.03)",
         backdropFilter: "blur(14px)",
-        padding: isMobile ? 12 : 16,
-        marginBottom: 12,
+        padding: isMobile ? space.sm : space.md,
+        marginBottom: space.sm,
       } as CSSProperties,
       header: {
         display: "flex",
         justifyContent: "space-between",
         alignItems: isMobile ? "stretch" : "center",
         flexDirection: isMobile ? "column" : "row",
-        gap: 16,
-        marginBottom: 22,
+        gap: space.md,
+        marginBottom: space.lg,
       } as CSSProperties,
       headerBrand: {
         display: "flex",
         alignItems: isMobile ? "flex-start" : "center",
-        gap: isMobile ? 12 : 16,
+        gap: isMobile ? space.sm : space.md,
         width: isMobile ? "100%" : "auto",
       },
       logo: {
-        fontSize: isMobile ? 20 : 24,
+        fontSize: textScale.pageTitle,
         fontWeight: 900,
         margin: 0,
         letterSpacing: 0.2,
       },
       subtitle: {
-        marginTop: 6,
+        marginTop: space.xs,
         color: "rgba(255,255,255,0.65)",
-        fontSize: isMobile ? 12 : 13,
+        fontSize: textScale.small,
       },
       headerActions: {
         display: "flex",
-        gap: 10,
+        gap: space.xs,
         alignItems: "center",
         flexDirection: "row",
         flexWrap: isMobile ? "wrap" : "nowrap",
@@ -1044,8 +1065,8 @@ export default function Home() {
         } as CSSProperties),
       progressWrapper: { marginBottom: 18 },
       progressLabel: {
-        marginBottom: 8,
-        fontSize: 13,
+        marginBottom: space.xs,
+        fontSize: textScale.small,
         lineHeight: 1.6,
         color: "rgba(255,255,255,0.72)",
       },
@@ -1062,21 +1083,29 @@ export default function Home() {
       grid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
-        gap: 18,
+        gap: space.md,
       },
       card: {
         background: "rgba(255,255,255,0.04)",
         backdropFilter: "blur(14px)",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 16,
-        padding: isMobile ? 14 : 18,
+        padding: isMobile ? space.sm : space.md,
       },
-      cardTitle: { fontSize: 16, fontWeight: 900, margin: 0 },
-      muted: { color: "rgba(255,255,255,0.62)", fontSize: 13, marginTop: 8 },
-      label: { fontSize: 12, color: "rgba(255,255,255,0.72)", marginBottom: 6 },
+      cardTitle: { fontSize: textScale.sectionTitle, fontWeight: 900, margin: 0 },
+      muted: {
+        color: "rgba(255,255,255,0.62)",
+        fontSize: textScale.small,
+        marginTop: space.xs,
+      },
+      label: {
+        fontSize: textScale.small,
+        color: "rgba(255,255,255,0.72)",
+        marginBottom: space.xs,
+      },
       input: {
         width: "100%",
-        padding: 10,
+        padding: space.xs,
         borderRadius: 12,
         background: "rgba(0,0,0,0.35)",
         border: "1px solid rgba(255,255,255,0.12)",
@@ -1085,7 +1114,7 @@ export default function Home() {
       },
       textarea: {
         width: "100%",
-        padding: 14,
+        padding: space.sm,
         borderRadius: 14,
         background: "rgba(0,0,0,0.35)",
         border: "1px solid rgba(255,255,255,0.12)",
@@ -1093,7 +1122,7 @@ export default function Home() {
         outline: "none",
         resize: "none" as const,
         lineHeight: 1.7,
-        fontSize: 14,
+        fontSize: textScale.body,
       },
       hr: {
         height: 1,
@@ -1123,9 +1152,9 @@ export default function Home() {
       } as CSSProperties,
       qTitle: {
         fontWeight: 900,
-        marginBottom: 6,
+        marginBottom: space.xs,
         lineHeight: 1.5,
-        fontSize: isMobile ? 14 : 16,
+        fontSize: textScale.bodyStrong,
       } as CSSProperties,
       advisorQuestionHeader: (key: string) =>
         ({
@@ -1160,9 +1189,9 @@ export default function Home() {
         fontSize: isMobile ? 13 : 14,
       } as CSSProperties,
       qHint: {
-        fontSize: isMobile ? 11.5 : 12,
+        fontSize: textScale.tiny,
         color: "rgba(255,255,255,0.65)",
-        marginTop: 6,
+        marginTop: space.xs,
         lineHeight: 1.55,
       } as CSSProperties,
       row2: {
@@ -1508,16 +1537,16 @@ export default function Home() {
         width: isMobile ? "100%" : "auto",
       } as CSSProperties,
       finalBodyText: {
-        marginTop: 8,
+        marginTop: space.xs,
         lineHeight: 1.7,
         color: "rgba(255,255,255,0.9)",
-        fontSize: isMobile ? 14 : 15,
+        fontSize: textScale.body,
       } as CSSProperties,
       questionPromptText: {
-        marginTop: 8,
+        marginTop: space.xs,
         lineHeight: 1.7,
         color: "rgba(255,255,255,0.93)",
-        fontSize: isMobile ? 14 : 15,
+        fontSize: textScale.body,
       } as CSSProperties,
       questionTextarea: {
         marginTop: 10,
@@ -1545,9 +1574,9 @@ export default function Home() {
       } as CSSProperties,
       sideBlockTitle: {
         fontWeight: 900,
-        fontSize: 13,
+        fontSize: textScale.small,
         color: "rgba(255,255,255,0.92)",
-        marginBottom: 8,
+        marginBottom: space.xs,
       } as CSSProperties,
       stageStatusChip: (tone: "ready" | "active" | "working" | "idle") =>
         ({
@@ -1588,14 +1617,199 @@ export default function Home() {
         padding: "9px 10px",
       } as CSSProperties,
       miniStatLabel: {
-        fontSize: 11,
+        fontSize: textScale.tiny,
         color: "rgba(255,255,255,0.62)",
         marginBottom: 3,
       } as CSSProperties,
       miniStatValue: {
-        fontSize: 14,
+        fontSize: textScale.body,
         fontWeight: 900,
         color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      welcomeHero: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: isMobile ? `${space.xs}px ${space.xs}px` : `${space.sm}px ${space.xs}px`,
+      } as CSSProperties,
+      welcomeTitle: {
+        margin: `${space.sm}px 0 0 0`,
+        fontSize: textScale.heroTitle,
+        fontWeight: 900,
+        letterSpacing: 0.3,
+      } as CSSProperties,
+      welcomeSubtitle: {
+        marginTop: space.xs,
+        color: "rgba(255,255,255,0.88)",
+        fontSize: textScale.heroSubtitle,
+        fontWeight: 900,
+        letterSpacing: 0.2,
+      } as CSSProperties,
+      welcomeMessage: {
+        marginTop: space.sm,
+        marginBottom: 0,
+        maxWidth: isMobile ? 340 : 760,
+        color: "rgba(255,255,255,0.9)",
+        fontSize: textScale.heroMessage,
+        fontWeight: 800,
+        lineHeight: isMobile ? 1.85 : 1.9,
+        textAlign: "center",
+      } as CSSProperties,
+      stackAfterSection: {
+        marginTop: 12,
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      stackAfterBlock: {
+        marginTop: 10,
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      textPrimarySmall: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.9)",
+      } as CSSProperties,
+      textSecondarySmall: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      textTertiarySmall: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.62)",
+      } as CSSProperties,
+      textMutedSmall: {
+        marginTop: 10,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.65)",
+      } as CSSProperties,
+      textMutedSmallTop8: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.65)",
+      } as CSSProperties,
+      blockTop12: { marginTop: 12 } as CSSProperties,
+      blockTop10: { marginTop: 10 } as CSSProperties,
+      blockTop8: { marginTop: 8 } as CSSProperties,
+      radioLabel: {
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+      } as CSSProperties,
+      textNeutralSmall72: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      qualityHeaderRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+      } as CSSProperties,
+      qualitySummaryText: {
+        marginTop: 6,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.75)",
+        lineHeight: 1.6,
+      } as CSSProperties,
+      qualityPositiveText: {
+        marginTop: 10,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      inlineWarnBoxTop10: {
+        marginTop: 10,
+      } as CSSProperties,
+      decisionActionRow: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        width: "auto",
+      } as CSSProperties,
+      advisorRecoEmptyText: {
+        marginTop: 10,
+        color: "rgba(255,255,255,0.65)",
+        fontSize: 13,
+      } as CSSProperties,
+      reportHintText: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.62)",
+        marginTop: 2,
+      } as CSSProperties,
+      reportTextarea: {
+        height: isMobile ? 360 : 340,
+        marginTop: 10,
+        padding: 16,
+        lineHeight: 1.9,
+        fontSize: isMobile ? 14 : 15,
+        fontFamily: "Tahoma, Arial, sans-serif",
+        border: "1px solid rgba(0, 229, 255, 0.14)",
+        background: "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
+      } as CSSProperties,
+      sideSummaryPrimaryText: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.9)",
+        lineHeight: 1.7,
+      } as CSSProperties,
+      sideDurationText: {
+        marginTop: 10,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.76)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      sideQualityText: {
+        marginTop: 8,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      sectionHeading: {
+        margin: 0,
+        fontWeight: 900,
+      } as CSSProperties,
+      listItemGap6: {
+        marginBottom: 6,
+      } as CSSProperties,
+      listItemGap4: {
+        marginBottom: 4,
+      } as CSSProperties,
+      strongText92: {
+        color: "rgba(255,255,255,0.92)",
+      } as CSSProperties,
+      strongText95: {
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      smallMutedTop4: {
+        ...({
+          marginTop: 4,
+        } as CSSProperties),
+      },
+      projectTextarea: {
+        height: 150,
+      } as CSSProperties,
+      additionTextarea: {
+        height: 110,
+      } as CSSProperties,
+      emptyHintText: {
+        color: "rgba(255,255,255,0.7)",
+      } as CSSProperties,
+      qTitleGap4: {
+        ...({
+          marginBottom: 4,
+        } as CSSProperties),
+      },
+      metaItemNoTop: {
+        marginTop: 0,
+      } as CSSProperties,
+      metaItemNoTopCenter: {
+        marginTop: 0,
+        alignItems: "center",
       } as CSSProperties,
       sideAlertItem: (tone: "warn" | "info" | "ok") =>
         ({
@@ -1721,7 +1935,8 @@ export default function Home() {
         color: "rgba(255,255,255,0.88)",
         lineHeight: 1.6,
       } as CSSProperties,
-    }),
+    });
+    },
     [isMobile, isNarrowMobile]
   );
 
@@ -1753,16 +1968,7 @@ export default function Home() {
         {/* Header */}
         <div style={styles.headerShell}>
           {isWelcome ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                padding: isMobile ? "8px 4px" : "12px 8px",
-              }}
-            >
+            <div style={styles.welcomeHero}>
               <Image
                 src="/logo.svg"
                 alt="One Minute Strategy"
@@ -1774,39 +1980,13 @@ export default function Home() {
                   filter: "drop-shadow(0 0 24px rgba(128,0,255,0.6))",
                 }}
               />
-              <h1
-                style={{
-                  margin: "12px 0 0 0",
-                  fontSize: isMobile ? 24 : 34,
-                  fontWeight: 900,
-                  letterSpacing: 0.3,
-                }}
-              >
+              <h1 style={styles.welcomeTitle}>
                 One Minute Strategy
               </h1>
-              <div
-                style={{
-                  marginTop: 8,
-                  color: "rgba(255,255,255,0.88)",
-                  fontSize: isMobile ? 13 : 16,
-                  fontWeight: 900,
-                  letterSpacing: 0.2,
-                }}
-              >
+              <div style={styles.welcomeSubtitle}>
                 Executive Decision Intelligence Platform
               </div>
-              <p
-                style={{
-                  marginTop: 14,
-                  marginBottom: 0,
-                  maxWidth: isMobile ? 340 : 760,
-                  color: "rgba(255,255,255,0.9)",
-                  fontSize: isMobile ? 14 : 18,
-                  fontWeight: 800,
-                  lineHeight: isMobile ? 1.85 : 1.9,
-                  textAlign: "center",
-                }}
-              >
+              <p style={styles.welcomeMessage}>
                 فكرتك تحتاج قرار، وقرارك يحتاج وضوح. مع One Minute Strategy تحصل على مجلس
                 استشاري متكامل يحلل مشروعك من كل زاوية خلال دقيقة واحدة. نختصر الفوضى، نصنع
                 التركيز، ونحوّل الفكرة إلى خطة تنفيذية جاهزة. في عالم السرعة، القرار الأسرع هو
@@ -1871,7 +2051,7 @@ export default function Home() {
           <div style={styles.progressWrapper}>
             <div style={styles.progressLabel}>
               ✨ خطوة بخطوة لصنع القرار —{" "}
-              <strong style={{ color: "rgba(255,255,255,0.92)" }}>{stageLabel()}</strong>
+              <strong style={styles.strongText92}>{stageLabel()}</strong>
               {progressMetaText() ? ` — ${progressMetaText()}` : ""}
             </div>
             <div style={styles.progressBar}>
@@ -1927,7 +2107,7 @@ export default function Home() {
                       </button>
                     </div>
 
-                    <div style={{ marginTop: 12 }}>
+                    <div style={styles.blockTop12}>
                       <div style={styles.label}>نوع الجلسة</div>
                       <div style={styles.sessionModeGrid}>
                         <button
@@ -1959,7 +2139,7 @@ export default function Home() {
                         : "المستشارون المشاركون (اختيار مخصص)"}
                     </div>
 
-                    <div style={{ ...styles.smallMuted, marginTop: 4 }}>
+                    <div style={{ ...styles.smallMuted, ...styles.smallMutedTop4 }}>
                       {advisorSelectionMode === "all"
                         ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
                         : `المحددون حاليًا: ${toArabicDigits(
@@ -2022,7 +2202,7 @@ export default function Home() {
                       </div>
                     ) : null}
 
-                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                    <div style={styles.stackAfterSection}>
                       <button
                         style={styles.primaryBtn(!canMoveToProjectStep)}
                         disabled={!canMoveToProjectStep}
@@ -2103,17 +2283,17 @@ export default function Home() {
                   </div>
                     </div>
 
-                    <div style={{ marginTop: 12 }}>
+                    <div style={styles.blockTop12}>
                       <div style={styles.label}>وصف المشروع</div>
                       <textarea
                         value={project}
                         onChange={(e) => setProject(e.target.value)}
-                        style={{ ...styles.textarea, height: 150 }}
+                        style={{ ...styles.textarea, ...styles.projectTextarea }}
                         placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
                       />
                     </div>
 
-                    <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                    <div style={styles.stackAfterSection}>
                       {hasInvalidTimeRange() ? (
                         <div style={{ ...styles.warnBox, marginBottom: 0 }}>
                           <strong>تنبيه:</strong> وقت النهاية يجب أن يكون بعد وقت البداية.
@@ -2144,7 +2324,7 @@ export default function Home() {
             {/* ROUND 1 */}
             {stage === "round1" && (
               <>
-                <h3 style={{ margin: 0, fontWeight: 900 }}>
+                <h3 style={styles.sectionHeading}>
                   1) أسئلة الجولة الأولى
                 </h3>
 
@@ -2182,7 +2362,7 @@ export default function Home() {
                   );
                 })}
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(loading)}
                     disabled={loading}
@@ -2205,7 +2385,7 @@ export default function Home() {
             {/* ROUND 2 */}
             {stage === "round2" && (
               <>
-                <h3 style={{ margin: 0, fontWeight: 900 }}>2) تدقيق إضافي</h3>
+                <h3 style={styles.sectionHeading}>2) تدقيق إضافي</h3>
 
                 {followupQuestions.map((q) => {
                   const a = answers.find((x) => x.id === q.id);
@@ -2241,7 +2421,7 @@ export default function Home() {
                   );
                 })}
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(loading)}
                     disabled={loading}
@@ -2264,9 +2444,9 @@ export default function Home() {
             {/* DIALOGUE */}
             {stage === "dialogue" && (
               <>
-                <h3 style={{ margin: 0, fontWeight: 900 }}>3) حوار المستشارين</h3>
+                <h3 style={styles.sectionHeading}>3) حوار المستشارين</h3>
 
-                <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterBlock}>
                   {dialogue.map((m, i) => (
                     <div key={i} style={styles.qCard}>
                       <div style={styles.advisorQuestionHeader(m.advisor)}>
@@ -2286,19 +2466,19 @@ export default function Home() {
                 </div>
 
                 {openIssues.length > 0 ? (
-                  <div style={{ marginTop: 12 }}>
+                  <div style={styles.blockTop12}>
                     <div style={styles.qCard}>
                       <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
                       {openIssues.map((x, idx) => (
-                        <div key={idx} style={{ marginBottom: 6 }}>
-                          • {x}
-                        </div>
+                          <div key={idx} style={styles.listItemGap6}>
+                            • {x}
+                          </div>
                       ))}
                     </div>
                   </div>
                 ) : null}
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(false)}
                     onClick={() => setStage("addition")}
@@ -2321,12 +2501,12 @@ export default function Home() {
             {/* ADDITION */}
             {stage === "addition" && (
               <>
-                <h3 style={{ margin: 0, fontWeight: 900 }}>
+                <h3 style={styles.sectionHeading}>
                   4) قبل التحليل: هل لديك إضافة؟
                 </h3>
 
                 <div style={styles.radioRow}>
-                  <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={styles.radioLabel}>
                     <input
                       type="radio"
                       checked={hasAddition === "no"}
@@ -2335,7 +2515,7 @@ export default function Home() {
                     لا يوجد
                   </label>
 
-                  <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={styles.radioLabel}>
                     <input
                       type="radio"
                       checked={hasAddition === "yes"}
@@ -2346,40 +2526,25 @@ export default function Home() {
                 </div>
 
                 {hasAddition === "yes" && (
-                  <div style={{ marginTop: 10 }}>
+                  <div style={styles.blockTop10}>
                     <textarea
                       value={userAddition}
                       onChange={(e) => setUserAddition(e.target.value)}
-                      style={{ ...styles.textarea, height: 110 }}
+                      style={{ ...styles.textarea, ...styles.additionTextarea }}
                       placeholder="اكتب الإضافة (ميزانية/موقع/مدة/بوثات/تسعير/راعي محتمل...)"
                     />
                   </div>
                 )}
 
                 <div style={styles.qualityCard}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 10,
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={styles.qualityHeaderRow}>
                     <div style={{ fontWeight: 900 }}>مؤشر جودة الإجابات قبل التحليل</div>
                     <div style={styles.qualityBadge(answerQuality.level)}>
                       {answerQuality.level}
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.75)",
-                      lineHeight: 1.6,
-                    }}
-                  >
+                  <div style={styles.qualitySummaryText}>
                     جودة تقديرية: {toArabicDigits(answerQuality.score)}٪
                     {" • "}
                     إجابات قوية: {toArabicDigits(answerQuality.strongCount)}
@@ -2397,13 +2562,13 @@ export default function Home() {
                   </div>
 
                   {answerQuality.weakCount > 0 ? (
-                    <div style={{ ...styles.inlineWarnBox, marginTop: 10 }}>
+                    <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
                       <strong>ملاحظة مهمة:</strong> بعض الإجابات قصيرة أو عامة جدًا، وهذا
                       يضعف دقة التحليل النهائي.
                       {answerQuality.weakExamples.length > 0 ? (
-                        <div style={{ marginTop: 8 }}>
+                        <div style={styles.blockTop8}>
                           {answerQuality.weakExamples.map((x, i) => (
-                            <div key={i} style={{ marginBottom: 4 }}>
+                            <div key={i} style={styles.listItemGap4}>
                               • {x.question}
                             </div>
                           ))}
@@ -2411,20 +2576,14 @@ export default function Home() {
                       ) : null}
                     </div>
                   ) : (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        fontSize: 13,
-                        color: "rgba(255,255,255,0.72)",
-                      }}
-                    >
+                    <div style={styles.qualityPositiveText}>
                       ممتاز، مستوى الإجابات الحالي مناسب لإنتاج تحليل أقوى.
                     </div>
                   )}
                 </div>
 
                 {needsReanalysisHint ? (
-                  <div style={{ ...styles.inlineWarnBox, marginTop: 10 }}>
+                  <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
                     <strong>تنبيه:</strong> هذه النتائج الحالية مبنية على التحليل السابق.
                     إذا عدّلت الإجابات أو الإضافة، اضغط
                     {" "}
@@ -2434,7 +2593,7 @@ export default function Home() {
                   </div>
                 ) : null}
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(loading)}
                     disabled={loading}
@@ -2472,24 +2631,15 @@ export default function Home() {
             {/* DONE */}
             {stage === "done" && analysis && (
               <>
-                <h3 style={{ margin: 0, fontWeight: 900 }}>
+                <h3 style={styles.sectionHeading}>
                   5) المخرجات النهائية: التحليل والقرار والتوصيات
                 </h3>
 
-                <div style={{ marginTop: 12 }}>
+                <div style={styles.blockTop12}>
                   <div style={styles.finalHeroCard}>
                     <div style={styles.finalHeroHead}>
                       <div style={styles.qTitle}>القرار التنفيذي</div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexDirection: "row",
-                          flexWrap: "wrap",
-                          width: "auto",
-                        }}
-                      >
+                      <div style={styles.decisionActionRow}>
                         <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
                           <span
                             style={{
@@ -2645,13 +2795,13 @@ export default function Home() {
                     {(analysis?.strategic_analysis?.top_3_upgrades || []).length ? (
                       (analysis?.strategic_analysis?.top_3_upgrades || []).map(
                         (x: string, i: number) => (
-                          <div key={i} style={{ marginBottom: 6 }}>
+                          <div key={i} style={styles.listItemGap6}>
                             • {x}
                           </div>
                         )
                       )
                     ) : (
-                      <div style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <div style={styles.emptyHintText}>
                         لا توجد ترقيات محددة في النتيجة الحالية.
                       </div>
                     )}
@@ -2686,13 +2836,7 @@ export default function Home() {
                                 ))}
                               </div>
                             ) : (
-                              <div
-                                style={{
-                                  marginTop: 10,
-                                  color: "rgba(255,255,255,0.65)",
-                                  fontSize: 13,
-                                }}
-                              >
+                              <div style={styles.advisorRecoEmptyText}>
                                 لا توجد توصيات مفصلة من هذا المستشار في هذه النتيجة.
                               </div>
                             )}
@@ -2721,37 +2865,20 @@ export default function Home() {
                       </button>
                     </div>
 
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.62)",
-                        marginTop: 2,
-                      }}
-                    >
+                    <div style={styles.reportHintText}>
                       صياغة جاهزة للنسخ المباشر إلى Word مع الحفاظ على العناوين والفقرات.
                     </div>
 
                     <textarea
                       readOnly
                       value={reportText}
-                      style={{
-                        ...styles.textarea,
-                        height: isMobile ? 360 : 340,
-                        marginTop: 10,
-                        padding: 16,
-                        lineHeight: 1.9,
-                        fontSize: isMobile ? 14 : 15,
-                        fontFamily: "Tahoma, Arial, sans-serif",
-                        border: "1px solid rgba(0, 229, 255, 0.14)",
-                        background:
-                          "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
-                      }}
+                      style={{ ...styles.textarea, ...styles.reportTextarea }}
                       placeholder="سيظهر هنا التقرير النهائي..."
                     />
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={styles.stackAfterSection}>
                   <button
                     style={styles.secondaryBtn(false)}
                     onClick={() => {
@@ -2791,10 +2918,10 @@ export default function Home() {
 
                 <div style={styles.sideBlock}>
                   <div style={styles.sideBlockTitle}>اختيارك الحالي</div>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.9)" }}>
+                  <div style={styles.textPrimarySmall}>
                     نوع الجلسة: <strong>{mode}</strong>
                   </div>
-                  <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.9)" }}>
+                  <div style={{ ...styles.textPrimarySmall, ...styles.blockTop8 }}>
                     المستشارون:{" "}
                     <strong>{selectedAdvisorsSummary()}</strong>
                   </div>
@@ -2810,7 +2937,7 @@ export default function Home() {
               <div style={styles.stageStatusChip(stageStatusTone())}>
                 {stageStatusText()}
               </div>
-              <div style={{ marginTop: 10 }}>
+              <div style={styles.blockTop10}>
                 <div style={styles.progressBar}>
                   <div
                     style={{
@@ -2820,23 +2947,17 @@ export default function Home() {
                   />
                 </div>
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
+              <div style={styles.textSecondarySmall}>
                 {stageLabel()}
               </div>
             </div>
 
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>المستشارون المشاركون</div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.9)",
-                  lineHeight: 1.7,
-                }}
-              >
+              <div style={styles.sideSummaryPrimaryText}>
                 {selectedAdvisorsSummary()}
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.62)" }}>
+              <div style={styles.textTertiarySmall}>
                 العدد:
                 {" "}
                 {toArabicDigits(effectiveSelectedAdvisors.length)}
@@ -2873,16 +2994,9 @@ export default function Home() {
               </div>
 
               {eventDurationSummary() ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    fontSize: 12,
-                    color: "rgba(255,255,255,0.76)",
-                    lineHeight: 1.5,
-                  }}
-                >
+                <div style={styles.sideDurationText}>
                   مدة الفعالية:{" "}
-                  <strong style={{ color: "rgba(255,255,255,0.95)" }}>
+                  <strong style={styles.strongText95}>
                     {eventDurationSummary()?.label}
                   </strong>
                 </div>
@@ -2893,14 +3007,7 @@ export default function Home() {
               <div style={styles.sideBlock}>
                 <div style={styles.sideBlockTitle}>جودة المدخلات</div>
                 <div style={styles.qualityBadge(answerQuality.level)}>{answerQuality.level}</div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: "rgba(255,255,255,0.72)",
-                    lineHeight: 1.5,
-                  }}
-                >
+                <div style={styles.sideQualityText}>
                   جودة تقديرية {toArabicDigits(answerQuality.score)}٪ • إجابات تحتاج تفصيل:
                   {" "}
                   {toArabicDigits(answerQuality.weakCount)}
@@ -2916,10 +3023,10 @@ export default function Home() {
             {stage === "done" && analysis ? (
               <div style={styles.sideBlock}>
                 <div style={styles.sideBlockTitle}>ملخص القرار</div>
-                <div style={{ ...styles.qTitle, marginBottom: 4 }}>
+                <div style={{ ...styles.qTitle, ...styles.qTitleGap4 }}>
                   {analysis?.executive_decision?.decision ?? "—"}
                 </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)" }}>
+                <div style={styles.textNeutralSmall72}>
                   الجاهزية:
                   {" "}
                   <span
@@ -2951,31 +3058,31 @@ export default function Home() {
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>بيانات المشروع</div>
               <div style={styles.summaryMetaGrid}>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>نوع الفعالية</span>
                   <span style={styles.v}>{eventType}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>وضع الجلسة</span>
                   <span style={styles.v}>{mode}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>الموقع</span>
                   <span style={styles.v}>{venueType}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>البداية</span>
                   <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>النهاية</span>
                   <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>الميزانية</span>
                   <span style={styles.v}>{budget?.trim() ? budget : "غير محدد"}</span>
                 </div>
-                <div style={{ ...styles.metaItem, marginTop: 0 }}>
+                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
                   <span style={styles.k}>مدة الفعالية</span>
                   <span style={styles.v}>{eventDurationSummary()?.label ?? "غير مكتملة"}</span>
                 </div>
@@ -2992,14 +3099,14 @@ export default function Home() {
             </div>
 
             <div style={styles.sideBlock}>
-              <div style={{ ...styles.metaItem, marginTop: 0, alignItems: "center" }}>
+              <div style={{ ...styles.metaItem, ...styles.metaItemNoTopCenter }}>
                 <span style={styles.k}>الحفظ التلقائي</span>
                 <span style={styles.v}>مفعل ✓</span>
               </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+              <div style={styles.textMutedSmall}>
                 يتم حفظ التغييرات تلقائيًا أثناء العمل.
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+              <div style={styles.textMutedSmallTop8}>
                 تفعيل بعض الأزرار يعتمد على نسبة الإجابات (60%).
               </div>
             </div>
