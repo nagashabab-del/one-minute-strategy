@@ -1766,36 +1766,55 @@ export default function Home() {
               <Image
                 src="/logo.svg"
                 alt="One Minute Strategy"
-                width={isMobile ? 220 : 320}
-                height={isMobile ? 74 : 108}
+                width={isMobile ? 280 : 420}
+                height={isMobile ? 94 : 142}
                 style={{
-                  height: isMobile ? 74 : 108,
+                  height: isMobile ? 94 : 142,
                   width: "auto",
                   filter: "drop-shadow(0 0 24px rgba(128,0,255,0.6))",
                 }}
               />
               <h1
                 style={{
-                  margin: "10px 0 0 0",
-                  fontSize: isMobile ? 22 : 28,
+                  margin: "12px 0 0 0",
+                  fontSize: isMobile ? 24 : 34,
                   fontWeight: 900,
-                  letterSpacing: 0.2,
+                  letterSpacing: 0.3,
                 }}
               >
                 One Minute Strategy
               </h1>
               <div
                 style={{
-                  marginTop: 6,
-                  color: "rgba(255,255,255,0.68)",
-                  fontSize: isMobile ? 12 : 13,
+                  marginTop: 8,
+                  color: "rgba(255,255,255,0.88)",
+                  fontSize: isMobile ? 13 : 16,
+                  fontWeight: 900,
+                  letterSpacing: 0.2,
                 }}
               >
                 Executive Decision Intelligence Platform
               </div>
-              <button
+              <p
                 style={{
                   marginTop: 14,
+                  marginBottom: 0,
+                  maxWidth: isMobile ? 340 : 760,
+                  color: "rgba(255,255,255,0.9)",
+                  fontSize: isMobile ? 14 : 18,
+                  fontWeight: 800,
+                  lineHeight: isMobile ? 1.85 : 1.9,
+                  textAlign: "center",
+                }}
+              >
+                فكرتك تحتاج قرار، وقرارك يحتاج وضوح. مع One Minute Strategy تحصل على مجلس
+                استشاري متكامل يحلل مشروعك من كل زاوية خلال دقيقة واحدة. نختصر الفوضى، نصنع
+                التركيز، ونحوّل الفكرة إلى خطة تنفيذية جاهزة. في عالم السرعة، القرار الأسرع هو
+                الأقوى.
+              </p>
+              <button
+                style={{
+                  marginTop: 18,
                   ...styles.primaryBtn(false),
                   width: isMobile ? "100%" : 280,
                 }}
