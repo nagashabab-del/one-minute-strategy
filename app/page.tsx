@@ -1297,6 +1297,156 @@ export default function Home() {
     };
   }
 
+  function scoreTone(score: number) {
+    if (score >= 80) return "ok";
+    if (score >= 60) return "warn";
+    return "risk";
+  }
+
+  function dataCompletenessScore() {
+    const checks = [
+      eventType.trim().length > 0,
+      venueType.trim().length > 0,
+      project.trim().length > 0,
+      startAt.trim().length > 0,
+      endAt.trim().length > 0,
+      effectiveSelectedAdvisors.length > 0,
+    ];
+
+    if (deliveryTrack === "advanced") {
+      checks.push(
+        commissioningDate.trim().length > 0,
+        scopeSite.trim().length > 0,
+        scopeTechnical.trim().length > 0,
+        scopeProgram.trim().length > 0,
+        executionStrategy.trim().length > 0
+      );
+    }
+
+    const passed = checks.filter(Boolean).length;
+    return Math.round((passed / checks.length) * 100);
+  }
+
+  function scheduleHealthScore() {
+    const checks: boolean[] = [
+      startAt.trim().length > 0,
+      endAt.trim().length > 0,
+      !!startAt && !!endAt && !hasInvalidTimeRange(),
+    ];
+
+    if (deliveryTrack === "advanced") {
+      checks.push(commissioningDate.trim().length > 0);
+      if (commissioningDate && startAt) {
+        checks.push(
+          new Date(commissioningDate).getTime() <= new Date(startAt).getTime()
+        );
+      } else {
+        checks.push(false);
+      }
+    }
+
+    const passed = checks.filter(Boolean).length;
+    return Math.round((passed / checks.length) * 100);
+  }
+
+  function boqCompletenessScore() {
+    if (boqItems.length === 0) return 0;
+    const fieldsPerRow = 7;
+    const scorePerRow = boqItems.map((row) => {
+      const filled = [
+        row.category.trim().length > 0,
+        row.item.trim().length > 0,
+        row.spec.trim().length > 0,
+        row.unit.trim().length > 0,
+        row.qty.trim().length > 0,
+        row.source.trim().length > 0,
+        row.leadTimeDays.trim().length > 0,
+      ].filter(Boolean).length;
+      return filled / fieldsPerRow;
+    });
+
+    const avg = scorePerRow.reduce((a, b) => a + b, 0) / scorePerRow.length;
+    return Math.round(avg * 100);
+  }
+
+  function riskCoverageScore() {
+    if (deliveryTrack !== "advanced") {
+      if (!analysis) return 0;
+      const risks = analysis?.strategic_analysis?.risks || [];
+      return risks.length === 0 ? 90 : 65;
+    }
+
+    const text = riskManagement.trim();
+    if (!text) return 0;
+
+    let score = 40;
+    if (text.length >= 60) score += 20;
+    if (/(خطة|بديل|تصعيد|احتياطي|معالجة)/.test(text)) score += 20;
+    if (text.split(/\n|[.!؟]/).filter((x) => x.trim().length > 0).length >= 3) score += 20;
+    return Math.min(100, score);
+  }
+
+  function projectIndicators() {
+    const dataScore = dataCompletenessScore();
+    const scheduleScore = scheduleHealthScore();
+    const boqScore = boqCompletenessScore();
+    const riskScore = riskCoverageScore();
+
+    const overall =
+      deliveryTrack === "advanced"
+        ? Math.round(
+            dataScore * 0.25 +
+              scheduleScore * 0.2 +
+              boqScore * 0.3 +
+              riskScore * 0.15 +
+              answerQuality.score * 0.1
+          )
+        : Math.round(
+            dataScore * 0.35 +
+              scheduleScore * 0.35 +
+              answerQuality.score * 0.3
+          );
+
+    return [
+      {
+        key: "overall",
+        label: "الجاهزية العامة",
+        score: overall,
+        hint: deliveryTrack === "advanced" ? "مبني على البيانات + BOQ + المخاطر" : "مبني على المسار السريع",
+      },
+      {
+        key: "data",
+        label: "اكتمال البيانات",
+        score: dataScore,
+        hint: "نسبة الحقول الأساسية المكتملة",
+      },
+      {
+        key: "schedule",
+        label: "صحة الجدول",
+        score: scheduleScore,
+        hint: "تحقق من منطق التواريخ وتسلسلها",
+      },
+      {
+        key: "boq",
+        label: "اكتمال BOQ",
+        score: boqScore,
+        hint:
+          deliveryTrack === "advanced"
+            ? "اكتمال بنود الكميات والمواصفات"
+            : "يتفعّل بشكل كامل في المسار المتقدم",
+      },
+      {
+        key: "risk",
+        label: "تغطية المخاطر",
+        score: riskScore,
+        hint:
+          deliveryTrack === "advanced"
+            ? "قياس تغطية خطة المخاطر"
+            : "قراءة تقديرية من نتائج التحليل",
+      },
+    ];
+  }
+
   function ratioAnswered(questionIds: string[]) {
     const subset = answers.filter((a) => questionIds.includes(a.id));
     if (subset.length === 0) return 0;
@@ -2441,6 +2591,62 @@ export default function Home() {
         color: "rgba(255,255,255,0.72)",
         lineHeight: 1.5,
       } as CSSProperties,
+      kpiGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      kpiCard: (tone: "ok" | "warn" | "risk") =>
+        ({
+          borderRadius: 12,
+          border:
+            tone === "ok"
+              ? "1px solid rgba(0,255,133,0.22)"
+              : tone === "warn"
+                ? "1px solid rgba(255,194,77,0.24)"
+                : "1px solid rgba(255,122,69,0.26)",
+          background:
+            tone === "ok"
+              ? "rgba(0,255,133,0.06)"
+              : tone === "warn"
+                ? "rgba(255,194,77,0.06)"
+                : "rgba(255,122,69,0.07)",
+          padding: "10px 10px",
+        } as CSSProperties),
+      kpiLabel: {
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.8)",
+      } as CSSProperties,
+      kpiValue: {
+        marginTop: 4,
+        fontSize: 15,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.97)",
+      } as CSSProperties,
+      kpiHint: {
+        marginTop: 5,
+        fontSize: 11,
+        color: "rgba(255,255,255,0.65)",
+        lineHeight: 1.45,
+      } as CSSProperties,
+      kpiBarTrack: {
+        marginTop: 6,
+        height: 6,
+        borderRadius: 999,
+        background: "rgba(255,255,255,0.10)",
+        overflow: "hidden",
+      } as CSSProperties,
+      kpiBarFill: (score: number, tone: "ok" | "warn" | "risk") =>
+        ({
+          height: "100%",
+          width: `${Math.max(0, Math.min(100, score))}%`,
+          background:
+            tone === "ok"
+              ? "linear-gradient(90deg, #00e5ff, #00ff85)"
+              : tone === "warn"
+                ? "linear-gradient(90deg, #ffc24d, #ff9d4d)"
+                : "linear-gradient(90deg, #ff7a45, #ff4fd8)",
+        } as CSSProperties),
       sectionHeading: {
         margin: 0,
         fontWeight: 900,
@@ -2613,6 +2819,7 @@ export default function Home() {
   );
 
   const answerQuality = analyzeAnswerQuality();
+  const indicators = projectIndicators();
 
   return (
     <main style={styles.page} dir="rtl">
@@ -4021,6 +4228,27 @@ export default function Home() {
                   </strong>
                 </div>
               ) : null}
+            </div>
+
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>مؤشرات المشروع</div>
+              <div style={styles.kpiGrid}>
+                {indicators.map((item) => {
+                  const tone = scoreTone(item.score);
+                  return (
+                    <div key={item.key} style={styles.kpiCard(tone)}>
+                      <div style={styles.kpiLabel}>{item.label}</div>
+                      <div style={styles.kpiValue}>
+                        {toArabicDigits(item.score)}%
+                      </div>
+                      <div style={styles.kpiBarTrack}>
+                        <div style={styles.kpiBarFill(item.score, tone)} />
+                      </div>
+                      <div style={styles.kpiHint}>{item.hint}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {(stage === "addition" || stage === "done") ? (
