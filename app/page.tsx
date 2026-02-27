@@ -600,12 +600,17 @@ function parseNumericInput(value: string) {
 }
 
 function formatMoney(value: number) {
+  const valueWithoutUnit = formatMoneyWithoutUnit(value);
+  return `${valueWithoutUnit} ${SAUDI_RIYAL_FALLBACK}`;
+}
+
+function formatMoneyWithoutUnit(value: number) {
   const abs = Math.abs(value);
   const formatted = abs.toLocaleString("ar-SA", {
     minimumFractionDigits: abs % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   });
-  return `${value < 0 ? "-" : ""}${formatted} ر.س`;
+  return `${value < 0 ? "-" : ""}${formatted}`;
 }
 
 function suggestedSellFromMargin(unitCost: number, targetMarginPct: number) {
@@ -1633,6 +1638,15 @@ export default function Home() {
         style={styles.riyalIcon}
         onError={() => setUseRiyalIcon(false)}
       />
+    );
+  }
+
+  function renderMoneyValue(value: number) {
+    return (
+      <span style={styles.moneyInline}>
+        <span>{formatMoneyWithoutUnit(value)}</span>
+        <span style={styles.moneyInlineSuffix}>{renderRiyalSuffix()}</span>
+      </span>
     );
   }
 
@@ -4043,7 +4057,19 @@ export default function Home() {
         height: 16,
         objectFit: "contain",
         display: "block",
-        opacity: 0.94,
+        opacity: 1,
+        filter: "brightness(0) invert(1)",
+      } as CSSProperties,
+      moneyInline: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      } as CSSProperties,
+      moneyInlineSuffix: {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 16,
       } as CSSProperties,
       textarea: {
         width: "100%",
@@ -6881,23 +6907,34 @@ export default function Home() {
                               return "أدخل الكمية والتكلفة وسعر البيع أو نسبة الربح لحساب الربحية.";
                             }
                             const suggestedLine =
-                              financialRow.suggestedUnitSellPrice !== null
-                                ? ` • البيع المقترح: ${formatMoney(financialRow.suggestedUnitSellPrice)}`
-                                : "";
+                              financialRow.suggestedUnitSellPrice !== null ? (
+                                <>
+                                  {" • "}البيع المقترح:{" "}
+                                  {renderMoneyValue(financialRow.suggestedUnitSellPrice)}
+                                </>
+                              ) : null;
                             const modeLine = financialRow.usesSuggestedSellPrice
                               ? " • التسعير الحالي: مقترح تلقائي"
                               : row.unitSellPrice.trim().length > 0
                                 ? " • التسعير الحالي: يدوي"
                                 : "";
                             const gapLine =
-                              financialRow.sellGapVsSuggested === null
-                                ? ""
-                                : ` • فرق اليدوي عن المقترح: ${formatMoney(financialRow.sellGapVsSuggested)}`;
-                            return `التكلفة الإجمالية: ${formatMoney(
-                              financialRow.totalCost
-                            )} • البيع الإجمالي: ${formatMoney(
-                              financialRow.totalSell
-                            )} • الربح: ${formatMoney(financialRow.profit)}${suggestedLine}${modeLine}${gapLine}`;
+                              financialRow.sellGapVsSuggested === null ? null : (
+                                <>
+                                  {" • "}فرق اليدوي عن المقترح:{" "}
+                                  {renderMoneyValue(financialRow.sellGapVsSuggested)}
+                                </>
+                              );
+                            return (
+                              <>
+                                التكلفة الإجمالية: {renderMoneyValue(financialRow.totalCost)}
+                                {" • "}البيع الإجمالي: {renderMoneyValue(financialRow.totalSell)}
+                                {" • "}الربح: {renderMoneyValue(financialRow.profit)}
+                                {suggestedLine}
+                                {modeLine}
+                                {gapLine}
+                              </>
+                            );
                           })()}
                         </div>
                         {hasSuggestedSell ? (
@@ -6993,13 +7030,13 @@ export default function Home() {
                         <div style={styles.miniStat}>
                           <div style={styles.miniStatLabel}>إجمالي التكلفة</div>
                           <div style={styles.miniStatValue}>
-                            {formatMoney(boqFinancialSummary.totalCost)}
+                            {renderMoneyValue(boqFinancialSummary.totalCost)}
                           </div>
                         </div>
                         <div style={styles.miniStat}>
                           <div style={styles.miniStatLabel}>إجمالي البيع</div>
                           <div style={styles.miniStatValue}>
-                            {formatMoney(boqFinancialSummary.totalSell)}
+                            {renderMoneyValue(boqFinancialSummary.totalSell)}
                           </div>
                         </div>
                         <div style={styles.miniStat}>
@@ -7015,7 +7052,7 @@ export default function Home() {
                                     : "rgba(255,255,255,0.95)",
                             }}
                           >
-                            {formatMoney(boqFinancialSummary.profit)}
+                            {renderMoneyValue(boqFinancialSummary.profit)}
                           </div>
                         </div>
                         <div style={styles.miniStat}>
@@ -7035,9 +7072,19 @@ export default function Home() {
                         <strong>
                           {boqFinancialSummary.status === "تعادل"
                             ? "تم تحقيق التعادل"
-                            : boqFinancialSummary.breakEvenGap >= 0
-                              ? `فوق التعادل بـ ${formatMoney(boqFinancialSummary.breakEvenGap)}`
-                              : `تحتاج ${formatMoney(Math.abs(boqFinancialSummary.breakEvenGap))} للوصول للتعادل`}
+                            : boqFinancialSummary.breakEvenGap >= 0 ? (
+                              <>
+                                فوق التعادل بـ {renderMoneyValue(boqFinancialSummary.breakEvenGap)}
+                              </>
+                            ) : (
+                              <>
+                                تحتاج{" "}
+                                {renderMoneyValue(
+                                  Math.abs(boqFinancialSummary.breakEvenGap)
+                                )}{" "}
+                                للوصول للتعادل
+                              </>
+                            )}
                         </strong>
                       </div>
                       <div style={styles.textMutedSmallTop8}>
@@ -7053,11 +7100,19 @@ export default function Home() {
                       {boqFinancialSummary.budgetValue > 0 ? (
                         <div style={styles.textMutedSmallTop8}>
                           {boqFinancialSummary.budgetVariance !== null &&
-                          boqFinancialSummary.budgetVariance >= 0
-                            ? `متبقٍ من الميزانية: ${formatMoney(boqFinancialSummary.budgetVariance)}`
-                            : `تجاوز الميزانية بمقدار: ${formatMoney(
+                          boqFinancialSummary.budgetVariance >= 0 ? (
+                            <>
+                              متبقٍ من الميزانية:{" "}
+                              {renderMoneyValue(boqFinancialSummary.budgetVariance)}
+                            </>
+                          ) : (
+                            <>
+                              تجاوز الميزانية بمقدار:{" "}
+                              {renderMoneyValue(
                                 Math.abs(boqFinancialSummary.budgetVariance ?? 0)
-                              )}`}
+                              )}
+                            </>
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -8045,10 +8100,10 @@ export default function Home() {
               <div style={styles.sideBlock}>
                 <div style={styles.sideBlockTitle}>الربحية الداخلية (BOQ)</div>
                 <div style={styles.sideSummaryPrimaryText}>
-                  التكلفة: <strong>{formatMoney(boqFinancialSummary.totalCost)}</strong>
+                  التكلفة: <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
                 </div>
                 <div style={styles.sideSummaryPrimaryText}>
-                  البيع: <strong>{formatMoney(boqFinancialSummary.totalSell)}</strong>
+                  البيع: <strong>{renderMoneyValue(boqFinancialSummary.totalSell)}</strong>
                 </div>
                 <div style={styles.textMutedSmallTop8}>
                   صافي النتيجة:{" "}
@@ -8062,7 +8117,7 @@ export default function Home() {
                             : "rgba(255,255,255,0.95)",
                     }}
                   >
-                    {formatMoney(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
+                    {renderMoneyValue(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
                   </strong>
                 </div>
                 <div style={styles.textMutedSmallTop8}>
