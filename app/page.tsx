@@ -104,6 +104,7 @@ type PersistedState = {
   initStep?: "session" | "project";
   deliveryTrack?: DeliveryTrack;
   commissioningDate?: string;
+  projectStartDate?: string;
   scopeSite?: string;
   scopeTechnical?: string;
   scopeProgram?: string;
@@ -442,6 +443,9 @@ export default function Home() {
   const [commissioningDate, setCommissioningDate] = useState(
     initialSaved.commissioningDate ?? ""
   );
+  const [projectStartDate, setProjectStartDate] = useState(
+    initialSaved.projectStartDate ?? ""
+  );
   const [scopeSite, setScopeSite] = useState(initialSaved.scopeSite ?? "");
   const [scopeTechnical, setScopeTechnical] = useState(
     initialSaved.scopeTechnical ?? ""
@@ -578,6 +582,7 @@ export default function Home() {
       budget,
       project,
       commissioningDate,
+      projectStartDate,
       scopeSite,
       scopeTechnical,
       scopeProgram,
@@ -621,6 +626,7 @@ export default function Home() {
     budget,
     project,
     commissioningDate,
+    projectStartDate,
     scopeSite,
     scopeTechnical,
     scopeProgram,
@@ -833,6 +839,13 @@ export default function Home() {
     if (!commissioningDate.trim() && startAt) {
       setCommissioningDate(startAt.slice(0, 10));
     }
+    if (!projectStartDate.trim()) {
+      if (commissioningDate.trim()) {
+        setProjectStartDate(commissioningDate);
+      } else if (startAt) {
+        setProjectStartDate(startAt.slice(0, 10));
+      }
+    }
     if (!scopeSite.trim()) {
       setScopeSite(`الموقع المستهدف: ${venueType} — ${project.slice(0, 120)}`);
     }
@@ -870,12 +883,14 @@ export default function Home() {
 
   function buildAdvancedPlan() {
     const commissioning = commissioningDate ? new Date(commissioningDate) : null;
+    const projectStart = projectStartDate ? new Date(projectStartDate) : null;
     const start = startAt ? new Date(startAt) : null;
     const end = endAt ? new Date(endAt) : null;
 
     const toFiniteDate = (d: Date | null) =>
       d && Number.isFinite(d.getTime()) ? d : null;
     const commissioningSafe = toFiniteDate(commissioning);
+    const projectStartSafe = toFiniteDate(projectStart);
     const startSafe = toFiniteDate(start);
     const endSafe = toFiniteDate(end);
 
@@ -910,7 +925,7 @@ export default function Home() {
     const closureEnd = endSafe ? addHours(endSafe, removalHours) : null;
 
     const prepDays =
-      commissioningSafe && startSafe ? Math.max(0, daysBetween(commissioningSafe, startSafe)) : null;
+      prepStart && startSafe ? Math.max(0, daysBetween(prepStart, startSafe)) : null;
     const execDays =
       startSafe && endSafe ? Math.max(1, daysBetween(startSafe, endSafe)) : null;
 
@@ -933,6 +948,7 @@ export default function Home() {
 
     const milestones = [
       { name: "تعميد المشروع", at: fmt(commissioningSafe) },
+      { name: "بداية المشروع", at: fmt(projectStartSafe ?? commissioningSafe) },
       { name: "اعتماد النطاق والاستراتيجية", at: fmt(prepStart) },
       { name: "إغلاق المشتريات الحرجة", at: fmt(prepEnd) },
       { name: "بداية التنفيذ التشغيلي", at: fmt(execStart, true) },
@@ -1197,6 +1213,7 @@ export default function Home() {
       "",
       "الأساس الزمني:",
       `- تاريخ التعميد: ${commissioningDate || "غير محدد"}`,
+      `- تاريخ بداية المشروع: ${projectStartDate || commissioningDate || "غير محدد"}`,
       `- بداية الفعالية: ${startAt || "غير محدد"}`,
       `- نهاية الفعالية: ${endAt || "غير محدد"}`,
       `- مدة الإعداد التقديرية: ${prepDaysText} يوم`,
@@ -1268,7 +1285,9 @@ export default function Home() {
   }
 
   function fillAdvancedTestData() {
-    setCommissioningDate((prev) => prev || (startAt ? startAt.slice(0, 10) : "2026-03-01"));
+    const defaultAdvancedDate = commissioningDate || (startAt ? startAt.slice(0, 10) : "2026-03-01");
+    setCommissioningDate((prev) => prev || defaultAdvancedDate);
+    setProjectStartDate((prev) => prev || defaultAdvancedDate);
     setScopeSite((prev) =>
       prev ||
       "حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية قبل التنفيذ."
@@ -1458,6 +1477,7 @@ export default function Home() {
     setEventType("مؤتمر احترافي مدفوع");
     setVenueType("فندق");
     setCommissioningDate("2026-03-10");
+    setProjectStartDate("2026-03-11");
     setStartAt(demoStart);
     setEndAt(demoEnd);
     setBudget("250000");
@@ -1746,6 +1766,22 @@ export default function Home() {
         tone: "info",
       });
     }
+    if (deliveryTrack === "advanced" && projectStartDate && commissioningDate) {
+      if (new Date(projectStartDate).getTime() < new Date(commissioningDate).getTime()) {
+        alerts.push({
+          text: "تاريخ بداية المشروع أقدم من تاريخ التعميد. راجع التسلسل الزمني.",
+          tone: "warn",
+        });
+      }
+    }
+    if (deliveryTrack === "advanced" && projectStartDate && startAt) {
+      if (new Date(projectStartDate).getTime() > new Date(startAt).getTime()) {
+        alerts.push({
+          text: "تاريخ بداية المشروع بعد بداية الفعالية، وهذا غير منطقي.",
+          tone: "warn",
+        });
+      }
+    }
     if (deliveryTrack === "advanced" && activeOrgRoles.length === 0) {
       alerts.push({
         text: "لا توجد أدوار تشغيلية مفعلة في المسار المتقدم.",
@@ -1841,6 +1877,20 @@ export default function Home() {
         );
       } else {
         checks.push(false);
+      }
+      if (projectStartDate && startAt) {
+        checks.push(
+          new Date(projectStartDate).getTime() <= new Date(startAt).getTime()
+        );
+      } else {
+        checks.push(true);
+      }
+      if (projectStartDate && commissioningDate) {
+        checks.push(
+          new Date(projectStartDate).getTime() >= new Date(commissioningDate).getTime()
+        );
+      } else {
+        checks.push(true);
       }
     }
 
@@ -4449,6 +4499,19 @@ export default function Home() {
                     onChange={(e) => setCommissioningDate(e.target.value)}
                     style={styles.input}
                   />
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.label}>تاريخ بداية المشروع (اختياري)</div>
+                  <input
+                    type="date"
+                    value={projectStartDate}
+                    onChange={(e) => setProjectStartDate(e.target.value)}
+                    style={styles.input}
+                  />
+                  <div style={styles.textMutedSmallTop8}>
+                    إذا تركته فارغًا سيتم اعتماد تاريخ التعميد كبداية للمشروع.
+                  </div>
                 </div>
 
                 <div style={styles.blockTop12}>
