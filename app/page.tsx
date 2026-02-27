@@ -1164,7 +1164,22 @@ export default function Home() {
     riskItems: LiveRiskItem[] = liveRiskItems
   ) {
     const generatedAt = formatDateTimeLabel(new Date().toISOString());
-    const topOperationalItems = trackerItems.slice(0, 10);
+    const statusRank: Record<ActionTaskStatus, number> = {
+      متعثر: 0,
+      جاري: 1,
+      "لم تبدأ": 2,
+      مكتمل: 3,
+    };
+    const prioritizedOperationalItems = [...trackerItems]
+      .sort((a, b) => {
+        const byStatus = statusRank[a.status] - statusRank[b.status];
+        if (byStatus !== 0) return byStatus;
+
+        const aDue = a.dueDate || "9999-12-31";
+        const bDue = b.dueDate || "9999-12-31";
+        return aDue.localeCompare(bDue);
+      })
+      .slice(0, 8);
     const topRisks = [...riskItems]
       .sort(
         (a, b) =>
@@ -1191,12 +1206,15 @@ export default function Home() {
       `- مخاطر مصعّدة: ${toArabicDigits(liveRiskStats.escalated)}`,
       "",
       "أولوية العمل الحالية:",
-      ...topOperationalItems.map(
-        (item, idx) =>
-          `- ${toArabicDigits(idx + 1)}) ${item.task} | الحالة: ${item.status} | المسؤول: ${
-            item.owner || "غير محدد"
-          } | الاستحقاق: ${item.dueDate || "غير محدد"}`
-      ),
+      ...(prioritizedOperationalItems.length > 0
+        ? prioritizedOperationalItems.map((item, idx) =>
+            [
+              `- ${toArabicDigits(idx + 1)}) ${item.task}`,
+              `  الحالة: ${item.status} | المرحلة: ${item.phase}`,
+              `  المسؤول: ${item.owner || "غير محدد"} | الاستحقاق: ${item.dueDate || "غير محدد"}`,
+            ].join("\n")
+          )
+        : ["- لا توجد مهام تشغيلية في المتابعة حالياً."]),
       "",
       "أهم المخاطر:",
       ...(topRisks.length
