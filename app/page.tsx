@@ -4580,27 +4580,40 @@ export default function Home() {
         padding: isMobile ? 12 : 14,
       } as CSSProperties,
       sidePanel: {
-        background: "rgba(255,255,255,0.04)",
-        backdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 16,
-        padding: isMobile ? 14 : 18,
+        background:
+          "linear-gradient(180deg, rgba(5,12,24,0.88), rgba(8,16,30,0.82) 45%, rgba(4,8,18,0.86))",
+        backdropFilter: "blur(16px)",
+        border: "1px solid rgba(0,229,255,0.16)",
+        borderRadius: 18,
+        boxShadow: "0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.04)",
+        padding: isMobile ? 14 : 16,
         position: "sticky" as const,
         top: 12,
         alignSelf: "start",
       } as CSSProperties,
+      sideSectionTitle: {
+        marginTop: 14,
+        marginBottom: 8,
+        fontSize: 11.5,
+        letterSpacing: 0.3,
+        color: "rgba(0,229,255,0.82)",
+        fontWeight: 800,
+      } as CSSProperties,
       sideBlock: {
         marginTop: 12,
         borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.02)",
-        padding: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        borderRight: "3px solid rgba(0,229,255,0.38)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        padding: isMobile ? 11 : 12,
       } as CSSProperties,
       sideBlockTitle: {
         fontWeight: 900,
-        fontSize: textScale.small,
-        color: "rgba(255,255,255,0.92)",
-        marginBottom: space.xs,
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.96)",
+        marginBottom: 7,
+        lineHeight: 1.45,
       } as CSSProperties,
       stageStatusChip: (tone: "ready" | "active" | "working" | "idle") =>
         ({
@@ -4643,9 +4656,9 @@ export default function Home() {
         ({
           borderRadius: 10,
           border: enabled
-            ? "1px solid rgba(0,255,133,0.24)"
-            : "1px solid rgba(255,255,255,0.12)",
-          background: enabled ? "rgba(0,255,133,0.08)" : "rgba(255,255,255,0.03)",
+            ? "1px solid rgba(0,255,133,0.28)"
+            : "1px solid rgba(255,255,255,0.14)",
+          background: enabled ? "rgba(0,255,133,0.10)" : "rgba(255,255,255,0.035)",
           padding: "7px 8px",
           fontSize: 11.5,
           lineHeight: 1.45,
@@ -4653,8 +4666,8 @@ export default function Home() {
         } as CSSProperties),
       miniStat: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.025)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))",
         padding: "9px 10px",
       } as CSSProperties,
       miniStatLabel: {
@@ -5319,8 +5332,8 @@ export default function Home() {
         background: "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
       } as CSSProperties,
       sideSummaryPrimaryText: {
-        fontSize: 13,
-        color: "rgba(255,255,255,0.9)",
+        fontSize: 13.5,
+        color: "rgba(255,255,255,0.92)",
         lineHeight: 1.7,
       } as CSSProperties,
       compactGhostBtn: {
@@ -5450,16 +5463,16 @@ export default function Home() {
           marginTop: 8,
           border:
             tone === "warn"
-              ? "1px solid rgba(255,122,69,0.22)"
+              ? "1px solid rgba(255,122,69,0.30)"
               : tone === "info"
-                ? "1px solid rgba(0,229,255,0.20)"
-                : "1px solid rgba(0,255,133,0.20)",
+                ? "1px solid rgba(0,229,255,0.28)"
+                : "1px solid rgba(0,255,133,0.28)",
           background:
             tone === "warn"
-              ? "rgba(255,122,69,0.07)"
+              ? "rgba(255,122,69,0.10)"
               : tone === "info"
-                ? "rgba(0,229,255,0.06)"
-                : "rgba(0,255,133,0.06)",
+                ? "rgba(0,229,255,0.10)"
+                : "rgba(0,255,133,0.10)",
           fontSize: 12,
           lineHeight: 1.5,
           color: "rgba(255,255,255,0.9)",
@@ -8117,6 +8130,7 @@ export default function Home() {
                   اختر نوع الجلسة والمستشارين المشاركين أولًا، ثم انتقل إلى تفاصيل المشروع.
                 </p>
 
+                <div style={styles.sideSectionTitle}>تجهيز الجلسة</div>
                 <div style={styles.sideBlock}>
                   <div style={styles.sideBlockTitle}>ما الذي ستحدده هنا؟</div>
                   <div style={styles.sideAlertItem("info")}>
@@ -8147,6 +8161,7 @@ export default function Home() {
 	                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
 	                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
 
+            <div style={styles.sideSectionTitle}>التحكم والصلاحيات</div>
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>الصلاحية الحالية</div>
               <div style={styles.sideSummaryPrimaryText}>{userRoleLabel(userRole)}</div>
@@ -8207,6 +8222,7 @@ export default function Home() {
               ) : null}
             </div>
 
+            <div style={styles.sideSectionTitle}>حالة الجلسة</div>
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>حالة الجلسة</div>
               <div style={styles.stageStatusChip(stageStatusTone())}>
@@ -8278,6 +8294,7 @@ export default function Home() {
               ) : null}
             </div>
 
+            <div style={styles.sideSectionTitle}>قراءة المشروع</div>
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>مؤشرات المشروع</div>
               <div style={styles.kpiGrid}>
@@ -8299,6 +8316,10 @@ export default function Home() {
               </div>
             </div>
 
+            {deliveryTrack === "advanced" &&
+            (stage === "advanced_boq" || stage === "advanced_plan") ? (
+              <div style={styles.sideSectionTitle}>التنفيذ المتقدم</div>
+            ) : null}
             {deliveryTrack === "advanced" &&
             (stage === "advanced_boq" || stage === "advanced_plan") ? (
               <div style={styles.sideBlock}>
@@ -8402,6 +8423,9 @@ export default function Home() {
               </div>
             ) : null}
 
+            {stage === "addition" || stage === "done" ? (
+              <div style={styles.sideSectionTitle}>جودة القرار</div>
+            ) : null}
             {(stage === "addition" || stage === "done") ? (
               <div style={styles.sideBlock}>
                 <div style={styles.sideBlockTitle}>جودة المدخلات</div>
@@ -8454,6 +8478,7 @@ export default function Home() {
               </div>
             ) : null}
 
+            <div style={styles.sideSectionTitle}>بيانات أساسية</div>
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>بيانات المشروع</div>
               <div style={styles.summaryMetaGrid}>
@@ -8520,6 +8545,7 @@ export default function Home() {
               </div>
             ) : null}
 
+            <div style={styles.sideSectionTitle}>تنبيهات وتشغيل</div>
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
               {sessionAlerts().map((alert, idx) => (
