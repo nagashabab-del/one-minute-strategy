@@ -1273,11 +1273,6 @@ export default function Home() {
       showError("لا يوجد محتوى للطباعة بعد. اضغط تحديث حزمة المخرجات أولاً.");
       return;
     }
-    const w = window.open("", "_blank", "noopener,noreferrer,width=980,height=760");
-    if (!w) {
-      showError("تعذر فتح نافذة الطباعة. تحقق من إعدادات المتصفح.");
-      return;
-    }
     const safeTitle = escapeHtml(title);
     const safeContent = escapeHtml(content);
     const safeProject = escapeHtml(project || "غير محدد");
@@ -1300,8 +1295,7 @@ export default function Home() {
           )
         : "Baseline: غير مجمّدة";
     const safeFreezeMeta = escapeHtml(freezeMeta);
-
-    w.document.write(`
+    const printHtml = `
       <!doctype html>
       <html lang="ar" dir="rtl">
         <head>
@@ -1417,12 +1411,26 @@ export default function Home() {
           </div>
         </body>
       </html>
-    `);
-    w.document.close();
-    w.onload = () => {
-      w.focus();
-      w.print();
-    };
+    `;
+    try {
+      const blob = new Blob([printHtml], {
+        type: "text/html;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, "_blank", "width=980,height=760");
+      if (!printWindow) {
+        URL.revokeObjectURL(url);
+        showError("تعذر فتح نافذة الطباعة. تحقق من إعدادات المتصفح.");
+        return;
+      }
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+    } catch {
+      showError("تعذر تجهيز مستند الطباعة. حاول مرة أخرى.");
+    }
   }
 
   function openAdvancedTrack() {
