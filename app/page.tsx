@@ -117,6 +117,7 @@ type PersistedState = {
   boqItems?: BoqItem[];
   orgRoles?: OrgRole[];
   actionTrackerItems?: ActionTaskItem[];
+  liveRiskItems?: LiveRiskItem[];
   baselineFreeze?: BaselineFreeze | null;
   changeRequests?: ChangeRequest[];
   advancedPlanText?: string;
@@ -167,6 +168,20 @@ type ActionTaskItem = {
   dueDate: string;
   notes: string;
   status: ActionTaskStatus;
+};
+
+type RiskLevel = "منخفض" | "متوسط" | "مرتفع";
+type RiskStatus = "مفتوح" | "قيد المعالجة" | "مغلق" | "مصعّد";
+
+type LiveRiskItem = {
+  id: string;
+  title: string;
+  probability: RiskLevel;
+  impact: RiskLevel;
+  owner: string;
+  mitigation: string;
+  reviewDate: string;
+  status: RiskStatus;
 };
 
 type BaselineFreeze = {
@@ -222,6 +237,12 @@ function isStageUI(value: unknown): value is StageUI {
     "advanced_boq",
     "advanced_plan",
   ].includes(String(value));
+}
+
+function riskLevelScore(level: RiskLevel) {
+  if (level === "مرتفع") return 3;
+  if (level === "متوسط") return 2;
+  return 1;
 }
 
 function advisorIcon(key: string) {
@@ -540,6 +561,9 @@ export default function Home() {
   const [actionTrackerItems, setActionTrackerItems] = useState<ActionTaskItem[]>(
     initialSaved.actionTrackerItems ?? []
   );
+  const [liveRiskItems, setLiveRiskItems] = useState<LiveRiskItem[]>(
+    initialSaved.liveRiskItems ?? []
+  );
   const [baselineFreeze, setBaselineFreeze] = useState<BaselineFreeze | null>(
     initialSaved.baselineFreeze ?? null
   );
@@ -625,6 +649,7 @@ export default function Home() {
     closureRemovalHours,
     boqItems,
     orgRoles,
+    liveRiskItems,
     advancedPlanText,
     actionTrackerItems,
   });
@@ -646,6 +671,20 @@ export default function Home() {
     actionTrackerStats.total === 0
       ? 0
       : Math.round((actionTrackerStats.done / actionTrackerStats.total) * 100);
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const liveRiskStats = liveRiskItems.reduce(
+    (acc, item) => {
+      const score = riskLevelScore(item.probability) * riskLevelScore(item.impact);
+      const isActive = item.status !== "مغلق";
+      if (isActive) acc.active += 1;
+      if (item.status === "مصعّد") acc.escalated += 1;
+      if (item.status === "مغلق") acc.closed += 1;
+      if (isActive && score >= 6) acc.critical += 1;
+      if (isActive && item.reviewDate && item.reviewDate < todayDate) acc.overdue += 1;
+      return acc;
+    },
+    { total: liveRiskItems.length, active: 0, critical: 0, escalated: 0, closed: 0, overdue: 0 }
+  );
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
@@ -702,6 +741,7 @@ export default function Home() {
       boqItems,
       orgRoles,
       actionTrackerItems,
+      liveRiskItems,
       baselineFreeze,
       changeRequests,
       advancedPlanText,
@@ -749,6 +789,7 @@ export default function Home() {
     boqItems,
     orgRoles,
     actionTrackerItems,
+    liveRiskItems,
     baselineFreeze,
     changeRequests,
     advancedPlanText,
@@ -952,6 +993,80 @@ export default function Home() {
     setActionTrackerItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
     );
+  }
+
+  function updateLiveRiskItem(id: string, patch: Partial<LiveRiskItem>) {
+    setLiveRiskItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  }
+
+  function addLiveRiskItem() {
+    const defaultOwner =
+      activeOrgRoles.find((role) => role.id === "operations_manager")?.title ??
+      "مدير المخاطر";
+    const defaultReview = startAt ? startAt.slice(0, 10) : "";
+    setLiveRiskItems((prev) => {
+      const nextIndex = prev.length + 1;
+      const next: LiveRiskItem = {
+        id: `risk-${nextIndex}`,
+        title: "",
+        probability: "متوسط",
+        impact: "متوسط",
+        owner: defaultOwner,
+        mitigation: "",
+        reviewDate: defaultReview,
+        status: "مفتوح",
+      };
+      return [...prev, next];
+    });
+  }
+
+  function removeLiveRiskItem(id: string) {
+    setLiveRiskItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function generateLiveRisksFromText() {
+    const seeds = riskManagement
+      .split(/\n|[؛.!؟]/)
+      .map((line) => line.trim())
+      .filter((line) => line.length >= 8)
+      .slice(0, 8);
+
+    if (seeds.length === 0) {
+      showError("اكتب مخاطر في حقل إدارة المخاطر أولًا لتوليد لوحة المخاطر.");
+      return;
+    }
+
+    const defaultOwner =
+      activeOrgRoles.find((role) => role.id === "operations_manager")?.title ??
+      "مدير المخاطر";
+    const defaultReview = startAt ? startAt.slice(0, 10) : "";
+    const existingTitles = new Set(liveRiskItems.map((risk) => risk.title.trim()));
+    const baseIndex = liveRiskItems.length + 1;
+
+    const generated: LiveRiskItem[] = seeds
+      .filter((title) => !existingTitles.has(title))
+      .map((title, idx) => ({
+        id: `risk-${baseIndex + idx}`,
+        title,
+        probability: /تعطل|تأخر|خلل|ازدحام|غياب|تعارض|مخاطر/i.test(title)
+          ? "مرتفع"
+          : "متوسط",
+        impact: /حرج|تعطل|تأخر|ازدحام|خلل/i.test(title) ? "مرتفع" : "متوسط",
+        owner: defaultOwner,
+        mitigation: "",
+        reviewDate: defaultReview,
+        status: "مفتوح",
+      }));
+
+    if (generated.length === 0) {
+      showSuccess("لوحة المخاطر الحالية تحتوي بالفعل على نفس البنود.");
+      return;
+    }
+
+    setLiveRiskItems((prev) => [...prev, ...generated]);
+    showSuccess("تم توليد بنود مخاطر أولية من النص بنجاح.");
   }
 
   function formatDateTimeLabel(iso: string) {
@@ -1393,6 +1508,10 @@ export default function Home() {
           `${toArabicDigits(idx + 1)} | ${t.phase} | ${t.stream} | ${t.task} | ${t.owner} | ${t.start} | ${t.end} | ${t.duration} | ${t.dependsOn} | ${t.acceptance} | ${t.kpi}`
       )
       .join("\n");
+    const liveRiskLines = liveRiskItems.slice(0, 12).map((risk, idx) => {
+      const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
+      return `- ${toArabicDigits(idx + 1)}) ${risk.title || "خطر بدون عنوان"} | الحالة: ${risk.status} | المالك: ${risk.owner || "غير محدد"} | التقييم: ${toArabicDigits(score)}/9`;
+    });
 
     const toDateInput = (value: string) =>
       /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
@@ -1463,6 +1582,11 @@ export default function Home() {
       "",
       "إدارة المخاطر:",
       riskManagement || "- غير مدخلة.",
+      "",
+      "لوحة المخاطر الحية:",
+      ...(liveRiskLines.length > 0
+        ? liveRiskLines
+        : ["- لا توجد بنود في لوحة المخاطر الحية حتى الآن."]),
       "",
       "أبرز المخاطر من المدخلات:",
       ...(riskLines.length > 0
@@ -1550,6 +1674,21 @@ export default function Home() {
         assignee: role.assignee.trim() || defaultLeads[role.id],
       }))
     );
+    setLiveRiskItems((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: "risk-seed-1",
+          title: "تأخر توريد الشاشة الرئيسية",
+          probability: "مرتفع",
+          impact: "مرتفع",
+          owner: "مدير العمليات",
+          mitigation: "تفعيل مورد بديل وتجهيز خطة استبدال فوري.",
+          reviewDate: startAt ? startAt.slice(0, 10) : "",
+          status: "مفتوح",
+        },
+      ];
+    });
 
     showSuccess("تم تعبئة بيانات اختبار سريعة للمسار المتقدم.");
   }
@@ -1750,6 +1889,28 @@ export default function Home() {
         }))
       )
     );
+    setLiveRiskItems([
+      {
+        id: "risk-demo-1",
+        title: "تأخر تجهيز الشاشة الرئيسية",
+        probability: "مرتفع",
+        impact: "مرتفع",
+        owner: "مدير العمليات",
+        mitigation: "تفعيل شاشة احتياطية ومورد بديل قبل 48 ساعة.",
+        reviewDate: "2026-03-18",
+        status: "قيد المعالجة",
+      },
+      {
+        id: "risk-demo-2",
+        title: "ازدحام عند بوابات الدخول",
+        probability: "متوسط",
+        impact: "مرتفع",
+        owner: "مدير تجربة الزائر",
+        mitigation: "زيادة مسارات الدخول وتوزيع فرق الاستقبال.",
+        reviewDate: "2026-03-20",
+        status: "مفتوح",
+      },
+    ]);
     setActionTrackerItems([]);
     setBaselineFreeze(null);
     setChangeRequests([]);
@@ -2026,6 +2187,24 @@ export default function Home() {
         tone: "warn",
       });
     }
+    if (deliveryTrack === "advanced" && liveRiskStats.total === 0) {
+      alerts.push({
+        text: "لوحة المخاطر الحية غير مكتملة، أضف بنود مخاطر تشغيلية.",
+        tone: "info",
+      });
+    }
+    if (deliveryTrack === "advanced" && liveRiskStats.critical > 0) {
+      alerts.push({
+        text: `يوجد ${toArabicDigits(liveRiskStats.critical)} مخاطر حرجة نشطة تحتاج معالجة.`,
+        tone: "warn",
+      });
+    }
+    if (deliveryTrack === "advanced" && liveRiskStats.overdue > 0) {
+      alerts.push({
+        text: `يوجد ${toArabicDigits(liveRiskStats.overdue)} مخاطر تجاوزت تاريخ المراجعة.`,
+        tone: "warn",
+      });
+    }
     if (alerts.length === 0) {
       alerts.push({ text: "الوضع الحالي جيد ولا توجد تنبيهات حرجة.", tone: "ok" });
     }
@@ -2155,6 +2334,27 @@ export default function Home() {
       if (!analysis) return 0;
       const risks = analysis?.strategic_analysis?.risks || [];
       return risks.length === 0 ? 90 : 65;
+    }
+
+    if (liveRiskItems.length > 0) {
+      const owners = liveRiskItems.filter((item) => item.owner.trim().length > 0).length;
+      const mitigations = liveRiskItems.filter((item) => item.mitigation.trim().length > 0).length;
+      const reviews = liveRiskItems.filter((item) => item.reviewDate.trim().length > 0).length;
+      const criticalActive = liveRiskItems.filter((item) => {
+        const score = riskLevelScore(item.probability) * riskLevelScore(item.impact);
+        return item.status !== "مغلق" && score >= 6;
+      }).length;
+      const closed = liveRiskItems.filter((item) => item.status === "مغلق").length;
+
+      const ratio = (value: number) => value / liveRiskItems.length;
+      const score = Math.round(
+        ratio(owners) * 30 +
+          ratio(mitigations) * 30 +
+          ratio(reviews) * 20 +
+          ratio(closed) * 20 -
+          ratio(criticalActive) * 15
+      );
+      return Math.max(0, Math.min(100, score));
     }
 
     const text = riskManagement.trim();
@@ -3491,6 +3691,72 @@ export default function Home() {
       actionTaskNotes: {
         height: 84,
         marginTop: 8,
+      } as CSSProperties,
+      riskBoardHead: {
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      riskBoardBadge: {
+        borderRadius: 999,
+        border: "1px solid rgba(255,194,77,0.30)",
+        background: "rgba(255,194,77,0.10)",
+        padding: "6px 10px",
+        fontSize: 12,
+        fontWeight: 800,
+        color: "white",
+      } as CSSProperties,
+      riskBoardStatsGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(5, 1fr)",
+        gap: 8,
+      } as CSSProperties,
+      riskBoardStat: {
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "7px 8px",
+      } as CSSProperties,
+      riskBoardStatLabel: {
+        fontSize: 11,
+        color: "rgba(255,255,255,0.70)",
+      } as CSSProperties,
+      riskBoardStatValue: {
+        marginTop: 3,
+        fontSize: 14,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.95)",
+      } as CSSProperties,
+      riskCard: (score: number, status: RiskStatus) =>
+        ({
+          marginTop: 10,
+          borderRadius: 12,
+          border:
+            status === "مغلق"
+              ? "1px solid rgba(0,255,133,0.26)"
+              : status === "مصعّد" || score >= 6
+                ? "1px solid rgba(255,122,69,0.30)"
+                : "1px solid rgba(0,229,255,0.24)",
+          background:
+            status === "مغلق"
+              ? "rgba(0,255,133,0.06)"
+              : status === "مصعّد" || score >= 6
+                ? "rgba(255,122,69,0.08)"
+                : "rgba(0,229,255,0.06)",
+          padding: 10,
+        } as CSSProperties),
+      riskCardTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      riskCardMeta: {
+        marginTop: 4,
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.72)",
       } as CSSProperties,
       governanceBadge: (tone: "frozen" | "changed" | "idle") =>
         ({
@@ -5186,6 +5452,196 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.riskBoardHead}>
+                      <div style={styles.qTitle}>لوحة المخاطر الحية</div>
+                      <div style={styles.riskBoardBadge}>
+                        مخاطر حرجة: {toArabicDigits(liveRiskStats.critical)}
+                      </div>
+                    </div>
+
+                    <div style={styles.riskBoardStatsGrid}>
+                      <div style={styles.riskBoardStat}>
+                        <div style={styles.riskBoardStatLabel}>إجمالي</div>
+                        <div style={styles.riskBoardStatValue}>
+                          {toArabicDigits(liveRiskStats.total)}
+                        </div>
+                      </div>
+                      <div style={styles.riskBoardStat}>
+                        <div style={styles.riskBoardStatLabel}>نشطة</div>
+                        <div style={styles.riskBoardStatValue}>
+                          {toArabicDigits(liveRiskStats.active)}
+                        </div>
+                      </div>
+                      <div style={styles.riskBoardStat}>
+                        <div style={styles.riskBoardStatLabel}>مصعّدة</div>
+                        <div style={styles.riskBoardStatValue}>
+                          {toArabicDigits(liveRiskStats.escalated)}
+                        </div>
+                      </div>
+                      <div style={styles.riskBoardStat}>
+                        <div style={styles.riskBoardStatLabel}>مغلقة</div>
+                        <div style={styles.riskBoardStatValue}>
+                          {toArabicDigits(liveRiskStats.closed)}
+                        </div>
+                      </div>
+                      <div style={styles.riskBoardStat}>
+                        <div style={styles.riskBoardStatLabel}>متأخرة مراجعة</div>
+                        <div style={styles.riskBoardStatValue}>
+                          {toArabicDigits(liveRiskStats.overdue)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.stackAfterBlock}>
+                      <button
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing()}
+                        onClick={generateLiveRisksFromText}
+                      >
+                        توليد بنود مخاطر من النص
+                      </button>
+                      <button
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing()}
+                        onClick={addLiveRiskItem}
+                      >
+                        إضافة خطر يدوي
+                      </button>
+                    </div>
+
+                    {liveRiskItems.length === 0 ? (
+                      <div style={styles.textMutedSmall}>
+                        لا توجد مخاطر في اللوحة. ابدأ بالتوليد من نص المخاطر أو الإضافة اليدوية.
+                      </div>
+                    ) : (
+                      liveRiskItems.map((risk, idx) => {
+                        const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
+                        return (
+                          <div key={risk.id} style={styles.riskCard(score, risk.status)}>
+                            <div style={styles.riskCardTitle}>
+                              {toArabicDigits(idx + 1)}. {risk.title || "خطر بدون عنوان"}
+                            </div>
+                            <div style={styles.riskCardMeta}>
+                              درجة الخطر: {toArabicDigits(score)}/9
+                            </div>
+
+                            <div style={styles.actionTaskGrid}>
+                              <div>
+                                <div style={styles.label}>عنوان الخطر</div>
+                                <input
+                                  value={risk.title}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, { title: e.target.value })
+                                  }
+                                  style={styles.input}
+                                  placeholder="اكتب عنوان الخطر"
+                                />
+                              </div>
+                              <div>
+                                <div style={styles.label}>الاحتمال</div>
+                                <select
+                                  value={risk.probability}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, {
+                                      probability: e.target.value as RiskLevel,
+                                    })
+                                  }
+                                  style={styles.input}
+                                >
+                                  <option value="منخفض">منخفض</option>
+                                  <option value="متوسط">متوسط</option>
+                                  <option value="مرتفع">مرتفع</option>
+                                </select>
+                              </div>
+                              <div>
+                                <div style={styles.label}>الأثر</div>
+                                <select
+                                  value={risk.impact}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, {
+                                      impact: e.target.value as RiskLevel,
+                                    })
+                                  }
+                                  style={styles.input}
+                                >
+                                  <option value="منخفض">منخفض</option>
+                                  <option value="متوسط">متوسط</option>
+                                  <option value="مرتفع">مرتفع</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div style={{ ...styles.actionTaskGrid, marginTop: 8 }}>
+                              <div>
+                                <div style={styles.label}>الحالة</div>
+                                <select
+                                  value={risk.status}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, {
+                                      status: e.target.value as RiskStatus,
+                                    })
+                                  }
+                                  style={styles.input}
+                                >
+                                  <option value="مفتوح">مفتوح</option>
+                                  <option value="قيد المعالجة">قيد المعالجة</option>
+                                  <option value="مصعّد">مصعّد</option>
+                                  <option value="مغلق">مغلق</option>
+                                </select>
+                              </div>
+                              <div>
+                                <div style={styles.label}>مالك الخطر</div>
+                                <input
+                                  value={risk.owner}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, { owner: e.target.value })
+                                  }
+                                  style={styles.input}
+                                  placeholder="اسم المالك"
+                                />
+                              </div>
+                              <div>
+                                <div style={styles.label}>تاريخ المراجعة</div>
+                                <input
+                                  type="date"
+                                  value={risk.reviewDate}
+                                  onChange={(e) =>
+                                    updateLiveRiskItem(risk.id, { reviewDate: e.target.value })
+                                  }
+                                  style={styles.input}
+                                />
+                              </div>
+                            </div>
+
+                            <div style={styles.blockTop8}>
+                              <div style={styles.label}>خطة المعالجة</div>
+                              <textarea
+                                value={risk.mitigation}
+                                onChange={(e) =>
+                                  updateLiveRiskItem(risk.id, { mitigation: e.target.value })
+                                }
+                                style={{ ...styles.textarea, ...styles.actionTaskNotes }}
+                                placeholder="اكتب إجراء المعالجة وخطة الاستجابة..."
+                              />
+                            </div>
+
+                            <div style={styles.blockTop8}>
+                              <button
+                                style={styles.ghostBtn}
+                                onClick={() => removeLiveRiskItem(risk.id)}
+                              >
+                                حذف الخطر
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
                   <div style={styles.label}>٢.٧ سرعة الاستجابة (SLA)</div>
                   <textarea
                     value={responseSla}
@@ -5720,6 +6176,21 @@ export default function Home() {
                 })}
               </div>
             </div>
+
+            {deliveryTrack === "advanced" &&
+            (stage === "advanced_boq" || stage === "advanced_plan") ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>مخاطر التنفيذ الحية</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  النشطة: <strong>{toArabicDigits(liveRiskStats.active)}</strong> • الحرجة:{" "}
+                  <strong>{toArabicDigits(liveRiskStats.critical)}</strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  مصعّدة: {toArabicDigits(liveRiskStats.escalated)} • متأخرة:{" "}
+                  {toArabicDigits(liveRiskStats.overdue)}
+                </div>
+              </div>
+            ) : null}
 
             {stage === "advanced_plan" ? (
               <div style={styles.sideBlock}>
