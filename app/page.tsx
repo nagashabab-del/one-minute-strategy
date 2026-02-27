@@ -116,6 +116,7 @@ type PersistedState = {
   boqItems?: BoqItem[];
   advancedPlanText?: string;
   advancedApproved?: boolean;
+  demoMode?: boolean;
 };
 
 type BoqItem = {
@@ -354,6 +355,7 @@ export default function Home() {
   const [advancedApproved, setAdvancedApproved] = useState(
     initialSaved.advancedApproved ?? false
   );
+  const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>("welcome");
@@ -456,6 +458,7 @@ export default function Home() {
       boqItems,
       advancedPlanText,
       advancedApproved,
+      demoMode,
       stage,
       round1Questions,
       followupQuestions,
@@ -497,6 +500,7 @@ export default function Home() {
     boqItems,
     advancedPlanText,
     advancedApproved,
+    demoMode,
     stage,
     round1Questions,
     followupQuestions,
@@ -1005,6 +1009,7 @@ export default function Home() {
     setRiskManagement("سجل مخاطر تشغيلي مع بدائل للموردين وخطة تصعيد.");
     setResponseSla("الأعطال الحرجة خلال 10 دقائق، والملاحظات التشغيلية خلال 15 دقيقة.");
     setClosureRemovalHours("6");
+    setDemoMode(true);
     setBoqItems([
       {
         id: "demo-1",
@@ -1346,6 +1351,13 @@ export default function Home() {
       showError("وقت النهاية يجب أن يكون بعد وقت البداية.");
       return;
     }
+
+    if (demoMode) {
+      clearStatus();
+      setStage("round1");
+      return;
+    }
+
     startLoading("start_session");
     setStage("round1");
 
@@ -1397,6 +1409,12 @@ export default function Home() {
       return;
     }
 
+    if (demoMode) {
+      clearStatus();
+      setStage("round2");
+      return;
+    }
+
     startLoading("submit_round1");
 
     const round1Answers = answers.filter((a) => ids.includes(a.id));
@@ -1442,6 +1460,13 @@ export default function Home() {
       showError("جاوب على أغلب تدقيق إضافي (على الأقل 60%).");
       return;
     }
+
+    if (demoMode) {
+      clearStatus();
+      setStage("dialogue");
+      return;
+    }
+
     clearStatus();
     await buildDialogue();
   }
@@ -1483,6 +1508,13 @@ export default function Home() {
   }
 
   async function runAnalysis() {
+    if (demoMode) {
+      setNeedsReanalysisHint(false);
+      clearStatus();
+      setStage("done");
+      return;
+    }
+
     const currentAnalysisSignature = getAnalysisSignature();
     const hasCachedAnalysis =
       !!analysis &&
