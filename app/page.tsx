@@ -141,6 +141,8 @@ type BoqItem = {
   spec: string;
   unit: string;
   qty: string;
+  unitCost: string;
+  unitSellPrice: string;
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
   ownerRoleId: OrgRoleId | "";
@@ -583,6 +585,24 @@ function toArabicDigits(value: number | string) {
   return String(value).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 }
 
+function parseNumericInput(value: string) {
+  if (!value.trim()) return 0;
+  const normalizedDigits = value
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[^\d.-]/g, "");
+  const n = Number.parseFloat(normalizedDigits);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatMoney(value: number) {
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString("ar-SA", {
+    minimumFractionDigits: abs % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `${value < 0 ? "-" : ""}${formatted} ر.س`;
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
@@ -592,6 +612,8 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     spec: "",
     unit: "قطعة",
     qty: "",
+    unitCost: "",
+    unitSellPrice: "",
     source: "مورد",
     leadTimeDays: "",
     ownerRoleId: "",
@@ -699,6 +721,8 @@ function normalizeBoqItems(saved?: BoqItem[]) {
   if (!saved?.length) return DEFAULT_BOQ_ITEMS;
   return saved.map<BoqItem>((row) => ({
     ...row,
+    unitCost: row.unitCost ?? "",
+    unitSellPrice: row.unitSellPrice ?? "",
     ownerRoleId: row.ownerRoleId ?? "",
     dependsOnBoqId: row.dependsOnBoqId ?? "",
     dependencyType: "FS",
@@ -891,6 +915,7 @@ export default function Home() {
     canResetSession,
     canLoadDemo,
   } = currentRolePermissions;
+  const canEditBoqPricing = canEditAdvancedExecution || canEditBudget;
   const roleCapabilities = [
     { id: "session", label: "إعداد الجلسة", enabled: canEditSessionSetup },
     { id: "project", label: "بيانات المشروع", enabled: canEditProjectCore },
@@ -900,6 +925,7 @@ export default function Home() {
       label: "الإجابات والتحليل",
       enabled: canEditAnswers && canRunAnalysisFlow,
     },
+    { id: "pricing", label: "تسعير BOQ", enabled: canEditBoqPricing },
     { id: "advanced_exec", label: "المسار المتقدم", enabled: canEditAdvancedExecution },
     { id: "governance", label: "الحوكمة", enabled: canEditGovernance },
     { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
@@ -987,6 +1013,9 @@ export default function Home() {
           userRole
         )
       );
+    }
+    if (stage === "advanced_boq" && !p.canEditAdvancedExecution && p.canEditBudget) {
+      hints.push("يمكنك في هذه المرحلة تعديل التسعير الداخلي (التكلفة/سعر البيع) فقط.");
     }
 
     if (stage === "advanced_plan") {
@@ -1128,6 +1157,58 @@ export default function Home() {
     return issues;
   }, [boqItems]);
   const hasBoqDependencyIssues = boqDependencyIssues.length > 0;
+  const boqFinancialSummary = useMemo(() => {
+    const rows = boqItems.map((row, idx) => {
+      const qty = parseNumericInput(row.qty);
+      const unitCost = parseNumericInput(row.unitCost);
+      const unitSellPrice = parseNumericInput(row.unitSellPrice);
+      const totalCost = qty * unitCost;
+      const totalSell = qty * unitSellPrice;
+      const profit = totalSell - totalCost;
+      return {
+        id: row.id,
+        index: idx,
+        label: boqRowLabel(row, idx),
+        qty,
+        unitCost,
+        unitSellPrice,
+        totalCost,
+        totalSell,
+        profit,
+      };
+    });
+
+    const totalCost = rows.reduce((sum, row) => sum + row.totalCost, 0);
+    const totalSell = rows.reduce((sum, row) => sum + row.totalSell, 0);
+    const profit = totalSell - totalCost;
+    const margin = totalSell > 0 ? (profit / totalSell) * 100 : null;
+    const markup = totalCost > 0 ? (profit / totalCost) * 100 : null;
+    const status =
+      Math.abs(profit) < 0.0001 ? "تعادل" : profit > 0 ? "رابح" : "خاسر";
+    const breakEvenGap = totalSell - totalCost;
+    const budgetValue = parseNumericInput(budget);
+    const budgetVariance = budgetValue > 0 ? budgetValue - totalCost : null;
+    const budgetUsagePercent =
+      budgetValue > 0 ? Math.max(0, (totalCost / budgetValue) * 100) : null;
+
+    return {
+      rows,
+      totalCost,
+      totalSell,
+      profit,
+      margin,
+      markup,
+      status,
+      breakEvenGap,
+      budgetValue,
+      budgetVariance,
+      budgetUsagePercent,
+    };
+  }, [boqItems, budget]);
+  const boqFinancialRowMap = useMemo(
+    () => new Map(boqFinancialSummary.rows.map((row) => [row.id, row])),
+    [boqFinancialSummary.rows]
+  );
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
@@ -1491,6 +1572,8 @@ export default function Home() {
         spec: "",
         unit: "قطعة",
         qty: "",
+        unitCost: "",
+        unitSellPrice: "",
         source: "مورد",
         leadTimeDays: "",
         ownerRoleId: defaultOwnerRoleId,
@@ -1706,6 +1789,14 @@ export default function Home() {
       `بداية الفعالية: ${startAt || "غير محدد"}`,
       `نهاية الفعالية: ${endAt || "غير محدد"}`,
       `الميزانية: ${budget || "غير محدد"}`,
+      `إجمالي تكلفة BOQ: ${formatMoney(boqFinancialSummary.totalCost)}`,
+      `إجمالي سعر البيع (BOQ): ${formatMoney(boqFinancialSummary.totalSell)}`,
+      `صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `هامش الربح: ${
+        boqFinancialSummary.margin === null
+          ? "غير متاح"
+          : `${toArabicDigits(boqFinancialSummary.margin.toFixed(1))}%`
+      }`,
       "",
       "مؤشرات سريعة:",
       `- إنجاز التنفيذ: ${toArabicDigits(actionTrackerProgress)}%`,
@@ -2108,6 +2199,12 @@ export default function Home() {
         const assignedRole = row.ownerRoleId
           ? orgRoles.find((role) => role.id === row.ownerRoleId)
           : null;
+        const qtyNum = parseNumericInput(row.qty);
+        const unitCostNum = parseNumericInput(row.unitCost);
+        const unitSellNum = parseNumericInput(row.unitSellPrice);
+        const lineCost = qtyNum * unitCostNum;
+        const lineSell = qtyNum * unitSellNum;
+        const lineProfit = lineSell - lineCost;
         const ownerSummary = assignedRole
           ? `${orgRoleDisplay(assignedRole)}${assignedRole.enabled ? "" : " (غير مفعّل)"}`
           : row.source === "أصل داخلي"
@@ -2116,7 +2213,7 @@ export default function Home() {
         const dependencySummary = row.dependsOnBoqId
           ? resolveBoqDependencyText(row)
           : "لا يوجد";
-        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary}`;
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}`;
       })
       .join("\n");
 
@@ -2459,6 +2556,30 @@ export default function Home() {
       "BOQ المختصر:",
       boqSummary || "- لا توجد بنود BOQ مدخلة بعد.",
       "",
+      "التحليل المالي الداخلي (BOQ):",
+      `- إجمالي التكلفة: ${formatMoney(boqFinancialSummary.totalCost)}`,
+      `- إجمالي سعر البيع: ${formatMoney(boqFinancialSummary.totalSell)}`,
+      `- صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `- هامش الربح: ${
+        boqFinancialSummary.margin === null
+          ? "غير متاح"
+          : `${toArabicDigits(boqFinancialSummary.margin.toFixed(1))}%`
+      }`,
+      `- نقطة التعادل: ${
+        boqFinancialSummary.status === "تعادل"
+          ? "تم تحقيق التعادل"
+          : boqFinancialSummary.breakEvenGap >= 0
+            ? `فوق التعادل بمقدار ${formatMoney(boqFinancialSummary.breakEvenGap)}`
+            : `تحت التعادل بمقدار ${formatMoney(Math.abs(boqFinancialSummary.breakEvenGap))}`
+      }`,
+      `- مقارنة بالميزانية: ${
+        boqFinancialSummary.budgetValue > 0
+          ? `التكلفة ${
+              boqFinancialSummary.totalCost <= boqFinancialSummary.budgetValue ? "ضمن" : "فوق"
+            } الميزانية (${formatMoney(boqFinancialSummary.budgetValue)})`
+          : "الميزانية غير معرفة"
+      }`,
+      "",
       "المسار الحرج (Critical Path):",
       ...criticalPath.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
       "",
@@ -2544,6 +2665,8 @@ export default function Home() {
           spec: "دقة عالية مع تحكم كامل وتشغيل تجريبي قبل الحدث",
           unit: "قطعة",
           qty: "1",
+          unitCost: "45000",
+          unitSellPrice: "62000",
           source: "مورد",
           leadTimeDays: "5",
           ownerRoleId: "operations_manager",
@@ -2751,6 +2874,8 @@ export default function Home() {
         spec: "دقة عالية مع اختبار تجريبي كامل",
         unit: "قطعة",
         qty: "1",
+        unitCost: "45000",
+        unitSellPrice: "62000",
         source: "مورد",
         leadTimeDays: "5",
         ownerRoleId: "operations_manager",
@@ -2764,6 +2889,8 @@ export default function Home() {
         spec: "أثاث وضيافة وتجهيز بروتوكولي",
         unit: "باكدج",
         qty: "1",
+        unitCost: "18000",
+        unitSellPrice: "28500",
         source: "أصل داخلي",
         leadTimeDays: "2",
         ownerRoleId: "visitor_experience_manager",
@@ -3213,7 +3340,7 @@ export default function Home() {
 
   function boqCompletenessScore() {
     if (boqItems.length === 0) return 0;
-    const fieldsPerRow = 8;
+    const fieldsPerRow = 10;
     const scorePerRow = boqItems.map((row) => {
       const filled = [
         row.category.trim().length > 0,
@@ -3221,6 +3348,8 @@ export default function Home() {
         row.spec.trim().length > 0,
         row.unit.trim().length > 0,
         row.qty.trim().length > 0,
+        row.unitCost.trim().length > 0,
+        row.unitSellPrice.trim().length > 0,
         row.source.trim().length > 0,
         row.leadTimeDays.trim().length > 0,
         row.ownerRoleId.trim().length > 0,
@@ -6535,6 +6664,22 @@ export default function Home() {
                             disabled={!canEditAdvancedExecution}
                             placeholder="الكمية"
                           />
+                          <input
+                            value={row.unitCost}
+                            onChange={(e) => updateBoqItem(row.id, { unitCost: e.target.value })}
+                            style={styles.input}
+                            disabled={!canEditBoqPricing}
+                            placeholder="سعر التكلفة للوحدة"
+                          />
+                          <input
+                            value={row.unitSellPrice}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, { unitSellPrice: e.target.value })
+                            }
+                            style={styles.input}
+                            disabled={!canEditBoqPricing}
+                            placeholder="سعر البيع للوحدة"
+                          />
                           <select
                             value={row.source}
                             onChange={(e) =>
@@ -6580,6 +6725,17 @@ export default function Home() {
                               </option>
                             ) : null}
                           </select>
+                        </div>
+                        <div style={styles.textMutedSmallTop8}>
+                          {(() => {
+                            const financialRow = boqFinancialRowMap.get(row.id);
+                            if (!financialRow) return "أدخل الكمية والتكلفة/البيع لحساب الربحية.";
+                            return `التكلفة الإجمالية: ${formatMoney(
+                              financialRow.totalCost
+                            )} • البيع الإجمالي: ${formatMoney(
+                              financialRow.totalSell
+                            )} • الربح: ${formatMoney(financialRow.profit)}`;
+                          })()}
                         </div>
                         <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
                           <select
@@ -6649,6 +6805,81 @@ export default function Home() {
                       </div>
                       );
                     })}
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.label}>ملخص مالي داخلي (BOQ)</div>
+                      <div style={styles.miniStatsGrid}>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>إجمالي التكلفة</div>
+                          <div style={styles.miniStatValue}>
+                            {formatMoney(boqFinancialSummary.totalCost)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>إجمالي البيع</div>
+                          <div style={styles.miniStatValue}>
+                            {formatMoney(boqFinancialSummary.totalSell)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>صافي الربح/الخسارة</div>
+                          <div
+                            style={{
+                              ...styles.miniStatValue,
+                              color:
+                                boqFinancialSummary.status === "رابح"
+                                  ? "#00FF85"
+                                  : boqFinancialSummary.status === "خاسر"
+                                    ? "#FF7A45"
+                                    : "rgba(255,255,255,0.95)",
+                            }}
+                          >
+                            {formatMoney(boqFinancialSummary.profit)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>حالة الربحية</div>
+                          <div style={styles.miniStatValue}>{boqFinancialSummary.status}</div>
+                        </div>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        هامش الربح:{" "}
+                        <strong>
+                          {boqFinancialSummary.margin === null
+                            ? "غير متاح"
+                            : `${toArabicDigits(boqFinancialSummary.margin.toFixed(1))}%`}
+                        </strong>
+                        {" • "}
+                        نقطة التعادل:{" "}
+                        <strong>
+                          {boqFinancialSummary.status === "تعادل"
+                            ? "تم تحقيق التعادل"
+                            : boqFinancialSummary.breakEvenGap >= 0
+                              ? `فوق التعادل بـ ${formatMoney(boqFinancialSummary.breakEvenGap)}`
+                              : `تحتاج ${formatMoney(Math.abs(boqFinancialSummary.breakEvenGap))} للوصول للتعادل`}
+                        </strong>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        مقارنة الميزانية:{" "}
+                        <strong>
+                          {boqFinancialSummary.budgetValue > 0
+                            ? `استهلاك ${toArabicDigits(
+                                (boqFinancialSummary.budgetUsagePercent ?? 0).toFixed(1)
+                              )}% من الميزانية`
+                            : "الميزانية غير محددة"}
+                        </strong>
+                      </div>
+                      {boqFinancialSummary.budgetValue > 0 ? (
+                        <div style={styles.textMutedSmallTop8}>
+                          {boqFinancialSummary.budgetVariance !== null &&
+                          boqFinancialSummary.budgetVariance >= 0
+                            ? `متبقٍ من الميزانية: ${formatMoney(boqFinancialSummary.budgetVariance)}`
+                            : `تجاوز الميزانية بمقدار: ${formatMoney(
+                                Math.abs(boqFinancialSummary.budgetVariance ?? 0)
+                              )}`}
+                        </div>
+                      ) : null}
+                    </div>
 
                     <div style={styles.blockTop12}>
                       <button
@@ -7468,7 +7699,7 @@ export default function Home() {
                 {userRole === "viewer"
                   ? "عرض فقط بدون تعديل."
                   : userRole === "finance_manager"
-                    ? "يمكنك تعديل الميزانية والحوكمة."
+                    ? "يمكنك تعديل الميزانية وتسعير BOQ والحوكمة."
                     : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
               </div>
             </div>
@@ -7624,6 +7855,44 @@ export default function Home() {
                 <div style={styles.textMutedSmallTop8}>
                   مصعّدة: {toArabicDigits(liveRiskStats.escalated)} • متأخرة:{" "}
                   {toArabicDigits(liveRiskStats.overdue)}
+                </div>
+              </div>
+            ) : null}
+
+            {deliveryTrack === "advanced" &&
+            (stage === "advanced_boq" || stage === "advanced_plan") ? (
+              <div style={styles.sideBlock}>
+                <div style={styles.sideBlockTitle}>الربحية الداخلية (BOQ)</div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  التكلفة: <strong>{formatMoney(boqFinancialSummary.totalCost)}</strong>
+                </div>
+                <div style={styles.sideSummaryPrimaryText}>
+                  البيع: <strong>{formatMoney(boqFinancialSummary.totalSell)}</strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  صافي النتيجة:{" "}
+                  <strong
+                    style={{
+                      color:
+                        boqFinancialSummary.status === "رابح"
+                          ? "#00FF85"
+                          : boqFinancialSummary.status === "خاسر"
+                            ? "#FF7A45"
+                            : "rgba(255,255,255,0.95)",
+                    }}
+                  >
+                    {formatMoney(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
+                  </strong>
+                </div>
+                <div style={styles.textMutedSmallTop8}>
+                  نقطة التعادل:{" "}
+                  <strong>
+                    {boqFinancialSummary.status === "تعادل"
+                      ? "محققة"
+                      : boqFinancialSummary.breakEvenGap >= 0
+                        ? "فوق التعادل"
+                        : "أقل من التعادل"}
+                  </strong>
                 </div>
               </div>
             ) : null}
