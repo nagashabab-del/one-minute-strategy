@@ -17,6 +17,9 @@ type StageUI =
 
 type DeliveryTrack = "fast" | "advanced";
 
+const SAUDI_RIYAL_SIGN = "\u20C1";
+const SAUDI_RIYAL_FALLBACK = "ر.س";
+
 type AdvisorKey =
   | "financial_advisor"
   | "regulatory_advisor"
@@ -623,6 +626,22 @@ function formatNumericForInput(value: number) {
   return fixed.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
+function supportsGlyph(glyph: string) {
+  if (typeof document === "undefined") return false;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  ctx.font = '16px "Noto Sans Arabic", "Segoe UI Symbol", Arial, sans-serif';
+  const glyphWidth = ctx.measureText(glyph).width;
+  const replacementWidth = ctx.measureText("\uFFFD").width;
+  const emptySquareWidth = ctx.measureText("□").width;
+  return glyphWidth > 0 && glyphWidth !== replacementWidth && glyphWidth !== emptySquareWidth;
+}
+
+function resolveRiyalSymbol() {
+  return supportsGlyph(SAUDI_RIYAL_SIGN) ? SAUDI_RIYAL_SIGN : SAUDI_RIYAL_FALLBACK;
+}
+
 const STORAGE_KEY = "oms_dashboard_full_v1";
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
@@ -920,6 +939,7 @@ export default function Home() {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
+  const [riyalSymbol, setRiyalSymbol] = useState(SAUDI_RIYAL_FALLBACK);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1391,6 +1411,10 @@ export default function Home() {
 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    setRiyalSymbol(resolveRiyalSymbol());
   }, []);
 
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
@@ -5744,13 +5768,16 @@ export default function Home() {
 
                   <div>
                     <div style={styles.label}>الميزانية (اختياري)</div>
-                    <input
-                      value={budget}
-                      onChange={(e) => setBudget(e.target.value)}
-                      disabled={!canEditBudget}
-                      style={styles.input}
-                      placeholder="مثال: 250000"
-                    />
+                    <div style={styles.inputSuffixWrap}>
+                      <input
+                        value={budget}
+                        onChange={(e) => setBudget(e.target.value)}
+                        disabled={!canEditBudget}
+                        style={{ ...styles.input, paddingLeft: 44 }}
+                        placeholder="مثال: 250000"
+                      />
+                      <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                    </div>
                   </div>
 
                   <div>
@@ -6758,18 +6785,23 @@ export default function Home() {
                             disabled={!canEditAdvancedExecution}
                             placeholder="الكمية"
                           />
-                          <input
-                            value={row.unitCost}
-                            onChange={(e) => updateBoqItem(row.id, { unitCost: e.target.value })}
-                            onBlur={() => {
-                              if (row.unitSellPrice.trim().length > 0) {
-                                syncBoqTargetMarginFromManualSell(row.id);
+                          <div style={styles.inputSuffixWrap}>
+                            <input
+                              value={row.unitCost}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, { unitCost: e.target.value })
                               }
-                            }}
-                            style={styles.input}
-                            disabled={!canEditBoqPricing}
-                            placeholder="سعر التكلفة للوحدة"
-                          />
+                              onBlur={() => {
+                                if (row.unitSellPrice.trim().length > 0) {
+                                  syncBoqTargetMarginFromManualSell(row.id);
+                                }
+                              }}
+                              style={{ ...styles.input, paddingLeft: 44 }}
+                              disabled={!canEditBoqPricing}
+                              placeholder="سعر التكلفة للوحدة"
+                            />
+                            <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                          </div>
                           <div style={styles.inputSuffixWrap}>
                             <input
                               value={row.targetMarginPct}
@@ -6782,16 +6814,19 @@ export default function Home() {
                             />
                             <span style={styles.inputSuffix}>٪</span>
                           </div>
-                          <input
-                            value={row.unitSellPrice}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, { unitSellPrice: e.target.value })
-                            }
-                            onBlur={() => syncBoqTargetMarginFromManualSell(row.id)}
-                            style={styles.input}
-                            disabled={!canEditBoqPricing}
-                            placeholder="سعر البيع للوحدة (يدوي)"
-                          />
+                          <div style={styles.inputSuffixWrap}>
+                            <input
+                              value={row.unitSellPrice}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, { unitSellPrice: e.target.value })
+                              }
+                              onBlur={() => syncBoqTargetMarginFromManualSell(row.id)}
+                              style={{ ...styles.input, paddingLeft: 44 }}
+                              disabled={!canEditBoqPricing}
+                              placeholder="سعر البيع للوحدة (يدوي)"
+                            />
+                            <span style={styles.inputSuffix}>{riyalSymbol}</span>
+                          </div>
                           <select
                             value={row.source}
                             onChange={(e) =>
