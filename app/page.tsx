@@ -79,6 +79,12 @@ type APIError = { ok: false; error?: string };
 type APISuccess<T> = { ok: true; data: T };
 type APIResponse<T> = APISuccess<T> | APIError;
 
+type UserRole =
+  | "project_manager"
+  | "operations_manager"
+  | "finance_manager"
+  | "viewer";
+
 type PersistedState = {
   eventType?: string;
   mode?: string;
@@ -122,6 +128,7 @@ type PersistedState = {
   changeRequests?: ChangeRequest[];
   managementBriefText?: string;
   fieldChecklistText?: string;
+  userRole?: UserRole;
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
@@ -245,6 +252,21 @@ function riskLevelScore(level: RiskLevel) {
   if (level === "مرتفع") return 3;
   if (level === "متوسط") return 2;
   return 1;
+}
+
+function userRoleLabel(role: UserRole) {
+  switch (role) {
+    case "project_manager":
+      return "مدير مشروع";
+    case "operations_manager":
+      return "عمليات";
+    case "finance_manager":
+      return "مالي";
+    case "viewer":
+      return "مشاهد فقط";
+    default:
+      return role;
+  }
 }
 
 function escapeHtml(text: string) {
@@ -505,6 +527,9 @@ export default function Home() {
   const [mode, setMode] = useState(
     initialSaved.mode ?? "مراجعة تنفيذية سريعة"
   );
+  const [userRole, setUserRole] = useState<UserRole>(
+    initialSaved.userRole ?? "project_manager"
+  );
   const [initStep, setInitStep] = useState<"session" | "project">(
     initialSaved.initStep ?? "session"
   );
@@ -650,6 +675,23 @@ export default function Home() {
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
   const activeOrgRoles = orgRoles.filter((role) => role.enabled);
+  const canEditSessionSetup =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canEditProjectCore =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canEditBudget =
+    userRole === "project_manager" || userRole === "finance_manager";
+  const canEditAnswers =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canRunAnalysisFlow =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canEditAdvancedExecution =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canEditGovernance =
+    userRole === "project_manager" || userRole === "finance_manager";
+  const canApproveAdvancedPlan = userRole === "project_manager";
+  const canResetSession = userRole === "project_manager";
+  const canLoadDemo = userRole !== "viewer";
   const advancedGovernanceSignature = JSON.stringify({
     commissioningDate,
     projectStartDate,
@@ -737,6 +779,7 @@ export default function Home() {
     const snapshot = {
       eventType,
       mode,
+      userRole,
       initStep,
       deliveryTrack,
       advisorSelectionMode,
@@ -787,6 +830,7 @@ export default function Home() {
     loading,
     eventType,
     mode,
+    userRole,
     initStep,
     deliveryTrack,
     advisorSelectionMode,
@@ -1452,6 +1496,13 @@ export default function Home() {
   }
 
   function openAdvancedTrack() {
+    if (!canEditAdvancedExecution && canEditGovernance) {
+      setDeliveryTrack("advanced");
+      setStage(advancedPlanText.trim() ? "advanced_plan" : "advanced_boq");
+      showSuccess("تم فتح المسار المتقدم بصلاحية الحوكمة.");
+      return;
+    }
+
     if (!commissioningDate.trim() && startAt) {
       setCommissioningDate(startAt.slice(0, 10));
     }
@@ -4571,9 +4622,10 @@ export default function Home() {
               <button
                 style={{
                   marginTop: 10,
-                  ...styles.secondaryBtn(false),
+                  ...styles.secondaryBtn(!canLoadDemo),
                   width: isMobile ? "100%" : 280,
                 }}
+                disabled={!canLoadDemo}
                 onClick={fillFullTestModel}
               >
                 🧪 تحميل نموذج تجريبي كامل
@@ -4603,6 +4655,20 @@ export default function Home() {
               </div>
 
               <div style={styles.headerActions}>
+                <div style={{ minWidth: isMobile ? "100%" : 190 }}>
+                  <div style={styles.label}>الدور الحالي</div>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value as UserRole)}
+                    style={styles.input}
+                  >
+                    <option value="project_manager">مدير مشروع</option>
+                    <option value="operations_manager">عمليات</option>
+                    <option value="finance_manager">مالي</option>
+                    <option value="viewer">مشاهد فقط</option>
+                  </select>
+                </div>
+
                 {stage === "done" && reportText?.trim() ? (
                   <button style={styles.ghostBtn} onClick={copyReport}>
                     نسخ التقرير
@@ -4610,7 +4676,11 @@ export default function Home() {
                 ) : null}
 
                 {!isSelectionStep ? (
-                  <button style={styles.ghostBtn} onClick={clearSession}>
+                  <button
+                    style={styles.ghostBtn}
+                    onClick={clearSession}
+                    disabled={!canResetSession}
+                  >
                     مسح الجلسة
                   </button>
                 ) : null}
@@ -4660,6 +4730,7 @@ export default function Home() {
                       <button
                         type="button"
                         style={styles.selectorBtn(advisorSelectionMode === "all")}
+                        disabled={!canEditSessionSetup}
                         onClick={() => {
                           setAdvisorSelectionMode("all");
                           setSelectedAdvisors(ALL_ADVISOR_KEYS);
@@ -4670,6 +4741,7 @@ export default function Home() {
                       <button
                         type="button"
                         style={styles.selectorBtn(advisorSelectionMode === "custom")}
+                        disabled={!canEditSessionSetup}
                         onClick={() => {
                           if (advisorSelectionMode === "custom") return;
                           setAdvisorSelectionMode("custom");
@@ -4686,6 +4758,7 @@ export default function Home() {
                         <button
                           type="button"
                           style={styles.sessionModeCard(mode === "مراجعة تنفيذية سريعة")}
+                          disabled={!canEditSessionSetup}
                           onClick={() => setMode("مراجعة تنفيذية سريعة")}
                         >
                           <div style={styles.sessionModeTitle}>مراجعة تنفيذية سريعة</div>
@@ -4696,6 +4769,7 @@ export default function Home() {
                         <button
                           type="button"
                           style={styles.sessionModeCard(mode === "تحليل معمّق")}
+                          disabled={!canEditSessionSetup}
                           onClick={() => setMode("تحليل معمّق")}
                         >
                           <div style={styles.sessionModeTitle}>تحليل معمّق</div>
@@ -4712,6 +4786,7 @@ export default function Home() {
                         <button
                           type="button"
                           style={styles.selectorBtn(deliveryTrack === "fast")}
+                          disabled={!canEditSessionSetup}
                           onClick={() => setDeliveryTrack("fast")}
                         >
                           المسار السريع (النموذج الحالي)
@@ -4719,6 +4794,7 @@ export default function Home() {
                         <button
                           type="button"
                           style={styles.selectorBtn(deliveryTrack === "advanced")}
+                          disabled={!canEditSessionSetup}
                           onClick={() => setDeliveryTrack("advanced")}
                         >
                           المسار المتقدم (اختياري)
@@ -4762,7 +4838,8 @@ export default function Home() {
                                 toggleAdvisorSelection(key as AdvisorKey);
                               }
                             }}
-                            disabled={advisorSelectionMode !== "custom"}
+                            disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
+                            aria-disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
                             style={
                               advisorSelectionMode === "custom"
                                 ? styles.advisorTileSelectable(
@@ -4797,8 +4874,8 @@ export default function Home() {
 
                     <div style={styles.stackAfterSection}>
                       <button
-                        style={styles.primaryBtn(!canMoveToProjectStep)}
-                        disabled={!canMoveToProjectStep}
+                        style={styles.primaryBtn(!canMoveToProjectStep || !canEditSessionSetup)}
+                        disabled={!canMoveToProjectStep || !canEditSessionSetup}
                         onClick={() => setInitStep("project")}
                       >
                         التالي: تفاصيل المشروع
@@ -4815,6 +4892,7 @@ export default function Home() {
                     <select
                       value={eventType}
                       onChange={(e) => setEventType(e.target.value)}
+                      disabled={!canEditProjectCore}
                       style={styles.input}
                     >
                       <option>فعالية مفتوحة عامة</option>
@@ -4835,6 +4913,7 @@ export default function Home() {
                           setVenueType(e.target.value);
                         }
                       }}
+                      disabled={!canEditProjectCore}
                       style={styles.input}
                     >
                       <option value="غير محدد">غير محدد</option>
@@ -4850,6 +4929,7 @@ export default function Home() {
                     <input
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
+                      disabled={!canEditBudget}
                       style={styles.input}
                       placeholder="مثال: 250000"
                     />
@@ -4861,6 +4941,7 @@ export default function Home() {
                       type="datetime-local"
                       value={startAt}
                       onChange={(e) => setStartAt(e.target.value)}
+                      disabled={!canEditProjectCore}
                       style={styles.input}
                     />
                   </div>
@@ -4871,6 +4952,7 @@ export default function Home() {
                       type="datetime-local"
                       value={endAt}
                       onChange={(e) => setEndAt(e.target.value)}
+                      disabled={!canEditProjectCore}
                       style={styles.input}
                     />
                   </div>
@@ -4881,6 +4963,7 @@ export default function Home() {
                       <textarea
                         value={project}
                         onChange={(e) => setProject(e.target.value)}
+                        disabled={!canEditProjectCore}
                         style={{ ...styles.textarea, ...styles.projectTextarea }}
                         placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
                       />
@@ -4895,9 +4978,9 @@ export default function Home() {
 
                       <button
                         style={styles.primaryBtn(
-                          !canStart || isProcessing() || hasInvalidTimeRange()
+                          !canStart || isProcessing() || hasInvalidTimeRange() || !canRunAnalysisFlow
                         )}
-                        disabled={!canStart || isProcessing() || hasInvalidTimeRange()}
+                        disabled={!canStart || isProcessing() || hasInvalidTimeRange() || !canRunAnalysisFlow}
                         onClick={startSession}
                       >
                         {actionLabel("ابدأ الجلسة", "start_session")}
@@ -4950,6 +5033,7 @@ export default function Home() {
                             )
                           );
                         }}
+                        disabled={!canEditAnswers}
                         placeholder="اكتب إجابتك..."
                         style={{ ...styles.textarea, ...styles.questionTextarea }}
                       />
@@ -4960,7 +5044,7 @@ export default function Home() {
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={submitRound1}
                   >
                     {actionLabel("التالي: تدقيق إضافي", "submit_round1")}
@@ -5009,6 +5093,7 @@ export default function Home() {
                             )
                           );
                         }}
+                        disabled={!canEditAnswers}
                         placeholder="اكتب إجابتك..."
                         style={{ ...styles.textarea, ...styles.questionTextarea }}
                       />
@@ -5019,7 +5104,7 @@ export default function Home() {
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={submitRound2}
                   >
                     {actionLabel("التالي: حوار المستشارين", "build_dialogue")}
@@ -5076,7 +5161,7 @@ export default function Home() {
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={() => setStage("addition")}
                   >
                     التالي: هل لديك إضافة؟
@@ -5107,6 +5192,7 @@ export default function Home() {
                     <input
                       type="radio"
                       checked={hasAddition === "no"}
+                      disabled={!canEditAnswers}
                       onChange={() => setHasAddition("no")}
                     />
                     لا يوجد
@@ -5116,6 +5202,7 @@ export default function Home() {
                     <input
                       type="radio"
                       checked={hasAddition === "yes"}
+                      disabled={!canEditAnswers}
                       onChange={() => setHasAddition("yes")}
                     />
                     يوجد إضافة
@@ -5127,6 +5214,7 @@ export default function Home() {
                     <textarea
                       value={userAddition}
                       onChange={(e) => setUserAddition(e.target.value)}
+                      disabled={!canEditAnswers}
                       style={{ ...styles.textarea, ...styles.additionTextarea }}
                       placeholder="اكتب الإضافة (ميزانية/موقع/مدة/بوثات/تسعير/راعي محتمل...)"
                     />
@@ -5189,7 +5277,7 @@ export default function Home() {
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={runAnalysis}
                   >
                     {actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis")}
@@ -5465,11 +5553,15 @@ export default function Home() {
                 </div>
 
                 <div style={styles.stackAfterSection}>
-                  <button
-                    style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
-                    onClick={openAdvancedTrack}
-                  >
+	                  <button
+	                    style={styles.primaryBtn(
+	                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+	                    )}
+	                    disabled={
+	                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+	                    }
+	                    onClick={openAdvancedTrack}
+	                  >
                     {deliveryTrack === "advanced"
                       ? "التالي: استكمال المسار المتقدم"
                       : "ترقية إلى المسار المتقدم"}
@@ -5477,7 +5569,7 @@ export default function Home() {
 
                   <button
                     style={styles.secondaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={() => {
                       setStage("addition");
                       setNeedsReanalysisHint(true);
@@ -5500,6 +5592,7 @@ export default function Home() {
                     type="date"
                     value={commissioningDate}
                     onChange={(e) => setCommissioningDate(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.input}
                   />
                 </div>
@@ -5510,6 +5603,7 @@ export default function Home() {
                     type="date"
                     value={projectStartDate}
                     onChange={(e) => setProjectStartDate(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.input}
                   />
                   <div style={styles.textMutedSmallTop8}>
@@ -5522,6 +5616,7 @@ export default function Home() {
                   <textarea
                     value={scopeSite}
                     onChange={(e) => setScopeSite(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.textarea}
                     placeholder="اكتب نطاق الموقع والتجهيزات..."
                   />
@@ -5532,6 +5627,7 @@ export default function Home() {
                   <textarea
                     value={scopeTechnical}
                     onChange={(e) => setScopeTechnical(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.textarea}
                     placeholder="اكتب نطاق التجهيزات الفنية..."
                   />
@@ -5542,6 +5638,7 @@ export default function Home() {
                   <textarea
                     value={scopeProgram}
                     onChange={(e) => setScopeProgram(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.textarea}
                     placeholder="اكتب نطاق البرنامج التنفيذي..."
                   />
@@ -5552,6 +5649,7 @@ export default function Home() {
                   <textarea
                     value={scopeCeremony}
                     onChange={(e) => setScopeCeremony(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.textarea}
                     placeholder="اكتب نطاق المراسم والتوثيق..."
                   />
@@ -5562,6 +5660,7 @@ export default function Home() {
                   <textarea
                     value={executionStrategy}
                     onChange={(e) => setExecutionStrategy(e.target.value)}
+                    disabled={!canEditAdvancedExecution}
                     style={styles.textarea}
                     placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
                   />
@@ -5583,6 +5682,7 @@ export default function Home() {
                           <button
                             type="button"
                             style={styles.orgRoleToggle(role.enabled)}
+                            disabled={!canEditAdvancedExecution}
                             onClick={() =>
                               updateOrgRole(role.id, { enabled: !role.enabled })
                             }
@@ -5598,7 +5698,7 @@ export default function Home() {
                               updateOrgRole(role.id, { assignee: e.target.value })
                             }
                             style={styles.input}
-                            disabled={!role.enabled}
+                            disabled={!canEditAdvancedExecution || !role.enabled}
                             placeholder="اسم المسؤول (اختياري)"
                           />
                         </div>
@@ -5610,6 +5710,7 @@ export default function Home() {
                               <button
                                 type="button"
                                 style={styles.orgRoleInfoBtn}
+                                disabled={!canEditAdvancedExecution}
                                 onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
                                 aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
                               >
@@ -5626,6 +5727,7 @@ export default function Home() {
                               <button
                                 type="button"
                                 style={styles.orgRoleInfoBtn}
+                                disabled={!canEditAdvancedExecution}
                                 onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
                                 aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
                               >
@@ -5667,14 +5769,14 @@ export default function Home() {
                 <div style={styles.stackAfterSection}>
                   <button
                     style={styles.secondaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canEditAdvancedExecution}
                     onClick={fillAdvancedTestData}
                   >
                     تعبئة سريعة للاختبار
                   </button>
                   <button
                     style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    disabled={isProcessing() || !canEditAdvancedExecution}
                     onClick={() => setStage("advanced_boq")}
                   >
                     التالي: BOQ + الجودة + المخاطر
@@ -5704,12 +5806,14 @@ export default function Home() {
                             value={row.category}
                             onChange={(e) => updateBoqItem(row.id, { category: e.target.value })}
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="التصنيف"
                           />
                           <input
                             value={row.item}
                             onChange={(e) => updateBoqItem(row.id, { item: e.target.value })}
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="اسم البند"
                           />
                         </div>
@@ -5718,6 +5822,7 @@ export default function Home() {
                             value={row.spec}
                             onChange={(e) => updateBoqItem(row.id, { spec: e.target.value })}
                             style={styles.textarea}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="المواصفة الفنية المختصرة"
                           />
                         </div>
@@ -5726,12 +5831,14 @@ export default function Home() {
                             value={row.unit}
                             onChange={(e) => updateBoqItem(row.id, { unit: e.target.value })}
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="الوحدة"
                           />
                           <input
                             value={row.qty}
                             onChange={(e) => updateBoqItem(row.id, { qty: e.target.value })}
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="الكمية"
                           />
                           <select
@@ -5743,6 +5850,7 @@ export default function Home() {
                               })
                             }
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                           >
                             <option value="مورد">مورد</option>
                             <option value="أصل داخلي">أصل داخلي</option>
@@ -5753,6 +5861,7 @@ export default function Home() {
                               updateBoqItem(row.id, { leadTimeDays: e.target.value })
                             }
                             style={styles.input}
+                            disabled={!canEditAdvancedExecution}
                             placeholder="زمن التوريد (يوم)"
                           />
                         </div>
@@ -5760,7 +5869,7 @@ export default function Home() {
                           <button
                             style={styles.ghostBtn}
                             onClick={() => removeBoqRow(row.id)}
-                            disabled={boqItems.length <= 1}
+                            disabled={boqItems.length <= 1 || !canEditAdvancedExecution}
                           >
                             حذف البند
                           </button>
@@ -5770,8 +5879,8 @@ export default function Home() {
 
                     <div style={styles.blockTop12}>
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing()}
+                        style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
+                        disabled={isProcessing() || !canEditAdvancedExecution}
                         onClick={addBoqRow}
                       >
                         إضافة بند BOQ
@@ -5786,6 +5895,7 @@ export default function Home() {
                     value={qualityStandards}
                     onChange={(e) => setQualityStandards(e.target.value)}
                     style={styles.textarea}
+                    disabled={!canEditAdvancedExecution}
                     placeholder="اكتب معايير الجودة وآلية التحقق..."
                   />
                 </div>
@@ -5796,6 +5906,7 @@ export default function Home() {
                     value={riskManagement}
                     onChange={(e) => setRiskManagement(e.target.value)}
                     style={styles.textarea}
+                    disabled={!canEditAdvancedExecution}
                     placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
                   />
                 </div>
@@ -5844,15 +5955,15 @@ export default function Home() {
 
                     <div style={styles.stackAfterBlock}>
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing()}
+                        style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
+                        disabled={isProcessing() || !canEditAdvancedExecution}
                         onClick={generateLiveRisksFromText}
                       >
                         توليد بنود مخاطر من النص
                       </button>
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing()}
+                        style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
+                        disabled={isProcessing() || !canEditAdvancedExecution}
                         onClick={addLiveRiskItem}
                       >
                         إضافة خطر يدوي
@@ -5884,6 +5995,7 @@ export default function Home() {
                                     updateLiveRiskItem(risk.id, { title: e.target.value })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                   placeholder="اكتب عنوان الخطر"
                                 />
                               </div>
@@ -5897,6 +6009,7 @@ export default function Home() {
                                     })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="منخفض">منخفض</option>
                                   <option value="متوسط">متوسط</option>
@@ -5913,6 +6026,7 @@ export default function Home() {
                                     })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="منخفض">منخفض</option>
                                   <option value="متوسط">متوسط</option>
@@ -5932,6 +6046,7 @@ export default function Home() {
                                     })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                 >
                                   <option value="مفتوح">مفتوح</option>
                                   <option value="قيد المعالجة">قيد المعالجة</option>
@@ -5947,6 +6062,7 @@ export default function Home() {
                                     updateLiveRiskItem(risk.id, { owner: e.target.value })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                   placeholder="اسم المالك"
                                 />
                               </div>
@@ -5959,6 +6075,7 @@ export default function Home() {
                                     updateLiveRiskItem(risk.id, { reviewDate: e.target.value })
                                   }
                                   style={styles.input}
+                                  disabled={!canEditAdvancedExecution}
                                 />
                               </div>
                             </div>
@@ -5971,6 +6088,7 @@ export default function Home() {
                                   updateLiveRiskItem(risk.id, { mitigation: e.target.value })
                                 }
                                 style={{ ...styles.textarea, ...styles.actionTaskNotes }}
+                                disabled={!canEditAdvancedExecution}
                                 placeholder="اكتب إجراء المعالجة وخطة الاستجابة..."
                               />
                             </div>
@@ -5979,6 +6097,7 @@ export default function Home() {
                               <button
                                 style={styles.ghostBtn}
                                 onClick={() => removeLiveRiskItem(risk.id)}
+                                disabled={!canEditAdvancedExecution}
                               >
                                 حذف الخطر
                               </button>
@@ -5996,6 +6115,7 @@ export default function Home() {
                     value={responseSla}
                     onChange={(e) => setResponseSla(e.target.value)}
                     style={styles.textarea}
+                    disabled={!canEditAdvancedExecution}
                     placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
                   />
                 </div>
@@ -6006,6 +6126,7 @@ export default function Home() {
                     value={closureRemovalHours}
                     onChange={(e) => setClosureRemovalHours(e.target.value)}
                     style={styles.input}
+                    disabled={!canEditAdvancedExecution}
                     placeholder="مثال: 6"
                   />
                 </div>
@@ -6025,8 +6146,10 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(!canBuildAdvancedPlan || isProcessing())}
-                    disabled={!canBuildAdvancedPlan || isProcessing()}
+                    style={styles.primaryBtn(
+                      !canBuildAdvancedPlan || isProcessing() || !canEditAdvancedExecution
+                    )}
+                    disabled={!canBuildAdvancedPlan || isProcessing() || !canEditAdvancedExecution}
                     onClick={buildAdvancedPlan}
                   >
                     توليد خطة التنفيذ المتقدمة
@@ -6124,6 +6247,7 @@ export default function Home() {
                                   })
                                 }
                                 style={styles.input}
+                                disabled={!canEditAdvancedExecution}
                               >
                                 <option value="لم تبدأ">لم تبدأ</option>
                                 <option value="جاري">جاري</option>
@@ -6139,6 +6263,7 @@ export default function Home() {
                                   updateActionTrackerItem(item.id, { owner: e.target.value })
                                 }
                                 style={styles.input}
+                                disabled={!canEditAdvancedExecution}
                                 placeholder="اسم المسؤول"
                               />
                             </div>
@@ -6151,6 +6276,7 @@ export default function Home() {
                                   updateActionTrackerItem(item.id, { dueDate: e.target.value })
                                 }
                                 style={styles.input}
+                                disabled={!canEditAdvancedExecution}
                               />
                             </div>
                           </div>
@@ -6163,6 +6289,7 @@ export default function Home() {
                                 updateActionTrackerItem(item.id, { notes: e.target.value })
                               }
                               style={{ ...styles.textarea, ...styles.actionTaskNotes }}
+                              disabled={!canEditAdvancedExecution}
                               placeholder="اكتب تحديث الحالة أو سبب التعثر أو الإجراء المطلوب..."
                             />
                           </div>
@@ -6229,8 +6356,8 @@ export default function Home() {
 
                     <div style={styles.blockTop12}>
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing() || !advancedPlanText.trim()}
+                        style={styles.secondaryBtn(isProcessing() || !canEditGovernance)}
+                        disabled={isProcessing() || !advancedPlanText.trim() || !canEditGovernance}
                         onClick={freezeCurrentBaseline}
                       >
                         {hasFrozenBaseline ? "تجميد نسخة جديدة" : "تجميد النسخة الحالية"}
@@ -6245,6 +6372,7 @@ export default function Home() {
                             value={crTitle}
                             onChange={(e) => setCrTitle(e.target.value)}
                             style={styles.input}
+                            disabled={!canEditGovernance}
                             placeholder="مثال: تعديل جدول التوريد الفني"
                           />
                         </div>
@@ -6255,6 +6383,7 @@ export default function Home() {
                             value={crRequestedBy}
                             onChange={(e) => setCrRequestedBy(e.target.value)}
                             style={styles.input}
+                            disabled={!canEditGovernance}
                             placeholder="اسم مقدم الطلب"
                           />
                         </div>
@@ -6265,6 +6394,7 @@ export default function Home() {
                             value={crReason}
                             onChange={(e) => setCrReason(e.target.value)}
                             style={styles.textarea}
+                            disabled={!canEditGovernance}
                             placeholder="اكتب سبب التغيير والأثر المتوقع..."
                           />
                         </div>
@@ -6276,6 +6406,7 @@ export default function Home() {
                               value={crImpactTime}
                               onChange={(e) => setCrImpactTime(e.target.value)}
                               style={styles.input}
+                              disabled={!canEditGovernance}
                             >
                               <option value="منخفض">منخفض</option>
                               <option value="متوسط">متوسط</option>
@@ -6288,6 +6419,7 @@ export default function Home() {
                               value={crImpactCost}
                               onChange={(e) => setCrImpactCost(e.target.value)}
                               style={styles.input}
+                              disabled={!canEditGovernance}
                             >
                               <option value="منخفض">منخفض</option>
                               <option value="متوسط">متوسط</option>
@@ -6300,6 +6432,7 @@ export default function Home() {
                               value={crImpactScope}
                               onChange={(e) => setCrImpactScope(e.target.value)}
                               style={styles.input}
+                              disabled={!canEditGovernance}
                             >
                               <option value="منخفض">منخفض</option>
                               <option value="متوسط">متوسط</option>
@@ -6310,8 +6443,8 @@ export default function Home() {
 
                         <div style={styles.blockTop12}>
                           <button
-                            style={styles.primaryBtn(isProcessing())}
-                            disabled={isProcessing()}
+                            style={styles.primaryBtn(isProcessing() || !canEditGovernance)}
+                            disabled={isProcessing() || !canEditGovernance}
                             onClick={createChangeRequest}
                           >
                             إنشاء طلب تغيير
@@ -6343,6 +6476,7 @@ export default function Home() {
                                       })
                                     }
                                     style={styles.input}
+                                    disabled={!canEditGovernance}
                                   >
                                     <option value="مفتوح">مفتوح</option>
                                     <option value="معتمد">معتمد</option>
@@ -6363,8 +6497,13 @@ export default function Home() {
                     <div style={styles.actionTrackerHead}>
                       <div style={styles.qTitle}>حزمة مخرجات التنفيذ الجاهزة للطباعة</div>
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing()}
+                        style={styles.secondaryBtn(
+                          isProcessing() ||
+                            (!canEditAdvancedExecution && !canEditGovernance)
+                        )}
+                        disabled={
+                          isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+                        }
                         onClick={() => refreshExecutionOutputPack()}
                       >
                         تحديث حزمة المخرجات
@@ -6446,6 +6585,7 @@ export default function Home() {
                       type="checkbox"
                       checked={advancedApproved}
                       onChange={(e) => setAdvancedApproved(e.target.checked)}
+                      disabled={!canApproveAdvancedPlan}
                     />
                     اعتماد نهائي للخطة (V1)
                   </label>
@@ -6453,8 +6593,8 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(isProcessing())}
-                    disabled={isProcessing()}
+                    style={styles.primaryBtn(isProcessing() || !canApproveAdvancedPlan)}
+                    disabled={isProcessing() || !canApproveAdvancedPlan}
                     onClick={() =>
                       showSuccess(
                         advancedApproved
@@ -6512,9 +6652,21 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <>
-                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
-                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
+	              <>
+	                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
+	                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
+
+            <div style={styles.sideBlock}>
+              <div style={styles.sideBlockTitle}>الصلاحية الحالية</div>
+              <div style={styles.sideSummaryPrimaryText}>{userRoleLabel(userRole)}</div>
+              <div style={styles.textTertiarySmall}>
+                {userRole === "viewer"
+                  ? "عرض فقط بدون تعديل."
+                  : userRole === "finance_manager"
+                    ? "يمكنك تعديل الميزانية والحوكمة."
+                    : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
+              </div>
+            </div>
 
             <div style={styles.sideBlock}>
               <div style={styles.sideBlockTitle}>حالة الجلسة</div>
