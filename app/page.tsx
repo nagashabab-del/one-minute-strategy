@@ -144,6 +144,8 @@ type BoqItem = {
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
   ownerRoleId: OrgRoleId | "";
+  dependsOnBoqId: string;
+  dependencyType: "FS";
 };
 
 type OrgRoleId =
@@ -322,6 +324,12 @@ function permissionHintText(scope: string, roles: UserRole[], currentRole: UserR
 function orgRoleDisplay(role: Pick<OrgRole, "title" | "assignee">) {
   const assignee = role.assignee.trim();
   return assignee ? `${role.title} (${assignee})` : role.title;
+}
+
+function boqRowLabel(row: Pick<BoqItem, "item" | "category">, index: number) {
+  if (row.item.trim()) return row.item.trim();
+  if (row.category.trim()) return `${row.category.trim()} — بند ${toArabicDigits(index + 1)}`;
+  return `بند ${toArabicDigits(index + 1)}`;
 }
 
 function computeRolePermissions(role: UserRole): RolePermissionFlags {
@@ -587,6 +595,8 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     source: "مورد",
     leadTimeDays: "",
     ownerRoleId: "",
+    dependsOnBoqId: "",
+    dependencyType: "FS",
   },
 ];
 
@@ -687,9 +697,11 @@ function hydrateOrgRoles(saved?: OrgRole[]) {
 
 function normalizeBoqItems(saved?: BoqItem[]) {
   if (!saved?.length) return DEFAULT_BOQ_ITEMS;
-  return saved.map((row) => ({
+  return saved.map<BoqItem>((row) => ({
     ...row,
     ownerRoleId: row.ownerRoleId ?? "",
+    dependsOnBoqId: row.dependsOnBoqId ?? "",
+    dependencyType: "FS",
   }));
 }
 
@@ -1057,6 +1069,65 @@ export default function Home() {
     },
     { total: liveRiskItems.length, active: 0, critical: 0, escalated: 0, closed: 0, overdue: 0 }
   );
+  const boqDependencyIssues = useMemo(() => {
+    const issues: string[] = [];
+    const rowMap = new Map(boqItems.map((row) => [row.id, row]));
+    const rowIndexMap = new Map(boqItems.map((row, idx) => [row.id, idx]));
+
+    boqItems.forEach((row, idx) => {
+      if (!row.dependsOnBoqId) return;
+      if (row.dependsOnBoqId === row.id) {
+        issues.push(`البند ${boqRowLabel(row, idx)} لا يمكن أن يعتمد على نفسه.`);
+        return;
+      }
+      const dependencyRow = rowMap.get(row.dependsOnBoqId);
+      if (!dependencyRow) {
+        issues.push(`تبعية غير موجودة في البند ${boqRowLabel(row, idx)}. اختر بندًا صالحًا.`);
+        return;
+      }
+      if (!dependencyRow.item.trim()) {
+        issues.push(
+          `البند ${boqRowLabel(row, idx)} يعتمد على بند غير مكتمل. أكمل اسم البند المعتمد عليه.`
+        );
+      }
+    });
+
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const cycleKeys = new Set<string>();
+    const dfs = (id: string, path: string[]) => {
+      if (visiting.has(id)) {
+        const startIdx = path.indexOf(id);
+        const cycleIds = (startIdx >= 0 ? path.slice(startIdx) : path).concat(id);
+        const cycleUniqueIds = Array.from(new Set(cycleIds));
+        const cycleKey = [...cycleUniqueIds].sort().join("|");
+        if (!cycleKeys.has(cycleKey)) {
+          cycleKeys.add(cycleKey);
+          const cycleLabel = cycleIds
+            .map((cycleId) => {
+              const row = rowMap.get(cycleId);
+              const rowIdx = rowIndexMap.get(cycleId) ?? 0;
+              return row ? boqRowLabel(row, rowIdx) : `بند ${toArabicDigits(rowIdx + 1)}`;
+            })
+            .join(" -> ");
+          issues.push(`حلقة تبعية بين بنود BOQ: ${cycleLabel}`);
+        }
+        return;
+      }
+      if (visited.has(id)) return;
+      visiting.add(id);
+      const depId = rowMap.get(id)?.dependsOnBoqId;
+      if (depId && rowMap.has(depId)) {
+        dfs(depId, [...path, id]);
+      }
+      visiting.delete(id);
+      visited.add(id);
+    };
+
+    rowMap.forEach((_row, id) => dfs(id, []));
+    return issues;
+  }, [boqItems]);
+  const hasBoqDependencyIssues = boqDependencyIssues.length > 0;
 
   const canMoveToProjectStep = effectiveSelectedAdvisors.length > 0;
   const isWelcome = stage === "welcome";
@@ -1070,7 +1141,8 @@ export default function Home() {
     scopeTechnical.trim().length > 0 &&
     scopeProgram.trim().length > 0 &&
     executionStrategy.trim().length > 0 &&
-    boqItems.some((row) => row.item.trim().length > 0);
+    boqItems.some((row) => row.item.trim().length > 0) &&
+    !hasBoqDependencyIssues;
   const advancedMissingFields: string[] = [];
   if (!commissioningDate.trim()) advancedMissingFields.push("تاريخ التعميد");
   if (!scopeSite.trim()) advancedMissingFields.push("نطاق الموقع والتجهيزات");
@@ -1079,6 +1151,9 @@ export default function Home() {
   if (!executionStrategy.trim()) advancedMissingFields.push("استراتيجية التنفيذ");
   if (!boqItems.some((row) => row.item.trim().length > 0)) {
     advancedMissingFields.push("بند واحد على الأقل في BOQ (اسم البند)");
+  }
+  if (hasBoqDependencyIssues) {
+    advancedMissingFields.push("معالجة تعارضات تبعيات BOQ");
   }
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
@@ -1419,6 +1494,8 @@ export default function Home() {
         source: "مورد",
         leadTimeDays: "",
         ownerRoleId: defaultOwnerRoleId,
+        dependsOnBoqId: "",
+        dependencyType: "FS",
       },
     ]);
   }
@@ -1986,6 +2063,45 @@ export default function Home() {
     const prepDaysText = prepDays === null ? "غير محدد" : toArabicDigits(prepDays);
     const execDaysText = execDays === null ? "غير محدد" : toArabicDigits(execDays);
     const boqFilled = boqItems.filter((row) => row.item.trim().length > 0);
+    const boqFilledMap = new Map(boqFilled.map((row) => [row.id, row]));
+    const boqFilledIndexMap = new Map(boqFilled.map((row, idx) => [row.id, idx]));
+    const boqTaskWindows = new Map<string, { start: Date | null; end: Date | null }>();
+    const resolveBoqDependencyText = (row: BoqItem) => {
+      if (!row.dependsOnBoqId) return "اعتماد البند والمواصفة";
+      const depRow = boqFilledMap.get(row.dependsOnBoqId);
+      if (!depRow) return "تبعية غير صالحة (راجع BOQ)";
+      const depIdx = boqFilledIndexMap.get(depRow.id) ?? 0;
+      return `اكتمال بند BOQ: ${boqRowLabel(depRow, depIdx)} (${row.dependencyType})`;
+    };
+    const resolveBoqTaskWindow = (
+      row: BoqItem,
+      stack: Set<string> = new Set()
+    ): { start: Date | null; end: Date | null } => {
+      const cached = boqTaskWindows.get(row.id);
+      if (cached) return cached;
+
+      const leadDays = parsePositiveInt(row.leadTimeDays, 3);
+      let start = prepStart;
+
+      if (row.dependsOnBoqId && boqFilledMap.has(row.dependsOnBoqId) && row.dependsOnBoqId !== row.id) {
+        if (!stack.has(row.id)) {
+          stack.add(row.id);
+          const depRow = boqFilledMap.get(row.dependsOnBoqId);
+          if (depRow) {
+            const depWindow = resolveBoqTaskWindow(depRow, stack);
+            if (depWindow.end) {
+              start = depWindow.end;
+            }
+          }
+          stack.delete(row.id);
+        }
+      }
+
+      const end = start ? addDays(start, leadDays) : null;
+      const next = { start, end };
+      boqTaskWindows.set(row.id, next);
+      return next;
+    };
 
     const boqSummary = boqFilled
       .map((row, idx) => {
@@ -1997,7 +2113,10 @@ export default function Home() {
           : row.source === "أصل داخلي"
             ? "المستودع/العمليات"
             : "المشتريات";
-        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary}`;
+        const dependencySummary = row.dependsOnBoqId
+          ? resolveBoqDependencyText(row)
+          : "لا يوجد";
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary}`;
       })
       .join("\n");
 
@@ -2216,8 +2335,9 @@ export default function Home() {
 
     boqFilled.forEach((row) => {
         const leadDays = parsePositiveInt(row.leadTimeDays, 3);
-        const rowStart = prepStart;
-        const rowEnd = rowStart ? addDays(rowStart, leadDays) : null;
+        const rowWindow = resolveBoqTaskWindow(row);
+        const rowStart = rowWindow.start;
+        const rowEnd = rowWindow.end;
         const stream = row.category.trim().length > 0 ? row.category : "توريد وتجهيز";
         let owner = row.source === "أصل داخلي" ? "المستودع/العمليات" : "المشتريات";
         if (row.ownerRoleId) {
@@ -2237,7 +2357,7 @@ export default function Home() {
           start: fmt(rowStart),
           end: fmt(rowEnd),
           duration: `${toArabicDigits(leadDays)} يوم`,
-          dependsOn: "اعتماد البند والمواصفة",
+          dependsOn: resolveBoqDependencyText(row),
           acceptance: `استلام بند مطابق للمواصفة: ${row.spec || "وفق المتفق عليه"}`,
           kpi: `توريد ضمن المهلة (${toArabicDigits(leadDays)} يوم)`,
         });
@@ -2427,6 +2547,8 @@ export default function Home() {
           source: "مورد",
           leadTimeDays: "5",
           ownerRoleId: "operations_manager",
+          dependsOnBoqId: "",
+          dependencyType: "FS",
         },
       ];
     });
@@ -2632,6 +2754,8 @@ export default function Home() {
         source: "مورد",
         leadTimeDays: "5",
         ownerRoleId: "operations_manager",
+        dependsOnBoqId: "",
+        dependencyType: "FS",
       },
       {
         id: "demo-2",
@@ -2643,6 +2767,8 @@ export default function Home() {
         source: "أصل داخلي",
         leadTimeDays: "2",
         ownerRoleId: "visitor_experience_manager",
+        dependsOnBoqId: "demo-1",
+        dependencyType: "FS",
       },
     ]);
     const demoLeads: Record<OrgRoleId, string> = {
@@ -6338,12 +6464,35 @@ export default function Home() {
                       فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في BOQ.
                     </div>
                   ) : null}
+                  {boqDependencyIssues.length > 0 ? (
+                    <div style={styles.warnBox}>
+                      <strong>تنبيه:</strong> توجد تعارضات في تبعيات BOQ ويجب تصحيحها قبل
+                      توليد الخطة:
+                      <div style={styles.blockTop8}>
+                        {boqDependencyIssues.slice(0, 6).map((issue, idx) => (
+                          <div key={idx} style={styles.listItemGap4}>
+                            • {issue}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div style={{ ...styles.qCard, marginTop: 0 }}>
                     {boqItems.map((row) => {
                       const assignedRole = row.ownerRoleId
                         ? orgRoles.find((role) => role.id === row.ownerRoleId)
                         : null;
                       const hasAssignedInactiveRole = !!assignedRole && !assignedRole.enabled;
+                      const dependencyRow = row.dependsOnBoqId
+                        ? boqItems.find((candidate) => candidate.id === row.dependsOnBoqId)
+                        : null;
+                      const dependencyRowIndex = dependencyRow
+                        ? boqItems.findIndex((candidate) => candidate.id === dependencyRow.id)
+                        : -1;
+                      const hasInvalidDependency = !!row.dependsOnBoqId && !dependencyRow;
+                      const hasIncompleteDependency =
+                        !!dependencyRow && dependencyRow.item.trim().length === 0;
+                      const isSelfDependency = row.dependsOnBoqId === row.id;
                       return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.initFormGrid}>
@@ -6432,6 +6581,62 @@ export default function Home() {
                             ) : null}
                           </select>
                         </div>
+                        <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
+                          <select
+                            value={row.dependsOnBoqId}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, {
+                                dependsOnBoqId: e.target.value,
+                                dependencyType: "FS",
+                              })
+                            }
+                            style={styles.input}
+                            disabled={!canEditAdvancedExecution}
+                          >
+                            <option value="">يعتمد على بند (اختياري)</option>
+                            {boqItems
+                              .filter(
+                                (candidate) =>
+                                  candidate.id !== row.id && candidate.item.trim().length > 0
+                              )
+                              .map((candidate) => {
+                                const candidateRowIndex = boqItems.findIndex(
+                                  (lookup) => lookup.id === candidate.id
+                                );
+                                const safeCandidateIndex =
+                                  candidateRowIndex >= 0 ? candidateRowIndex : 0;
+                                return (
+                                <option key={candidate.id} value={candidate.id}>
+                                  {boqRowLabel(candidate, safeCandidateIndex)}
+                                </option>
+                                );
+                              })}
+                            {(hasInvalidDependency || hasIncompleteDependency || isSelfDependency) &&
+                            row.dependsOnBoqId ? (
+                              <option value={row.dependsOnBoqId}>
+                                تبعية غير صالحة (راجع الاختيار)
+                              </option>
+                            ) : null}
+                          </select>
+                          <select
+                            value={row.dependencyType}
+                            onChange={(e) =>
+                              updateBoqItem(row.id, {
+                                dependencyType: e.target.value === "FS" ? "FS" : "FS",
+                              })
+                            }
+                            style={styles.input}
+                            disabled={!canEditAdvancedExecution}
+                          >
+                            <option value="FS">Finish-to-Start (FS)</option>
+                          </select>
+                        </div>
+                        {dependencyRow ? (
+                          <div style={styles.textMutedSmallTop8}>
+                            هذا البند يبدأ بعد اكتمال:{" "}
+                            <strong>{boqRowLabel(dependencyRow, Math.max(0, dependencyRowIndex))}</strong>
+                          </div>
+                        ) : null}
                         <div style={styles.blockTop8}>
                           <button
                             style={styles.ghostBtn}
