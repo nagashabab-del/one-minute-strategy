@@ -99,6 +99,20 @@ type PersistedState = {
   initStep?: "session" | "project";
 };
 
+type LoadingContext =
+  | ""
+  | "start_session"
+  | "submit_round1"
+  | "build_dialogue"
+  | "run_analysis";
+
+const UX_MESSAGES = {
+  reanalysisRequired:
+    "إذا عدّلت الإجابات أو الإضافة، اضغط «ابدأ التحليل» مرة أخرى لتحديث النتائج.",
+  openedCurrentResults: "تم فتح النتائج الحالية بدون إعادة تحليل جديد.",
+  reusedCurrentAnalysis: "لا توجد تغييرات جديدة؛ تم فتح النتائج الحالية.",
+} as const;
+
 function isVenueType(value: string): value is VenueType {
   return ["منتجع", "فندق", "قاعة", "مساحة عامة", "غير محدد"].includes(value);
 }
@@ -301,6 +315,7 @@ export default function Home() {
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
+  const [loadingContext, setLoadingContext] = useState<LoadingContext>("");
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
@@ -418,6 +433,59 @@ export default function Home() {
     } catch {
       return { ok: false, error: "تعذر الاتصال بالخادم. تأكد من الشبكة وحاول مرة أخرى." };
     }
+  }
+
+  function clearStatus() {
+    setUiError("");
+    setUiSuccess("");
+  }
+
+  function showError(message: string) {
+    setUiSuccess("");
+    setUiError(message);
+  }
+
+  function showSuccess(message: string) {
+    setUiError("");
+    setUiSuccess(message);
+  }
+
+  function startLoading(context: LoadingContext) {
+    clearStatus();
+    setLoadingContext(context);
+    setLoading(true);
+  }
+
+  function stopLoading() {
+    setLoading(false);
+    setLoadingContext("");
+  }
+
+  function loadingLabel(context: LoadingContext) {
+    switch (context) {
+      case "start_session":
+        return "جاري إعداد الجلسة...";
+      case "submit_round1":
+        return "جاري توليد التدقيق الإضافي...";
+      case "build_dialogue":
+        return "جاري توليد حوار المستشارين...";
+      case "run_analysis":
+        return "جاري التحليل وإعداد القرار...";
+      default:
+        return "جاري المعالجة...";
+    }
+  }
+
+  function isProcessing(context?: LoadingContext) {
+    if (!loading) return false;
+    if (!context) return true;
+    return loadingContext === context;
+  }
+
+  function actionLabel(normalLabel: string, context?: LoadingContext) {
+    if (!loading) return normalLabel;
+    if (!context) return loadingLabel("");
+    return loadingContext === context ? loadingLabel(context) : normalLabel;
   }
 
   function commonPayload() {
@@ -714,15 +782,10 @@ export default function Home() {
   async function startSession() {
     if (!canStart || loading) return;
     if (hasInvalidTimeRange()) {
-      const msg = "وقت النهاية يجب أن يكون بعد وقت البداية.";
-      setUiError(msg);
-      setUiSuccess("");
+      showError("وقت النهاية يجب أن يكون بعد وقت البداية.");
       return;
     }
-    setUiError("");
-    setUiSuccess("");
-
-    setLoading(true);
+    startLoading("start_session");
     setStage("round1");
 
     // reset downstream
@@ -742,11 +805,10 @@ export default function Home() {
       stage: "questions",
       ...commonPayload(),
     });
-    setLoading(false);
+    stopLoading();
 
     if (!json?.ok) {
-      setUiError(json?.error || "حدث خطأ في توليد الأسئلة");
-      setUiSuccess("");
+      showError(json?.error || "حدث خطأ في توليد الأسئلة");
       setStage("init");
       return;
     }
@@ -770,14 +832,11 @@ export default function Home() {
   async function submitRound1() {
     const ids = round1Questions.map((q) => q.id);
     if (ratioAnswered(ids) < 0.6) {
-      setUiError("جاوب على أغلب أسئلة الجولة الأولى (على الأقل 60%).");
-      setUiSuccess("");
+      showError("جاوب على أغلب أسئلة الجولة الأولى (على الأقل 60%).");
       return;
     }
 
-    setUiError("");
-    setUiSuccess("");
-    setLoading(true);
+    startLoading("submit_round1");
 
     const round1Answers = answers.filter((a) => ids.includes(a.id));
 
@@ -787,11 +846,10 @@ export default function Home() {
       answers: round1Answers,
     });
 
-    setLoading(false);
+    stopLoading();
 
     if (!json?.ok) {
-      setUiError(json?.error || "حدث خطأ في توليد تدقيق إضافي");
-      setUiSuccess("");
+      showError(json?.error || "حدث خطأ في توليد تدقيق إضافي");
       return;
     }
 
@@ -820,12 +878,10 @@ export default function Home() {
   async function submitRound2() {
     const ids = followupQuestions.map((q) => q.id);
     if (ids.length > 0 && ratioAnswered(ids) < 0.6) {
-      setUiError("جاوب على أغلب تدقيق إضافي (على الأقل 60%).");
-      setUiSuccess("");
+      showError("جاوب على أغلب تدقيق إضافي (على الأقل 60%).");
       return;
     }
-    setUiError("");
-    setUiSuccess("");
+    clearStatus();
     await buildDialogue();
   }
 
@@ -836,15 +892,12 @@ export default function Home() {
       dialogueSignature === currentDialogueSignature;
 
     if (hasCachedDialogue) {
-      setUiError("");
-      setUiSuccess("");
+      clearStatus();
       setStage("dialogue");
       return;
     }
 
-    setUiError("");
-    setUiSuccess("");
-    setLoading(true);
+    startLoading("build_dialogue");
 
     const json = await callAPI<{
       council_dialogue?: DialogueLine[];
@@ -855,11 +908,10 @@ export default function Home() {
       answers,
     });
 
-    setLoading(false);
+    stopLoading();
 
     if (!json?.ok) {
-      setUiError(json?.error || "حدث خطأ في توليد الحوار");
-      setUiSuccess("");
+      showError(json?.error || "حدث خطأ في توليد الحوار");
       return;
     }
 
@@ -878,16 +930,13 @@ export default function Home() {
 
     if (hasCachedAnalysis) {
       setNeedsReanalysisHint(false);
-      setUiError("");
-      setUiSuccess("");
+      showSuccess(UX_MESSAGES.reusedCurrentAnalysis);
       setStage("done");
       return;
     }
 
     setNeedsReanalysisHint(false);
-    setUiError("");
-    setUiSuccess("");
-    setLoading(true);
+    startLoading("run_analysis");
 
     const json = await callAPI<AnalysisData>({
       stage: "analysis",
@@ -897,11 +946,10 @@ export default function Home() {
       userAddition: hasAddition === "yes" ? userAddition : "",
     });
 
-    setLoading(false);
+    stopLoading();
 
     if (!json?.ok) {
-      setUiError(json?.error || "حدث خطأ في التحليل");
-      setUiSuccess("");
+      showError(json?.error || "حدث خطأ في التحليل");
       return;
     }
 
@@ -914,8 +962,7 @@ export default function Home() {
   async function copyReport() {
     if (!reportText?.trim()) return;
     await navigator.clipboard.writeText(reportText);
-    setUiError("");
-    setUiSuccess("تم نسخ التقرير بنجاح.");
+    showSuccess("تم نسخ التقرير بنجاح.");
   }
 
   async function copyExecutiveDecision() {
@@ -935,8 +982,7 @@ export default function Home() {
     ].join("\n");
 
     await navigator.clipboard.writeText(text);
-    setUiError("");
-    setUiSuccess("تم نسخ القرار التنفيذي بنجاح.");
+    showSuccess("تم نسخ القرار التنفيذي بنجاح.");
   }
 
   // ============ Styles ============
@@ -2301,16 +2347,18 @@ export default function Home() {
                       ) : null}
 
                       <button
-                        style={styles.primaryBtn(!canStart || loading || hasInvalidTimeRange())}
-                        disabled={!canStart || loading || hasInvalidTimeRange()}
+                        style={styles.primaryBtn(
+                          !canStart || isProcessing() || hasInvalidTimeRange()
+                        )}
+                        disabled={!canStart || isProcessing() || hasInvalidTimeRange()}
                         onClick={startSession}
                       >
-                        {loading ? "تتم المعالجة..." : "ابدأ الجلسة"}
+                        {actionLabel("ابدأ الجلسة", "start_session")}
                       </button>
 
                       <button
-                        style={styles.secondaryBtn(loading)}
-                        disabled={loading}
+                        style={styles.secondaryBtn(isProcessing())}
+                        disabled={isProcessing()}
                         onClick={() => setInitStep("session")}
                       >
                         رجوع: نوع الجلسة والمستشارون
@@ -2364,16 +2412,16 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(loading)}
-                    disabled={loading}
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={submitRound1}
                   >
-                    {loading ? "تتم المعالجة..." : "التالي: تدقيق إضافي"}
+                    {actionLabel("التالي: تدقيق إضافي", "submit_round1")}
                   </button>
 
                   <button
-                    style={styles.secondaryBtn(false)}
-                    disabled={false}
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => setStage("init")}
                   >
                     رجوع للإعدادات
@@ -2423,16 +2471,16 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(loading)}
-                    disabled={loading}
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={submitRound2}
                   >
-                    {loading ? "تجري المعالجة" : "التالي: حوار المستشارين"}
+                    {actionLabel("التالي: حوار المستشارين", "build_dialogue")}
                   </button>
 
                   <button
-                    style={styles.secondaryBtn(false)}
-                    disabled={false}
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => setStage("round1")}
                   >
                     رجوع: الجولة الأولى
@@ -2480,14 +2528,16 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(false)}
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => setStage("addition")}
                   >
                     التالي: هل لديك إضافة؟
                   </button>
 
                   <button
-                    style={styles.secondaryBtn(false)}
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() =>
                       setStage(followupQuestions.length > 0 ? "round2" : "round1")
                     }
@@ -2584,31 +2634,26 @@ export default function Home() {
 
                 {needsReanalysisHint ? (
                   <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
-                    <strong>تنبيه:</strong> هذه النتائج الحالية مبنية على التحليل السابق.
-                    إذا عدّلت الإجابات أو الإضافة، اضغط
-                    {" "}
-                    <strong>ابدأ التحليل</strong>
-                    {" "}
-                    لتحديث النتائج.
+                    <strong>تنبيه:</strong> هذه النتائج مبنية على تحليل سابق.{" "}
+                    {UX_MESSAGES.reanalysisRequired}
                   </div>
                 ) : null}
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.primaryBtn(loading)}
-                    disabled={loading}
+                    style={styles.primaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={runAnalysis}
                   >
-                    {loading ? "جاري التحليل..." : "ابدأ التحليل + القرار + التوصيات"}
+                    {actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis")}
                   </button>
 
                   {analysis ? (
                     <button
-                      style={styles.secondaryBtn(loading)}
-                      disabled={loading}
+                      style={styles.secondaryBtn(isProcessing())}
+                      disabled={isProcessing()}
                       onClick={() => {
-                        setUiError("");
-                        setUiSuccess("");
+                        showSuccess(UX_MESSAGES.openedCurrentResults);
                         setNeedsReanalysisHint(false);
                         setStage("done");
                       }}
@@ -2618,8 +2663,8 @@ export default function Home() {
                   ) : null}
 
                   <button
-                    style={styles.secondaryBtn(loading)}
-                    disabled={loading}
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => setStage("dialogue")}
                   >
                     رجوع: حوار المستشارين
@@ -2880,14 +2925,12 @@ export default function Home() {
 
                 <div style={styles.stackAfterSection}>
                   <button
-                    style={styles.secondaryBtn(false)}
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => {
                       setStage("addition");
                       setNeedsReanalysisHint(true);
-                      setUiSuccess("");
-                      setUiError(
-                        "عدّلت الرجوع قبل التحليل: إذا غيّرت الإجابات أو الإضافة، اضغط \"ابدأ التحليل\" مرة أخرى لتحديث النتائج."
-                      );
+                      showError(UX_MESSAGES.reanalysisRequired);
                     }}
                   >
                     رجوع: تعديل قبل التحليل
