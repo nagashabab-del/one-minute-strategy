@@ -975,7 +975,7 @@ export default function Home() {
     setAdvisorSelectionMode("all");
     setSelectedAdvisors(ALL_ADVISOR_KEYS);
     setMode("تحليل معمّق");
-    setInitStep("project");
+    setInitStep("session");
     setEventType("مؤتمر احترافي مدفوع");
     setVenueType("فندق");
     setCommissioningDate("2026-03-10");
@@ -1032,8 +1032,10 @@ export default function Home() {
     setNeedsReanalysisHint(false);
     setLoading(false);
     setLoadingContext("");
-    setStage("advanced_plan");
-    showSuccess("تم تحميل نموذج تجريبي كامل. يمكنك الاختبار مباشرة بدون تعبئة يدوية.");
+    setStage("init");
+    showSuccess(
+      "تم تحميل نموذج تجريبي شامل لجميع المراحل. ابدأ الاختبار من الجولة الأولى ثم أكمل حتى المسار المتقدم."
+    );
   }
 
   function hasInvalidTimeRange() {
