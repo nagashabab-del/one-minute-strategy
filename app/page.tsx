@@ -588,16 +588,18 @@ function readinessAccent(level?: string) {
 
 const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
+function normalizeDigitsToEnglish(value: string) {
+  return value.replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)));
+}
+
 function toArabicDigits(value: number | string) {
   // Backward-compatible name: normalize any Arabic-Indic digits to English digits.
-  return String(value).replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)));
+  return normalizeDigitsToEnglish(String(value));
 }
 
 function parseNumericInput(value: string) {
   if (!value.trim()) return 0;
-  const normalizedDigits = value
-    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)))
-    .replace(/[^\d.-]/g, "");
+  const normalizedDigits = normalizeDigitsToEnglish(value).replace(/[^\d.-]/g, "");
   const n = Number.parseFloat(normalizedDigits);
   return Number.isFinite(n) ? n : 0;
 }
@@ -1606,8 +1608,19 @@ export default function Home() {
   }
 
   function updateBoqItem(id: string, patch: Partial<BoqItem>) {
+    const normalizedPatch: Partial<BoqItem> = { ...patch };
+    const numericKeys: Array<
+      "qty" | "unitCost" | "unitSellPrice" | "targetMarginPct" | "leadTimeDays"
+    > = ["qty", "unitCost", "unitSellPrice", "targetMarginPct", "leadTimeDays"];
+    numericKeys.forEach((key) => {
+      const raw = normalizedPatch[key];
+      if (typeof raw === "string") {
+        normalizedPatch[key] = normalizeDigitsToEnglish(raw);
+      }
+    });
+
     setBoqItems((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+      prev.map((row) => (row.id === id ? { ...row, ...normalizedPatch } : row))
     );
   }
 
@@ -5808,7 +5821,7 @@ export default function Home() {
                     <div style={styles.inputSuffixWrap}>
                       <input
                         value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
+                        onChange={(e) => setBudget(normalizeDigitsToEnglish(e.target.value))}
                         disabled={!canEditBudget}
                         style={{ ...styles.input, paddingLeft: 44 }}
                         placeholder="مثال: 250000"
@@ -7373,7 +7386,7 @@ export default function Home() {
                   <div style={styles.label}>مدة الإزالة/الإقفال (بالساعات)</div>
                   <input
                     value={closureRemovalHours}
-                    onChange={(e) => setClosureRemovalHours(e.target.value)}
+                    onChange={(e) => setClosureRemovalHours(normalizeDigitsToEnglish(e.target.value))}
                     style={styles.input}
                     disabled={!canEditAdvancedExecution}
                     placeholder="مثال: 6"
