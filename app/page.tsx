@@ -4136,21 +4136,27 @@ export default function Home() {
       } as CSSProperties,
       headerBrand: {
         display: "flex",
-        alignItems: isMobile ? "flex-start" : "center",
+        alignItems: "center",
+        justifyContent: isMobile ? "center" : "flex-start",
         gap: isMobile ? space.sm : space.md,
         width: isMobile ? "100%" : "auto",
-      },
+      } as CSSProperties,
+      headerLogoMark: {
+        height: isMobile ? 40 : 48,
+        width: "auto",
+        filter: "drop-shadow(0 0 16px rgba(128,0,255,0.55))",
+      } as CSSProperties,
+      headerBrandText: {
+        display: "grid",
+        gap: 2,
+      } as CSSProperties,
       logo: {
-        fontSize: textScale.pageTitle,
+        fontSize: isMobile ? 22 : 25,
         fontWeight: 900,
         margin: 0,
-        letterSpacing: 0.2,
-      },
-      subtitle: {
-        marginTop: space.xs,
-        color: "rgba(255,255,255,0.72)",
-        fontSize: textScale.small,
-      },
+        letterSpacing: 0.18,
+        lineHeight: 1.15,
+      } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
         borderRadius: 12,
@@ -5163,17 +5169,23 @@ export default function Home() {
         textAlign: "center",
         padding: isMobile ? `${space.xs}px ${space.xs}px` : `${space.sm}px ${space.xs}px`,
       } as CSSProperties,
+      welcomeLogoMark: {
+        height: isMobile ? 108 : 156,
+        width: "auto",
+        filter: "drop-shadow(0 0 26px rgba(128,0,255,0.56))",
+      } as CSSProperties,
       welcomeTitle: {
         margin: `${space.sm}px 0 0 0`,
-        fontSize: textScale.heroTitle,
+        fontSize: isMobile ? 28 : 38,
         fontWeight: 900,
-        letterSpacing: 0.3,
+        letterSpacing: 0.24,
+        lineHeight: 1.15,
       } as CSSProperties,
       welcomeSubtitle: {
-        marginTop: space.xs,
-        color: "rgba(255,255,255,0.88)",
-        fontSize: textScale.heroSubtitle,
-        fontWeight: 900,
+        marginTop: 6,
+        color: "rgba(255,255,255,0.84)",
+        fontSize: isMobile ? 12.5 : 15,
+        fontWeight: 800,
         letterSpacing: 0.2,
       } as CSSProperties,
       welcomeMessage: {
@@ -6180,11 +6192,7 @@ export default function Home() {
                 alt="One Minute Strategy"
                 width={isMobile ? 280 : 420}
                 height={isMobile ? 94 : 142}
-                style={{
-                  height: isMobile ? 94 : 142,
-                  width: "auto",
-                  filter: "drop-shadow(0 0 24px rgba(128,0,255,0.6))",
-                }}
+                style={styles.welcomeLogoMark}
               />
               <h1 style={styles.welcomeTitle}>
                 One Minute Strategy
@@ -6240,18 +6248,11 @@ export default function Home() {
                   alt="One Minute Strategy"
                   width={180}
                   height={44}
-                  style={{
-                    height: isMobile ? 36 : 44,
-                    width: "auto",
-                    filter: "drop-shadow(0 0 18px rgba(128,0,255,0.7))",
-                  }}
+                  style={styles.headerLogoMark}
                 />
 
-                <div>
+                <div style={styles.headerBrandText}>
                   <h1 style={styles.logo}>One Minute Strategy</h1>
-                  <div style={styles.subtitle}>
-                    Executive Decision Intelligence Platform
-                  </div>
                 </div>
               </div>
 
