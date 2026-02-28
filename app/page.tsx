@@ -4423,6 +4423,44 @@ export default function Home() {
         border: "1px solid rgba(255,255,255,0.08)",
         marginTop: 12,
       } as CSSProperties,
+      stageFlowLead: {
+        marginTop: 4,
+        fontSize: 12.5,
+        lineHeight: 1.6,
+        color: "rgba(255,255,255,0.74)",
+      } as CSSProperties,
+      stageFlowList: {
+        marginTop: 10,
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      advisorFlowCard: (tone: "round1" | "round2" | "dialogue") => {
+        const palette = {
+          round1: {
+            border: "rgba(0,229,255,0.24)",
+            bg: "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(0,229,255,0.10)",
+          },
+          round2: {
+            border: "rgba(255,194,77,0.26)",
+            bg: "linear-gradient(180deg, rgba(255,194,77,0.08), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(255,194,77,0.10)",
+          },
+          dialogue: {
+            border: "rgba(179,107,255,0.28)",
+            bg: "linear-gradient(180deg, rgba(179,107,255,0.10), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(179,107,255,0.11)",
+          },
+        }[tone];
+
+        return {
+          padding: isMobile ? 12 : 14,
+          borderRadius: 14,
+          border: `1px solid ${palette.border}`,
+          background: palette.bg,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 22px ${palette.glow}`,
+        } as CSSProperties;
+      },
       qTitle: {
         fontWeight: 900,
         marginBottom: space.xs,
@@ -5093,6 +5131,48 @@ export default function Home() {
         lineHeight: 1.7,
         color: "rgba(255,255,255,0.9)",
         fontSize: textScale.body,
+      } as CSSProperties,
+      dialogueStatement: {
+        marginTop: 9,
+        lineHeight: 1.75,
+        color: "rgba(255,255,255,0.92)",
+        fontSize: textScale.body,
+      } as CSSProperties,
+      openIssuesCard: {
+        borderRadius: 13,
+        border: "1px solid rgba(255,122,69,0.30)",
+        background: "linear-gradient(180deg, rgba(255,122,69,0.12), rgba(255,255,255,0.02) 70%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        padding: isMobile ? 11 : 12,
+      } as CSSProperties,
+      openIssuesHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        marginBottom: 8,
+      } as CSSProperties,
+      openIssuesCountBadge: {
+        borderRadius: 999,
+        border: "1px solid rgba(255,122,69,0.34)",
+        background: "rgba(255,122,69,0.14)",
+        color: "white",
+        minWidth: 28,
+        height: 28,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 12,
+        fontWeight: 900,
+      } as CSSProperties,
+      openIssueItem: {
+        marginTop: 7,
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgba(255,255,255,0.03)",
+        color: "rgba(255,255,255,0.9)",
+        lineHeight: 1.6,
       } as CSSProperties,
       questionPromptText: {
         marginTop: space.xs,
@@ -6722,41 +6802,46 @@ export default function Home() {
                 <h3 style={styles.sectionHeading}>
                   المرحلة 1: أسئلة الجولة الأولى
                 </h3>
+                <div style={styles.stageFlowLead}>
+                  اجمع مدخلات البداية من كل مستشار لتكوين خط أساس واضح قبل التدقيق.
+                </div>
 
-                {round1Questions.map((q) => {
-                  const a = answers.find((x) => x.id === q.id);
+                <div style={styles.stageFlowList}>
+                  {round1Questions.map((q) => {
+                    const a = answers.find((x) => x.id === q.id);
 
-                  return (
-                    <div key={q.id} style={styles.qCard}>
-                      <div style={styles.advisorQuestionHeader(q.advisor_key)}>
-                        <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                          {advisorIcon(q.advisor_key)}
-                        </span>
-                        <span style={styles.advisorQuestionText}>
-                          {advisorTitle(q.advisor_key)}
-                        </span>
+                    return (
+                      <div key={q.id} style={styles.advisorFlowCard("round1")}>
+                        <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                          <span style={styles.advisorQuestionIcon(q.advisor_key)}>
+                            {advisorIcon(q.advisor_key)}
+                          </span>
+                          <span style={styles.advisorQuestionText}>
+                            {advisorTitle(q.advisor_key)}
+                          </span>
+                        </div>
+
+                        <div style={styles.questionPromptText}>• {q.question}</div>
+                        <div style={styles.qHint}>سبب السؤال: {q.intent}</div>
+
+                        <textarea
+                          value={a?.answer ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAnswers((prev) =>
+                              prev.map((x) =>
+                                x.id === q.id ? { ...x, answer: val } : x
+                              )
+                            );
+                          }}
+                          disabled={!canEditAnswers}
+                          placeholder="اكتب إجابتك..."
+                          style={{ ...styles.textarea, ...styles.questionTextarea }}
+                        />
                       </div>
-
-                      <div style={styles.questionPromptText}>• {q.question}</div>
-                      <div style={styles.qHint}>سبب السؤال: {q.intent}</div>
-
-                      <textarea
-                        value={a?.answer ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setAnswers((prev) =>
-                            prev.map((x) =>
-                              x.id === q.id ? { ...x, answer: val } : x
-                            )
-                          );
-                        }}
-                        disabled={!canEditAnswers}
-                        placeholder="اكتب إجابتك..."
-                        style={{ ...styles.textarea, ...styles.questionTextarea }}
-                      />
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
 
                 <div style={styles.stackAfterSection}>
                   <button
@@ -6791,41 +6876,46 @@ export default function Home() {
             {stage === "round2" && (
               <>
                 <h3 style={styles.sectionHeading}>المرحلة 2: تدقيق إضافي</h3>
+                <div style={styles.stageFlowLead}>
+                  عمّق الإجابات غير المكتملة ووضّح النقاط المؤثرة قبل الانتقال للحوار.
+                </div>
 
-                {followupQuestions.map((q) => {
-                  const a = answers.find((x) => x.id === q.id);
-                  return (
-                    <div key={q.id} style={styles.qCard}>
-                      <div style={styles.advisorQuestionHeader(q.advisor_key)}>
-                        <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                          {advisorIcon(q.advisor_key)}
-                        </span>
-                        <span style={styles.advisorQuestionText}>
-                          {advisorTitle(q.advisor_key)}
-                        </span>
-                      </div>
-                      <div style={styles.questionPromptText}>• {q.question}</div>
-                      <div style={styles.qHint}>
-                        {q.advisor_name} • سبب السؤال: {q.intent}
-                      </div>
+                <div style={styles.stageFlowList}>
+                  {followupQuestions.map((q) => {
+                    const a = answers.find((x) => x.id === q.id);
+                    return (
+                      <div key={q.id} style={styles.advisorFlowCard("round2")}>
+                        <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                          <span style={styles.advisorQuestionIcon(q.advisor_key)}>
+                            {advisorIcon(q.advisor_key)}
+                          </span>
+                          <span style={styles.advisorQuestionText}>
+                            {advisorTitle(q.advisor_key)}
+                          </span>
+                        </div>
+                        <div style={styles.questionPromptText}>• {q.question}</div>
+                        <div style={styles.qHint}>
+                          {q.advisor_name} • سبب السؤال: {q.intent}
+                        </div>
 
-                      <textarea
-                        value={a?.answer ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setAnswers((prev) =>
-                            prev.map((x) =>
-                              x.id === q.id ? { ...x, answer: val } : x
-                            )
-                          );
-                        }}
-                        disabled={!canEditAnswers}
-                        placeholder="اكتب إجابتك..."
-                        style={{ ...styles.textarea, ...styles.questionTextarea }}
-                      />
-                    </div>
-                  );
-                })}
+                        <textarea
+                          value={a?.answer ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAnswers((prev) =>
+                              prev.map((x) =>
+                                x.id === q.id ? { ...x, answer: val } : x
+                              )
+                            );
+                          }}
+                          disabled={!canEditAnswers}
+                          placeholder="اكتب إجابتك..."
+                          style={{ ...styles.textarea, ...styles.questionTextarea }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <div style={styles.stackAfterSection}>
                   <button
@@ -6860,10 +6950,13 @@ export default function Home() {
             {stage === "dialogue" && (
               <>
                 <h3 style={styles.sectionHeading}>المرحلة 3: حوار المستشارين</h3>
+                <div style={styles.stageFlowLead}>
+                  راجع خلاصات الحوار بين المستشارين وحدد النقاط العالقة قبل بدء التحليل النهائي.
+                </div>
 
-                <div style={styles.stackAfterBlock}>
+                <div style={styles.stageFlowList}>
                   {dialogue.map((m, i) => (
-                    <div key={i} style={styles.qCard}>
+                    <div key={i} style={styles.advisorFlowCard("dialogue")}>
                       <div style={styles.advisorQuestionHeader(m.advisor)}>
                         <span style={styles.advisorQuestionIcon(m.advisor)}>
                           {advisorIcon(m.advisor)}
@@ -6873,7 +6966,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div style={styles.finalBodyText}>
+                      <div style={styles.dialogueStatement}>
                         {m.statement}
                       </div>
                     </div>
@@ -6882,12 +6975,17 @@ export default function Home() {
 
                 {openIssues.length > 0 ? (
                   <div style={styles.blockTop12}>
-                    <div style={styles.qCard}>
-                      <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
+                    <div style={styles.openIssuesCard}>
+                      <div style={styles.openIssuesHead}>
+                        <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
+                        <div style={styles.openIssuesCountBadge}>
+                          {toArabicDigits(openIssues.length)}
+                        </div>
+                      </div>
                       {openIssues.map((x, idx) => (
-                          <div key={idx} style={styles.listItemGap6}>
-                            • {x}
-                          </div>
+                        <div key={idx} style={styles.openIssueItem}>
+                          • {x}
+                        </div>
                       ))}
                     </div>
                   </div>
