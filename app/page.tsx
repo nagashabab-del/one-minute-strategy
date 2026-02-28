@@ -976,6 +976,7 @@ export default function Home() {
   const advancedBoqNavRef = useRef<HTMLDivElement | null>(null);
   const prevAdvancedScopeStepRef = useRef(advancedScopeStep);
   const prevAdvancedBoqStepRef = useRef(advancedBoqStep);
+  const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1674,14 +1675,20 @@ export default function Home() {
       }
     }
 
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onEsc);
+    if (isMobile) {
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      requestAnimationFrame(() => {
+        mobileSummaryInlineRef.current?.scrollIntoView({
+          block: "start",
+          behavior: prefersReducedMotion ? "auto" : "smooth",
+        });
+      });
+    }
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", onEsc);
     };
-  }, [showMobileSummary]);
+  }, [showMobileSummary, isMobile]);
 
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
@@ -5369,6 +5376,15 @@ export default function Home() {
         background: "rgba(0,0,0,0.55)",
         zIndex: 40,
       } as CSSProperties,
+      mobileSummaryInline: {
+        marginTop: 12,
+        background:
+          "linear-gradient(180deg, rgba(5,12,24,0.94), rgba(8,16,30,0.90) 45%, rgba(4,8,18,0.94))",
+        border: "1px solid rgba(0,229,255,0.16)",
+        borderRadius: 16,
+        boxShadow: "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)",
+        padding: 12,
+      } as CSSProperties,
       mobileSummarySheet: {
         position: "fixed" as const,
         inset: 0,
@@ -6743,9 +6759,9 @@ export default function Home() {
             <button
               type="button"
               style={styles.mobileSummaryBtn}
-              onClick={() => setShowMobileSummary(true)}
+              onClick={() => setShowMobileSummary((prev) => !prev)}
             >
-              ملخص الجلسة • {progressPercent()}%
+              {showMobileSummary ? "إخفاء ملخص الجلسة" : `ملخص الجلسة • ${progressPercent()}%`}
             </button>
           </div>
         ) : null}
@@ -9603,17 +9619,14 @@ export default function Home() {
 
           {/* Side Summary */}
           <aside
+            ref={isMobile ? mobileSummaryInlineRef : undefined}
             style={
               isMobile
                 ? showMobileSummary
-                  ? styles.mobileSummarySheet
+                  ? styles.mobileSummaryInline
                   : { display: "none" }
                 : styles.sidePanel
             }
-            role={isMobile ? "dialog" : undefined}
-            aria-modal={isMobile ? true : undefined}
-            aria-labelledby={isMobile ? "mobile-summary-title" : undefined}
-            onClick={isMobile ? (e) => e.stopPropagation() : undefined}
           >
             {isMobile ? (
               <div style={styles.mobileSummaryHead}>
@@ -10085,14 +10098,6 @@ export default function Home() {
         </div> : null}
 
       </div>
-
-      {isMobile && !isWelcome && showMobileSummary ? (
-        <div
-          style={styles.mobileSummaryOverlay}
-          onClick={() => setShowMobileSummary(false)}
-          aria-hidden="true"
-        />
-      ) : null}
 
       {showClearSessionConfirm ? (
         <div
