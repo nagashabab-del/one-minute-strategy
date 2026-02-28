@@ -1141,6 +1141,10 @@ export default function Home() {
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showArchiveProjectConfirm, setShowArchiveProjectConfirm] = useState(false);
+  const [showReplaceImportConfirm, setShowReplaceImportConfirm] = useState(false);
+  const [pendingReplaceBackup, setPendingReplaceBackup] = useState<ProjectsBackupFile | null>(null);
+  const [replaceImportConfirmText, setReplaceImportConfirmText] = useState("");
+  const [backupImportMode, setBackupImportMode] = useState<"merge" | "replace">("merge");
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
     Record<MobileSummarySectionKey, boolean>
@@ -1934,24 +1938,29 @@ export default function Home() {
     showSuccess("تم تصدير النسخة الاحتياطية بنجاح.");
   }
 
-  function openBackupImportPicker() {
+  function openBackupImportPicker(mode: "merge" | "replace") {
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("استيراد نسخة احتياطية", ["project_manager", "operations_manager"], userRole)
       );
       return;
     }
+    setBackupImportMode(mode);
     backupImportInputRef.current?.click();
   }
 
-  function importProjectsBackup(rawFile: ProjectsBackupFile) {
-    const importedProjects = rawFile.registry?.projects
+  function normalizeBackupProjects(rawFile: ProjectsBackupFile) {
+    return rawFile.registry?.projects
       ?.filter(isValidLocalProjectMeta)
       .map((projectMeta) => ({
         ...projectMeta,
         isArchived: Boolean(projectMeta.isArchived),
         archivedAt: projectMeta.archivedAt ?? "",
       }));
+  }
+
+  function importProjectsBackup(rawFile: ProjectsBackupFile) {
+    const importedProjects = normalizeBackupProjects(rawFile);
 
     if (!importedProjects?.length) {
       showError("ملف النسخة الاحتياطية لا يحتوي مشاريع صالحة.");
@@ -1991,6 +2000,73 @@ export default function Home() {
     );
   }
 
+  function replaceProjectsFromBackup(rawFile: ProjectsBackupFile) {
+    const importedProjects = normalizeBackupProjects(rawFile);
+    if (!importedProjects?.length) {
+      showError("ملف النسخة الاحتياطية لا يحتوي مشاريع صالحة.");
+      return;
+    }
+
+    const snapshots = rawFile.snapshots ?? {};
+    for (const current of projectRegistry) {
+      localStorage.removeItem(projectDataKey(current.id));
+    }
+
+    const used = new Set<string>();
+    const idMap = new Map<string, string>();
+    const replacedProjects: LocalProjectMeta[] = [];
+
+    for (const item of importedProjects) {
+      let nextId = item.id.trim() || createProjectId();
+      while (used.has(nextId)) {
+        nextId = createProjectId();
+      }
+      used.add(nextId);
+      idMap.set(item.id, nextId);
+      replacedProjects.push({ ...item, id: nextId });
+    }
+
+    if (!replacedProjects.some((item) => !item.isArchived)) {
+      replacedProjects[0] = {
+        ...replacedProjects[0],
+        isArchived: false,
+        archivedAt: "",
+      };
+    }
+
+    for (const [oldId, newId] of idMap) {
+      localStorage.setItem(projectDataKey(newId), JSON.stringify(snapshots[oldId] ?? {}));
+    }
+
+    const desiredActive = idMap.get(rawFile.registry.activeProjectId);
+    const nextActiveId =
+      desiredActive && replacedProjects.some((item) => item.id === desiredActive && !item.isArchived)
+        ? desiredActive
+        : replacedProjects.find((item) => !item.isArchived)?.id ?? replacedProjects[0].id;
+
+    persistRegistry(replacedProjects, nextActiveId);
+    localStorage.setItem(
+      STORAGE_KEY,
+      localStorage.getItem(projectDataKey(nextActiveId)) ?? JSON.stringify({})
+    );
+    setShowReplaceImportConfirm(false);
+    setPendingReplaceBackup(null);
+    setReplaceImportConfirmText("");
+    location.reload();
+  }
+
+  function confirmReplaceImport() {
+    if (replaceImportConfirmText.trim() !== "استبدال") {
+      showError("للتأكيد اكتب كلمة «استبدال» كما هي.");
+      return;
+    }
+    if (!pendingReplaceBackup) {
+      showError("لا توجد نسخة احتياطية معلقة للاستبدال.");
+      return;
+    }
+    replaceProjectsFromBackup(pendingReplaceBackup);
+  }
+
   async function handleBackupFileSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -2003,7 +2079,18 @@ export default function Home() {
         showError("صيغة الملف غير مدعومة. تأكد أنه نسخة احتياطية صادرة من النظام.");
         return;
       }
-      importProjectsBackup(parsed);
+      if (backupImportMode === "replace") {
+        const imported = normalizeBackupProjects(parsed);
+        if (!imported?.length) {
+          showError("ملف النسخة الاحتياطية لا يحتوي مشاريع صالحة.");
+          return;
+        }
+        setPendingReplaceBackup(parsed);
+        setReplaceImportConfirmText("");
+        setShowReplaceImportConfirm(true);
+      } else {
+        importProjectsBackup(parsed);
+      }
     } catch {
       showError("تعذر قراءة الملف. تأكد أن الامتداد JSON والملف غير تالف.");
     }
@@ -2239,6 +2326,21 @@ export default function Home() {
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [showArchiveProjectConfirm]);
+
+  useEffect(() => {
+    if (!showReplaceImportConfirm) return;
+
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowReplaceImportConfirm(false);
+        setPendingReplaceBackup(null);
+        setReplaceImportConfirmText("");
+      }
+    }
+
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [showReplaceImportConfirm]);
 
   useEffect(() => {
     if (!isMobile || isWelcome) {
@@ -5597,7 +5699,7 @@ export default function Home() {
       projectBackupGrid: {
         marginTop: 8,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       confirmTitle: {
@@ -11440,7 +11542,7 @@ export default function Home() {
                   type="button"
                   style={styles.secondaryBtn(!canEditSessionSetup)}
                   disabled={!canEditSessionSetup}
-                  onClick={openBackupImportPicker}
+                  onClick={() => openBackupImportPicker("merge")}
                   title={
                     canEditSessionSetup
                       ? undefined
@@ -11453,9 +11555,26 @@ export default function Home() {
                 >
                   استيراد نسخة
                 </button>
+                <button
+                  type="button"
+                  style={styles.dangerGhostBtn(!canEditSessionSetup)}
+                  disabled={!canEditSessionSetup}
+                  onClick={() => openBackupImportPicker("replace")}
+                  title={
+                    canEditSessionSetup
+                      ? "سيتم طلب تأكيد إضافي قبل الاستبدال الكامل."
+                      : permissionHintText(
+                          "استيراد مع الاستبدال الكامل",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                >
+                  استيراد مع استبدال كامل
+                </button>
               </div>
               <div style={styles.textMutedSmallTop8}>
-                الاستيراد يضيف المشاريع من الملف إلى قائمتك الحالية بدون حذف المشاريع الموجودة.
+                الاستيراد العادي يضيف المشاريع دون حذف الحالية. خيار الاستبدال الكامل متقدم ويتطلب تأكيدًا إضافيًا.
               </div>
               <input
                 ref={backupImportInputRef}
@@ -11549,6 +11668,61 @@ export default function Home() {
                 onClick={archiveActiveProject}
               >
                 نعم، أرشفة المشروع
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showReplaceImportConfirm ? (
+        <div
+          style={styles.confirmOverlay}
+          onClick={() => {
+            setShowReplaceImportConfirm(false);
+            setPendingReplaceBackup(null);
+            setReplaceImportConfirmText("");
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="replace-import-title"
+        >
+          <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <h3 id="replace-import-title" style={styles.confirmTitle}>
+              تأكيد الاستيراد مع الاستبدال الكامل
+            </h3>
+            <div style={styles.confirmDesc}>
+              سيتم استبدال جميع المشاريع الحالية بمحتوى ملف النسخة الاحتياطية.
+            </div>
+            <div style={styles.confirmWarn}>
+              هذا إجراء متقدم. للتأكيد اكتب «استبدال» ثم اضغط تنفيذ.
+            </div>
+            <div style={styles.blockTop12}>
+              <input
+                value={replaceImportConfirmText}
+                onChange={(e) => setReplaceImportConfirmText(e.target.value)}
+                placeholder="اكتب: استبدال"
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                style={styles.secondaryBtn(false)}
+                onClick={() => {
+                  setShowReplaceImportConfirm(false);
+                  setPendingReplaceBackup(null);
+                  setReplaceImportConfirmText("");
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                style={styles.dangerGhostBtn(replaceImportConfirmText.trim() !== "استبدال")}
+                disabled={replaceImportConfirmText.trim() !== "استبدال"}
+                onClick={confirmReplaceImport}
+              >
+                تنفيذ الاستبدال الكامل
               </button>
             </div>
           </div>
