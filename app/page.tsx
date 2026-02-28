@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type StageUI =
   | "welcome"
@@ -156,6 +156,13 @@ type ProjectBootstrap = {
   saved: PersistedState;
   activeProjectId: string;
   projects: LocalProjectMeta[];
+};
+
+type ProjectsBackupFile = {
+  version: "oms_projects_backup_v1";
+  exportedAt: string;
+  registry: ProjectsRegistry;
+  snapshots: Record<string, PersistedState>;
 };
 
 type BoqItem = {
@@ -1160,6 +1167,7 @@ export default function Home() {
   const prevAdvancedScopeStepRef = useRef(advancedScopeStep);
   const prevAdvancedBoqStepRef = useRef(advancedBoqStep);
   const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
+  const backupImportInputRef = useRef<HTMLInputElement | null>(null);
   const lastProjectMetaTouchRef = useRef(0);
 
   const effectiveSelectedAdvisors =
@@ -1876,6 +1884,129 @@ export default function Home() {
       )
     );
     showSuccess("تمت استعادة المشروع من الأرشيف.");
+  }
+
+  function exportProjectsBackup() {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("تصدير نسخة احتياطية", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    persistActiveProjectSnapshot();
+
+    const snapshots: Record<string, PersistedState> = {};
+    for (const projectMeta of projectRegistry) {
+      const raw = localStorage.getItem(projectDataKey(projectMeta.id));
+      if (!raw) {
+        snapshots[projectMeta.id] = {};
+        continue;
+      }
+      try {
+        snapshots[projectMeta.id] = JSON.parse(raw) as PersistedState;
+      } catch {
+        snapshots[projectMeta.id] = {};
+      }
+    }
+
+    const payload: ProjectsBackupFile = {
+      version: "oms_projects_backup_v1",
+      exportedAt: new Date().toISOString(),
+      registry: {
+        activeProjectId,
+        projects: projectRegistry,
+      },
+      snapshots,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+    a.href = url;
+    a.download = `oms-projects-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showSuccess("تم تصدير النسخة الاحتياطية بنجاح.");
+  }
+
+  function openBackupImportPicker() {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("استيراد نسخة احتياطية", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    backupImportInputRef.current?.click();
+  }
+
+  function importProjectsBackup(rawFile: ProjectsBackupFile) {
+    const importedProjects = rawFile.registry?.projects
+      ?.filter(isValidLocalProjectMeta)
+      .map((projectMeta) => ({
+        ...projectMeta,
+        isArchived: Boolean(projectMeta.isArchived),
+        archivedAt: projectMeta.archivedAt ?? "",
+      }));
+
+    if (!importedProjects?.length) {
+      showError("ملف النسخة الاحتياطية لا يحتوي مشاريع صالحة.");
+      return;
+    }
+
+    persistActiveProjectSnapshot();
+
+    const existingIds = new Set(projectRegistry.map((item) => item.id));
+    const importedIdMap = new Map<string, string>();
+    const importedMetas: LocalProjectMeta[] = [];
+
+    for (const item of importedProjects) {
+      let nextId = item.id.trim() || createProjectId();
+      while (existingIds.has(nextId) || importedMetas.some((meta) => meta.id === nextId)) {
+        nextId = createProjectId();
+      }
+      existingIds.add(nextId);
+      importedIdMap.set(item.id, nextId);
+      importedMetas.push({
+        ...item,
+        id: nextId,
+      });
+    }
+
+    const snapshots = rawFile.snapshots ?? {};
+    for (const [oldId, newId] of importedIdMap) {
+      const snapshot = snapshots[oldId] ?? {};
+      localStorage.setItem(projectDataKey(newId), JSON.stringify(snapshot));
+    }
+
+    const nextProjects = [...projectRegistry, ...importedMetas];
+    setProjectRegistry(nextProjects);
+    persistRegistry(nextProjects, activeProjectId);
+    showSuccess(
+      `تم استيراد ${toArabicDigits(importedMetas.length)} مشروع وإضافته إلى قائمتك الحالية.`
+    );
+  }
+
+  async function handleBackupFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as ProjectsBackupFile;
+      if (parsed?.version !== "oms_projects_backup_v1" || !parsed?.registry) {
+        showError("صيغة الملف غير مدعومة. تأكد أنه نسخة احتياطية صادرة من النظام.");
+        return;
+      }
+      importProjectsBackup(parsed);
+    } catch {
+      showError("تعذر قراءة الملف. تأكد أن الامتداد JSON والملف غير تالف.");
+    }
   }
 
   // ============ Save (no save while loading) ============
@@ -5462,6 +5593,12 @@ export default function Home() {
       projectArchiveMeta: {
         minWidth: 0,
         flex: 1,
+      } as CSSProperties,
+      projectBackupGrid: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
       } as CSSProperties,
       confirmTitle: {
         margin: 0,
@@ -11278,6 +11415,56 @@ export default function Home() {
                 </div>
               </div>
             ) : null}
+
+            <div style={styles.blockTop12}>
+              <div style={styles.sideBlockTitle}>نسخ احتياطي واستيراد</div>
+              <div style={styles.projectBackupGrid}>
+                <button
+                  type="button"
+                  style={styles.secondaryBtn(!canEditSessionSetup)}
+                  disabled={!canEditSessionSetup}
+                  onClick={exportProjectsBackup}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "تصدير نسخة احتياطية",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                >
+                  تصدير نسخة احتياطية
+                </button>
+                <button
+                  type="button"
+                  style={styles.secondaryBtn(!canEditSessionSetup)}
+                  disabled={!canEditSessionSetup}
+                  onClick={openBackupImportPicker}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "استيراد نسخة احتياطية",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                >
+                  استيراد نسخة
+                </button>
+              </div>
+              <div style={styles.textMutedSmallTop8}>
+                الاستيراد يضيف المشاريع من الملف إلى قائمتك الحالية بدون حذف المشاريع الموجودة.
+              </div>
+              <input
+                ref={backupImportInputRef}
+                type="file"
+                accept="application/json,.json"
+                style={{ display: "none" }}
+                onChange={handleBackupFileSelected}
+              />
+            </div>
 
             <div style={styles.confirmActions}>
               <button
