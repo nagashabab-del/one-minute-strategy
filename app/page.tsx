@@ -4799,7 +4799,7 @@ export default function Home() {
       } as CSSProperties,
       timelineGrid: {
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 10,
         marginTop: 10,
       } as CSSProperties,
@@ -4855,7 +4855,7 @@ export default function Home() {
       timelineSummaryGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       timelineSummaryItem: {
@@ -4885,7 +4885,7 @@ export default function Home() {
       scopeFieldsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 12,
       } as CSSProperties,
       scopeFieldCard: {
@@ -5106,7 +5106,7 @@ export default function Home() {
       } as CSSProperties,
       quickStatsGrid: {
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
         gap: 10,
         marginTop: 12,
       } as CSSProperties,
@@ -5467,7 +5467,7 @@ export default function Home() {
       orgRolesGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
       orgRoleCard: (active: boolean) =>
@@ -5606,7 +5606,7 @@ export default function Home() {
       actionTrackerStatsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
         gap: 8,
       } as CSSProperties,
       actionTrackerStat: {
@@ -5664,7 +5664,7 @@ export default function Home() {
       actionTaskGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       actionTaskNotes: {
@@ -5719,7 +5719,7 @@ export default function Home() {
       riskBoardStatsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(5, 1fr)",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
         gap: 8,
       } as CSSProperties,
       riskBoardStat: {
@@ -5741,7 +5741,7 @@ export default function Home() {
       riskLegendRow: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
         gap: 8,
       } as CSSProperties,
       riskLegendItem: {
@@ -5939,8 +5939,14 @@ export default function Home() {
       governanceGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(3, 1fr)",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
         gap: 8,
+      } as CSSProperties,
+      advancedOpsMetaGrid: {
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
       } as CSSProperties,
       governanceStat: {
         borderRadius: 10,
@@ -7101,6 +7107,9 @@ export default function Home() {
                 <h3 style={styles.sectionHeading}>
                   المرحلة 4: مراجعة قبل التحليل
                 </h3>
+                <div style={styles.stageFlowLead}>
+                  تأكد من اكتمال المدخلات وأضف أي معلومة مؤثرة قبل تشغيل التحليل النهائي.
+                </div>
 
                 <div style={styles.additionDecisionCard}>
                   <div style={styles.sectionHeaderRow}>
@@ -7260,6 +7269,9 @@ export default function Home() {
                 <h3 style={styles.sectionHeading}>
                   المرحلة 5: المخرجات النهائية
                 </h3>
+                <div style={styles.stageFlowLead}>
+                  راجع القرار والتوصيات ثم ثبّت خيارك قبل الانتقال للمسار التشغيلي المتقدم.
+                </div>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
@@ -7557,7 +7569,7 @@ export default function Home() {
             {stage === "advanced_scope" && (
               <>
                 <h3 style={styles.sectionHeading}>المرحلة 6: النطاق والهيكل التشغيلي</h3>
-                <div style={styles.textMutedSmallTop8}>
+                <div style={styles.stageFlowLead}>
                   حدّد نطاق التنفيذ ثم وزّع الأدوار قبل الانتقال لمرحلة التخطيط التشغيلي.
                 </div>
 
@@ -7822,102 +7834,104 @@ export default function Home() {
                   </>
                 ) : (
                   <div style={styles.blockTop12}>
-                    <div style={styles.label}>2.8 الهيكل التشغيلي للكوادر</div>
-                    <div style={styles.textMutedSmallTop8}>
-                      فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
-                    </div>
-                    <div style={styles.orgRolesGrid}>
-                      {orgRoles.map((role) => (
-                        <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
-                          <div style={styles.orgRoleHead}>
-                            <div style={styles.orgRoleIdentity}>
-                              <div style={styles.orgRoleTitle}>{role.title}</div>
-                              <div style={styles.orgRoleSummary}>{role.summary}</div>
+                    <div style={styles.qCard}>
+                      <div style={styles.scopeSectionTitle}>2.8 الهيكل التشغيلي للكوادر</div>
+                      <div style={styles.scopeSectionHint}>
+                        فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
+                      </div>
+                      <div style={styles.orgRolesGrid}>
+                        {orgRoles.map((role) => (
+                          <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
+                            <div style={styles.orgRoleHead}>
+                              <div style={styles.orgRoleIdentity}>
+                                <div style={styles.orgRoleTitle}>{role.title}</div>
+                                <div style={styles.orgRoleSummary}>{role.summary}</div>
+                              </div>
+                              <button
+                                type="button"
+                                style={styles.orgRoleToggle(role.enabled)}
+                                disabled={!canEditAdvancedExecution}
+                                onClick={() =>
+                                  updateOrgRole(role.id, { enabled: !role.enabled })
+                                }
+                              >
+                                {role.enabled ? "مفعّل" : "غير مفعّل"}
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              style={styles.orgRoleToggle(role.enabled)}
-                              disabled={!canEditAdvancedExecution}
-                              onClick={() =>
-                                updateOrgRole(role.id, { enabled: !role.enabled })
-                              }
-                            >
-                              {role.enabled ? "مفعّل" : "غير مفعّل"}
-                            </button>
-                          </div>
 
-                          <div style={styles.blockTop8}>
-                            <input
-                              value={role.assignee}
-                              onChange={(e) =>
-                                updateOrgRole(role.id, { assignee: e.target.value })
-                              }
-                              style={styles.input}
-                              disabled={!canEditAdvancedExecution || !role.enabled}
-                              placeholder="اسم المسؤول (اختياري)"
-                            />
-                          </div>
-
-                          <div style={styles.orgRoleMetaRow}>
-                            <div style={styles.orgRoleMetaBox}>
-                              <div style={styles.orgRoleMetaHead}>
-                                <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
-                                <button
-                                  type="button"
-                                  style={styles.orgRoleInfoBtn}
-                                  disabled={!canEditAdvancedExecution}
-                                  onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
-                                  aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
-                                >
-                                  ؟
-                                </button>
-                              </div>
-                              <div style={styles.orgRoleMetaValue}>
-                                {toArabicDigits(role.responsibilities.length)}
-                              </div>
+                            <div style={styles.blockTop8}>
+                              <input
+                                value={role.assignee}
+                                onChange={(e) =>
+                                  updateOrgRole(role.id, { assignee: e.target.value })
+                                }
+                                style={styles.input}
+                                disabled={!canEditAdvancedExecution || !role.enabled}
+                                placeholder="اسم المسؤول (اختياري)"
+                              />
                             </div>
-                            <div style={styles.orgRoleMetaBox}>
-                              <div style={styles.orgRoleMetaHead}>
-                                <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
-                                <button
-                                  type="button"
-                                  style={styles.orgRoleInfoBtn}
-                                  disabled={!canEditAdvancedExecution}
-                                  onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
-                                  aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
-                                >
-                                  ؟
-                                </button>
-                              </div>
-                              <div style={styles.orgRoleMetaValue}>
-                                {toArabicDigits(role.kpis.length)}
-                              </div>
-                            </div>
-                          </div>
 
-                          {orgRoleDetailsOpen[role.id] ? (
-                            <div style={styles.orgRoleDetailsPanel}>
-                              <div style={styles.orgRoleDetailsTitle}>
-                                {orgRoleDetailsOpen[role.id] === "tasks"
-                                  ? "المهام الكاملة"
-                                  : "KPIs الكاملة"}
-                              </div>
-                              {(orgRoleDetailsOpen[role.id] === "tasks"
-                                ? role.responsibilities
-                                : role.kpis
-                              ).map((item, idx) => (
-                                <div key={idx} style={styles.orgRoleDetailsItem}>
-                                  • {item}
+                            <div style={styles.orgRoleMetaRow}>
+                              <div style={styles.orgRoleMetaBox}>
+                                <div style={styles.orgRoleMetaHead}>
+                                  <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                                  <button
+                                    type="button"
+                                    style={styles.orgRoleInfoBtn}
+                                    disabled={!canEditAdvancedExecution}
+                                    onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
+                                    aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
+                                  >
+                                    ؟
+                                  </button>
                                 </div>
-                              ))}
+                                <div style={styles.orgRoleMetaValue}>
+                                  {toArabicDigits(role.responsibilities.length)}
+                                </div>
+                              </div>
+                              <div style={styles.orgRoleMetaBox}>
+                                <div style={styles.orgRoleMetaHead}>
+                                  <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                                  <button
+                                    type="button"
+                                    style={styles.orgRoleInfoBtn}
+                                    disabled={!canEditAdvancedExecution}
+                                    onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
+                                    aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
+                                  >
+                                    ؟
+                                  </button>
+                                </div>
+                                <div style={styles.orgRoleMetaValue}>
+                                  {toArabicDigits(role.kpis.length)}
+                                </div>
+                              </div>
                             </div>
-                          ) : (
-                            <div style={styles.orgRoleMetaText}>
-                              اضغط (؟) لعرض التفاصيل الكاملة.
-                            </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {orgRoleDetailsOpen[role.id] ? (
+                              <div style={styles.orgRoleDetailsPanel}>
+                                <div style={styles.orgRoleDetailsTitle}>
+                                  {orgRoleDetailsOpen[role.id] === "tasks"
+                                    ? "المهام الكاملة"
+                                    : "KPIs الكاملة"}
+                                </div>
+                                {(orgRoleDetailsOpen[role.id] === "tasks"
+                                  ? role.responsibilities
+                                  : role.kpis
+                                ).map((item, idx) => (
+                                  <div key={idx} style={styles.orgRoleDetailsItem}>
+                                    • {item}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={styles.orgRoleMetaText}>
+                                اضغط (؟) لعرض التفاصيل الكاملة.
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -7973,7 +7987,7 @@ export default function Home() {
             {stage === "advanced_boq" && (
               <>
                 <h3 style={styles.sectionHeading}>المرحلة 7: التخطيط التشغيلي التفصيلي</h3>
-                <div style={styles.textMutedSmallTop8}>
+                <div style={styles.stageFlowLead}>
                   أكمل جدول الكميات، ثم الجودة والمخاطر، ثم الجاهزية التشغيلية قبل توليد الخطة.
                 </div>
 
@@ -8064,30 +8078,32 @@ export default function Home() {
 
                 {advancedBoqStep === "boq" ? (
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.3 جدول الكميات والمواصفات (نسخة مختصرة)</div>
-                  <div style={styles.textMutedSmallTop8}>
-                    خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
-                  </div>
-                  {activeOrgRoles.length === 0 ? (
-                    <div style={styles.warnBox}>
-                      <strong>تنبيه:</strong> لا توجد أدوار مفعّلة حاليًا في الهيكل التشغيلي.
-                      فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في جدول الكميات.
+                  <div style={styles.qCard}>
+                    <div style={styles.scopeSectionTitle}>
+                      2.3 جدول الكميات والمواصفات (نسخة مختصرة)
                     </div>
-                  ) : null}
-                  {boqDependencyIssues.length > 0 ? (
-                    <div style={styles.warnBox}>
-                      <strong>تنبيه:</strong> توجد تعارضات في تبعيات جدول الكميات ويجب تصحيحها قبل
-                      توليد الخطة:
-                      <div style={styles.blockTop8}>
-                        {boqDependencyIssues.slice(0, 6).map((issue, idx) => (
-                          <div key={idx} style={styles.listItemGap4}>
-                            • {issue}
-                          </div>
-                        ))}
+                    <div style={styles.scopeSectionHint}>
+                      خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
+                    </div>
+                    {activeOrgRoles.length === 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه:</strong> لا توجد أدوار مفعّلة حاليًا في الهيكل التشغيلي.
+                        فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في جدول الكميات.
                       </div>
-                    </div>
-                  ) : null}
-                  <div style={{ ...styles.qCard, marginTop: 0 }}>
+                    ) : null}
+                    {boqDependencyIssues.length > 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه:</strong> توجد تعارضات في تبعيات جدول الكميات ويجب تصحيحها قبل
+                        توليد الخطة:
+                        <div style={styles.blockTop8}>
+                          {boqDependencyIssues.slice(0, 6).map((issue, idx) => (
+                            <div key={idx} style={styles.listItemGap4}>
+                              • {issue}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {boqItems.map((row) => {
                       const assignedRole = row.ownerRoleId
                         ? orgRoles.find((role) => role.id === row.ownerRoleId)
@@ -8735,26 +8751,33 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.7 سرعة الاستجابة (SLA)</div>
-                  <textarea
-                    value={responseSla}
-                    onChange={(e) => setResponseSla(e.target.value)}
-                    style={styles.textarea}
-                    disabled={!canEditAdvancedExecution}
-                    placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
-                  />
-                </div>
-
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>مدة الإزالة/الإقفال (بالساعات)</div>
-                  <input
-                    value={closureRemovalHours}
-                    onChange={(e) => setClosureRemovalHours(normalizeDigitsToEnglish(e.target.value))}
-                    style={styles.input}
-                    disabled={!canEditAdvancedExecution}
-                    placeholder="مثال: 6"
-                  />
+                <div style={styles.advancedOpsMetaGrid}>
+                  <div style={{ ...styles.qCard, marginTop: 0 }}>
+                    <div style={styles.scopeSectionTitle}>2.7 سرعة الاستجابة (SLA)</div>
+                    <div style={styles.scopeSectionHint}>
+                      حدد زمن الاستجابة التشغيلية والفنية للبلاغات والمستجدات.
+                    </div>
+                    <textarea
+                      value={responseSla}
+                      onChange={(e) => setResponseSla(e.target.value)}
+                      style={styles.textarea}
+                      disabled={!canEditAdvancedExecution}
+                      placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
+                    />
+                  </div>
+                  <div style={{ ...styles.qCard, marginTop: 0 }}>
+                    <div style={styles.scopeSectionTitle}>مدة الإزالة/الإقفال (بالساعات)</div>
+                    <div style={styles.scopeSectionHint}>
+                      أدخل الزمن المتوقع للإزالة والإقفال بعد نهاية التشغيل.
+                    </div>
+                    <input
+                      value={closureRemovalHours}
+                      onChange={(e) => setClosureRemovalHours(normalizeDigitsToEnglish(e.target.value))}
+                      style={styles.input}
+                      disabled={!canEditAdvancedExecution}
+                      placeholder="مثال: 6"
+                    />
+                  </div>
                 </div>
 
                 {!canBuildAdvancedPlan ? (
@@ -8866,6 +8889,9 @@ export default function Home() {
             {stage === "advanced_plan" && (
               <>
                 <h3 style={styles.sectionHeading}>المرحلة 8: خطة التنفيذ المتقدمة</h3>
+                <div style={styles.stageFlowLead}>
+                  هذه النسخة التشغيلية النهائية للخطة: متابعة التنفيذ، الحوكمة، ومخرجات الطباعة.
+                </div>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
