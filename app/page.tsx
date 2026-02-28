@@ -4908,24 +4908,25 @@ export default function Home() {
       timelineGrid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap: 10,
+        gap: isMobile ? 12 : 10,
         marginTop: 10,
       } as CSSProperties,
       timelineFieldCard: {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.10)",
         background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
-        padding: 10,
+        padding: isMobile ? 11 : 10,
       } as CSSProperties,
       timelineFieldHead: {
         display: "flex",
-        alignItems: "center",
+        alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "space-between",
         gap: 8,
         marginBottom: 7,
+        flexDirection: isMobile ? "column" : "row",
       } as CSSProperties,
       timelineFieldLabel: {
-        fontSize: 12.5,
+        fontSize: isMobile ? 13 : 12.5,
         fontWeight: 800,
         color: "rgba(255,255,255,0.94)",
       } as CSSProperties,
@@ -4952,7 +4953,9 @@ export default function Home() {
           fontSize: 11.5,
           fontWeight: 800,
           padding: "4px 8px",
-          whiteSpace: "nowrap",
+          whiteSpace: isMobile ? "normal" : "nowrap",
+          maxWidth: "100%",
+          alignSelf: isMobile ? "flex-start" : "auto",
         } as CSSProperties),
       timelineFieldHint: {
         marginTop: 7,
@@ -5000,7 +5003,7 @@ export default function Home() {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.11)",
         background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-        padding: 10,
+        padding: isMobile ? 11 : 10,
       } as CSSProperties,
       scopeSectionTitle: {
         fontSize: 15,
@@ -5020,7 +5023,7 @@ export default function Home() {
         marginBottom: 8,
       } as CSSProperties,
       scopeTextarea: {
-        minHeight: isNarrowMobile ? 145 : 156,
+        minHeight: isMobile ? (isNarrowMobile ? 156 : 168) : 156,
       } as CSSProperties,
       scopeStrategyCard: {
         marginTop: 10,
@@ -5028,7 +5031,7 @@ export default function Home() {
         border: "1px solid rgba(255,255,255,0.12)",
         background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
         boxShadow: "inset 0 0 0 1px rgba(0,229,255,0.08)",
-        padding: 10,
+        padding: isMobile ? 11 : 10,
       } as CSSProperties,
       scopeStrategyTitle: {
         fontSize: 13,
@@ -5037,21 +5040,22 @@ export default function Home() {
         marginBottom: 8,
       } as CSSProperties,
       scopeStrategyTextarea: {
-        minHeight: isNarrowMobile ? 148 : 160,
+        minHeight: isMobile ? (isNarrowMobile ? 160 : 176) : 160,
       } as CSSProperties,
       advancedScopeNavCard: {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.10)",
         background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
-        padding: 10,
+        padding: isMobile ? 11 : 10,
       } as CSSProperties,
       advancedScopeMetaRow: {
         marginTop: 8,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
+        display: isMobile ? "grid" : "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: isMobile ? "normal" : "space-between",
+        gridTemplateColumns: isMobile ? "1fr" : undefined,
         gap: 8,
-        flexWrap: "wrap",
+        flexWrap: isMobile ? "nowrap" : "wrap",
       } as CSSProperties,
       advancedScopeMetaChip: (tone: "info" | "ok") =>
         ({
@@ -5068,10 +5072,12 @@ export default function Home() {
           fontSize: 12,
           fontWeight: 800,
           padding: "4px 8px",
-          whiteSpace: "nowrap",
+          whiteSpace: isMobile ? "normal" : "nowrap",
+          width: isMobile ? "fit-content" : "auto",
+          maxWidth: "100%",
         } as CSSProperties),
       advancedScopeMetaText: {
-        fontSize: 12.5,
+        fontSize: isMobile ? 12 : 12.5,
         color: "rgba(255,255,255,0.78)",
         lineHeight: 1.5,
       } as CSSProperties,
@@ -5744,13 +5750,14 @@ export default function Home() {
           background: active
             ? "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))"
             : "rgba(255,255,255,0.025)",
-          padding: 10,
+          padding: isMobile ? 11 : 10,
         } as CSSProperties),
       orgRoleHead: {
         display: "flex",
         justifyContent: "space-between",
         gap: 10,
-        alignItems: "flex-start",
+        alignItems: isNarrowMobile ? "stretch" : "flex-start",
+        flexDirection: isNarrowMobile ? "column" : "row",
       } as CSSProperties,
       orgRoleIdentity: {
         minWidth: 0,
@@ -5783,11 +5790,12 @@ export default function Home() {
           padding: "5px 10px",
           cursor: "pointer",
           flexShrink: 0,
+          alignSelf: isNarrowMobile ? "flex-start" : "auto",
         } as CSSProperties),
       orgRoleMetaRow: {
         marginTop: 8,
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 8,
       } as CSSProperties,
       orgRoleMetaBox: {
