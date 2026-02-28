@@ -988,7 +988,7 @@ export default function Home() {
       label: "الإجابات والتحليل",
       enabled: canEditAnswers && canRunAnalysisFlow,
     },
-    { id: "pricing", label: "تسعير BOQ", enabled: canEditBoqPricing },
+    { id: "pricing", label: "تسعير جدول الكميات", enabled: canEditBoqPricing },
     { id: "advanced_exec", label: "المسار المتقدم", enabled: canEditAdvancedExecution },
     { id: "governance", label: "الحوكمة", enabled: canEditGovernance },
     { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
@@ -1202,7 +1202,7 @@ export default function Home() {
               return row ? boqRowLabel(row, rowIdx) : `بند ${toArabicDigits(rowIdx + 1)}`;
             })
             .join(" -> ");
-          issues.push(`حلقة تبعية بين بنود BOQ: ${cycleLabel}`);
+          issues.push(`حلقة تبعية بين بنود جدول الكميات: ${cycleLabel}`);
         }
         return;
       }
@@ -1313,10 +1313,10 @@ export default function Home() {
   if (!scopeProgram.trim()) advancedMissingFields.push("نطاق البرنامج التنفيذي");
   if (!executionStrategy.trim()) advancedMissingFields.push("استراتيجية التنفيذ");
   if (!boqItems.some((row) => row.item.trim().length > 0)) {
-    advancedMissingFields.push("بند واحد على الأقل في BOQ (اسم البند)");
+    advancedMissingFields.push("بند واحد على الأقل في جدول الكميات (اسم البند)");
   }
   if (hasBoqDependencyIssues) {
-    advancedMissingFields.push("معالجة تعارضات تبعيات BOQ");
+    advancedMissingFields.push("معالجة تعارضات تبعيات جدول الكميات");
   }
   const advancedScopeChecklist = [
     { id: "scope_site", done: scopeSite.trim().length > 0 },
@@ -2069,8 +2069,8 @@ export default function Home() {
       `بداية الفعالية: ${startAt || "غير محدد"}`,
       `نهاية الفعالية: ${endAt || "غير محدد"}`,
       `الميزانية: ${budget || "غير محدد"}`,
-      `إجمالي تكلفة BOQ: ${formatMoney(boqFinancialSummary.totalCost)}`,
-      `إجمالي سعر البيع (BOQ): ${formatMoney(boqFinancialSummary.totalSell)}`,
+      `إجمالي تكلفة جدول الكميات: ${formatMoney(boqFinancialSummary.totalCost)}`,
+      `إجمالي سعر البيع (جدول الكميات): ${formatMoney(boqFinancialSummary.totalSell)}`,
       `صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
       `هامش الربح: ${
         boqFinancialSummary.margin === null
@@ -2442,9 +2442,9 @@ export default function Home() {
     const resolveBoqDependencyText = (row: BoqItem) => {
       if (!row.dependsOnBoqId) return "اعتماد البند والمواصفة";
       const depRow = boqFilledMap.get(row.dependsOnBoqId);
-      if (!depRow) return "تبعية غير صالحة (راجع BOQ)";
+      if (!depRow) return "تبعية غير صالحة (راجع جدول الكميات)";
       const depIdx = boqFilledIndexMap.get(depRow.id) ?? 0;
-      return `اكتمال بند BOQ: ${boqRowLabel(depRow, depIdx)} (${row.dependencyType})`;
+      return `اكتمال بند في جدول الكميات: ${boqRowLabel(depRow, depIdx)} (${row.dependencyType})`;
     };
     const resolveBoqTaskWindow = (
       row: BoqItem,
@@ -2736,7 +2736,7 @@ export default function Home() {
         tasks.push({
           phase: "الإعداد",
           stream,
-          task: `توريد/تجهيز بند BOQ: ${row.item}`,
+          task: `توريد/تجهيز بند في جدول الكميات: ${row.item}`,
           owner,
           start: fmt(rowStart),
           end: fmt(rowEnd),
@@ -2840,10 +2840,10 @@ export default function Home() {
         ? activeRoleLines
         : ["- لا توجد أدوار مفعلة. سيتم التعامل مع المهام عبر الهيكل الأساسي فقط."]),
       "",
-      "BOQ المختصر:",
-      boqSummary || "- لا توجد بنود BOQ مدخلة بعد.",
+      "ملخص جدول الكميات (مختصر):",
+      boqSummary || "- لا توجد بنود مدخلة في جدول الكميات بعد.",
       "",
-      "التحليل المالي الداخلي (BOQ):",
+      "التحليل المالي الداخلي (جدول الكميات):",
       `- إجمالي التكلفة: ${formatMoney(boqFinancialSummary.totalCost)}`,
       `- إجمالي سعر البيع: ${formatMoney(boqFinancialSummary.totalSell)}`,
       `- صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
@@ -2900,7 +2900,7 @@ export default function Home() {
       taskRows || "- لا توجد مهام جاهزة.",
       "",
       `إجمالي المهام التشغيليّة: ${toArabicDigits(tasksOrdered.length)} مهمة`,
-      "ملاحظة حوكمة: أي تعديل لاحق على النطاق أو BOQ أو المخاطر يتطلب إعادة توليد الخطة قبل الاعتماد النهائي.",
+      "ملاحظة حوكمة: أي تعديل لاحق على النطاق أو جدول الكميات أو المخاطر يتطلب إعادة توليد الخطة قبل الاعتماد النهائي.",
     ].join("\n");
 
     setActionTrackerItems(generatedTrackerItems);
@@ -3301,11 +3301,13 @@ export default function Home() {
       case "done":
         return "التحليل والقرار والتقرير";
       case "advanced_scope":
-        return "المسار المتقدم: نطاق واستراتيجية";
+        return advancedScopeStep === "scope"
+          ? "المسار المتقدم: نطاق واستراتيجية"
+          : "المسار المتقدم: الهيكل التشغيلي";
       case "advanced_boq":
-        if (advancedBoqStep === "boq") return "المسار المتقدم: BOQ";
+        if (advancedBoqStep === "boq") return "المسار المتقدم: جدول الكميات والتسعير";
         if (advancedBoqStep === "quality_risk") return "المسار المتقدم: الجودة والمخاطر";
-        return "المسار المتقدم: المخاطر التشغيلية والجاهزية";
+        return "المسار المتقدم: التشغيل والجاهزية";
       case "advanced_plan":
         return "المسار المتقدم: خطة التنفيذ";
       default:
@@ -3319,7 +3321,7 @@ export default function Home() {
     }
 
     if (stage === "advanced_scope" || stage === "advanced_boq" || stage === "advanced_plan") {
-      return "أنت في المسار المتقدم لبناء خطة تنفيذ متكاملة تعتمد على النطاق، BOQ، والجودة والمخاطر.";
+      return "أنت في المسار المتقدم لبناء خطة تنفيذ متكاملة تعتمد على النطاق، جدول الكميات، والجودة والمخاطر.";
     }
 
     if (stage === "dialogue" || stage === "addition") {
@@ -3354,17 +3356,17 @@ export default function Home() {
       if (advancedScopeStep === "scope") {
         return `نطاق واستراتيجية (${toArabicDigits(advancedScopeCompletedCount)}/${toArabicDigits(advancedScopeTotalCount)})`;
       }
-      return `هيكل تشغيلي (${toArabicDigits(activeOrgRoles.length)}/${toArabicDigits(orgRoles.length)})`;
+      return `الهيكل التشغيلي (${toArabicDigits(activeOrgRoles.length)}/${toArabicDigits(orgRoles.length)})`;
     }
 
     if (stage === "advanced_boq") {
       if (advancedBoqStep === "boq") {
-        return `BOQ (${toArabicDigits(advancedBoqFilledCount)}/${toArabicDigits(advancedBoqTotalCount)})`;
+        return `جدول الكميات والتسعير (${toArabicDigits(advancedBoqFilledCount)}/${toArabicDigits(advancedBoqTotalCount)})`;
       }
       if (advancedBoqStep === "quality_risk") {
-        return `الجودة + المخاطر النصية (${toArabicDigits(advancedQualityRiskCompletedCount)}/${toArabicDigits(advancedQualityRiskTotalCount)})`;
+        return `الجودة والمخاطر (${toArabicDigits(advancedQualityRiskCompletedCount)}/${toArabicDigits(advancedQualityRiskTotalCount)})`;
       }
-      return `التشغيل والمخاطر (${toArabicDigits(advancedOpsCompletedCount)}/${toArabicDigits(advancedOpsTotalCount)})`;
+      return `التشغيل والجاهزية (${toArabicDigits(advancedOpsCompletedCount)}/${toArabicDigits(advancedOpsTotalCount)})`;
     }
 
     if (stage === "advanced_plan") {
@@ -3399,10 +3401,12 @@ export default function Home() {
       case "done":
         return "النتائج جاهزة";
       case "advanced_scope":
-        return "تجهيز النطاق المتقدم";
+        return advancedScopeStep === "scope"
+          ? "تجهيز النطاق والاستراتيجية"
+          : "تجهيز الهيكل التشغيلي";
       case "advanced_boq":
-        if (advancedBoqStep === "boq") return "تجهيز BOQ";
-        if (advancedBoqStep === "quality_risk") return "تجهيز الجودة والمخاطر النصية";
+        if (advancedBoqStep === "boq") return "تجهيز جدول الكميات والتسعير";
+        if (advancedBoqStep === "quality_risk") return "تجهيز الجودة والمخاطر";
         return "جاهزية التشغيل قبل توليد الخطة";
       case "advanced_plan":
         return advancedApproved ? "الخطة المعتمدة جاهزة" : "مراجعة الخطة المتقدمة";
@@ -3731,7 +3735,10 @@ export default function Home() {
         key: "overall",
         label: "الجاهزية العامة",
         score: overall,
-        hint: deliveryTrack === "advanced" ? "مبني على البيانات + BOQ + المخاطر" : "مبني على المسار السريع",
+        hint:
+          deliveryTrack === "advanced"
+            ? "مبني على البيانات + جدول الكميات + المخاطر"
+            : "مبني على المسار السريع",
       },
       {
         key: "data",
@@ -3747,7 +3754,7 @@ export default function Home() {
       },
       {
         key: "boq",
-        label: "اكتمال BOQ",
+        label: "اكتمال جدول الكميات",
         score: boqScore,
         hint:
           deliveryTrack === "advanced"
@@ -7179,7 +7186,7 @@ export default function Home() {
                             الأدوار المفعلة: {toArabicDigits(activeOrgRoles.length)}/{toArabicDigits(orgRoles.length)}
                           </div>
                           <div style={styles.advancedScopeMetaText}>
-                            راجع توزيع المسؤوليات قبل الانتقال إلى BOQ.
+                            راجع توزيع المسؤوليات قبل الانتقال إلى جدول الكميات.
                           </div>
                         </>
                       )}
@@ -7316,7 +7323,7 @@ export default function Home() {
                       <div style={styles.qCard}>
                         <div style={styles.scopeSectionTitle}>2.1 نطاق العمل</div>
                         <div style={styles.scopeSectionHint}>
-                          حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى BOQ.
+                          حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى جدول الكميات.
                         </div>
 
                         <div style={styles.scopeFieldsGrid}>
@@ -7343,7 +7350,7 @@ export default function Home() {
                           </div>
 
                           <div style={styles.scopeFieldCard}>
-                            <div style={styles.scopeFieldTitle}>البرنامج التنفيذي / المراسم</div>
+                            <div style={styles.scopeFieldTitle}>البرنامج التنفيذي</div>
                             <textarea
                               value={scopeProgram}
                               onChange={(e) => setScopeProgram(e.target.value)}
@@ -7514,7 +7521,7 @@ export default function Home() {
                         setStage("advanced_boq");
                       }}
                     >
-                      التالي: BOQ + الجودة + المخاطر
+                      التالي: جدول الكميات والجودة والمخاطر
                     </button>
                   )}
                   {advancedScopeStep === "org" ? (
@@ -7541,7 +7548,7 @@ export default function Home() {
               <>
                 <h3 style={styles.sectionHeading}>
                   {advancedBoqStep === "boq"
-                    ? "7) المسار المتقدم: BOQ"
+                    ? "7) المسار المتقدم: جدول الكميات والتسعير"
                     : advancedBoqStep === "quality_risk"
                       ? "7) المسار المتقدم: الجودة والمخاطر"
                       : "7) المسار المتقدم: التشغيل والجاهزية"}
@@ -7556,7 +7563,7 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedBoqStep("boq")}
                       >
-                        7A: BOQ
+                        7A: جدول الكميات
                       </button>
                       <button
                         type="button"
@@ -7564,7 +7571,7 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedBoqStep("quality_risk")}
                       >
-                        7B: الجودة + المخاطر النصية
+                        7B: الجودة والمخاطر
                       </button>
                       <button
                         type="button"
@@ -7583,10 +7590,10 @@ export default function Home() {
                               advancedBoqFilledCount > 0 ? "ok" : "info"
                             )}
                           >
-                            بنود BOQ المعبأة: {toArabicDigits(advancedBoqFilledCount)}/{toArabicDigits(advancedBoqTotalCount)}
+                            بنود جدول الكميات المعبأة: {toArabicDigits(advancedBoqFilledCount)}/{toArabicDigits(advancedBoqTotalCount)}
                           </div>
                           <div style={styles.advancedScopeMetaText}>
-                            أكمِل البنود الأساسية ثم انتقل إلى الجودة والمخاطر النصية.
+                            أكمِل البنود الأساسية ثم انتقل إلى الجودة والمخاطر.
                           </div>
                         </>
                       ) : advancedBoqStep === "quality_risk" ? (
@@ -7598,7 +7605,7 @@ export default function Home() {
                                 : "info"
                             )}
                           >
-                            الجودة + المخاطر النصية:{" "}
+                            الجودة والمخاطر:{" "}
                             {toArabicDigits(advancedQualityRiskCompletedCount)}/{toArabicDigits(advancedQualityRiskTotalCount)}
                           </div>
                           <div style={styles.advancedScopeMetaText}>
@@ -7625,19 +7632,19 @@ export default function Home() {
 
                 {advancedBoqStep === "boq" ? (
                 <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.3 جدول الكميات والمواصفات (مختصر V1)</div>
+                  <div style={styles.label}>2.3 جدول الكميات والمواصفات (نسخة مختصرة)</div>
                   <div style={styles.textMutedSmallTop8}>
                     خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
                   </div>
                   {activeOrgRoles.length === 0 ? (
                     <div style={styles.warnBox}>
                       <strong>تنبيه:</strong> لا توجد أدوار مفعّلة حاليًا في الهيكل التشغيلي.
-                      فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في BOQ.
+                      فعّل دورًا واحدًا على الأقل لتخصيص المسؤولين في جدول الكميات.
                     </div>
                   ) : null}
                   {boqDependencyIssues.length > 0 ? (
                     <div style={styles.warnBox}>
-                      <strong>تنبيه:</strong> توجد تعارضات في تبعيات BOQ ويجب تصحيحها قبل
+                      <strong>تنبيه:</strong> توجد تعارضات في تبعيات جدول الكميات ويجب تصحيحها قبل
                       توليد الخطة:
                       <div style={styles.blockTop8}>
                         {boqDependencyIssues.slice(0, 6).map((issue, idx) => (
@@ -7926,7 +7933,7 @@ export default function Home() {
                     })}
 
                     <div style={styles.blockTop12}>
-                      <div style={styles.label}>ملخص مالي داخلي (BOQ)</div>
+                      <div style={styles.label}>ملخص مالي داخلي (جدول الكميات)</div>
                       <div style={styles.miniStatsGrid}>
                         <div style={styles.miniStat}>
                           <div style={styles.miniStatLabel}>إجمالي التكلفة</div>
@@ -8024,7 +8031,7 @@ export default function Home() {
                         disabled={isProcessing() || !canEditAdvancedExecution}
                         onClick={addBoqRow}
                       >
-                        إضافة بند BOQ
+                        إضافة بند في جدول الكميات
                       </button>
                     </div>
                   </div>
@@ -8355,7 +8362,7 @@ export default function Home() {
                     disabled={isProcessing()}
                     onClick={() => setAdvancedBoqStep("quality_risk")}
                   >
-                    رجوع: 7B الجودة + المخاطر النصية
+                    رجوع: 7B الجودة والمخاطر
                   </button>
                   <button
                     style={styles.secondaryBtn(isProcessing())}
@@ -8378,7 +8385,7 @@ export default function Home() {
                       disabled={isProcessing()}
                       onClick={() => setAdvancedBoqStep("quality_risk")}
                     >
-                      التالي: 7B الجودة + المخاطر النصية
+                      التالي: 7B الجودة والمخاطر
                     </button>
                     <button
                       style={styles.secondaryBtn(isProcessing())}
@@ -8407,7 +8414,7 @@ export default function Home() {
                       disabled={isProcessing()}
                       onClick={() => setAdvancedBoqStep("boq")}
                     >
-                      رجوع: 7A BOQ
+                      رجوع: 7A جدول الكميات
                     </button>
                     <button
                       style={styles.secondaryBtn(isProcessing())}
@@ -8895,7 +8902,7 @@ export default function Home() {
                       setStage("advanced_boq");
                     }}
                   >
-                    رجوع: BOQ والجودة والمخاطر
+                    رجوع: جدول الكميات والجودة والمخاطر
                   </button>
                 </div>
               </>
@@ -8950,7 +8957,7 @@ export default function Home() {
                 {userRole === "viewer"
                   ? "عرض فقط بدون تعديل."
                   : userRole === "finance_manager"
-                    ? "يمكنك تعديل الميزانية وتسعير BOQ والحوكمة."
+                    ? "يمكنك تعديل الميزانية وتسعير جدول الكميات والحوكمة."
                     : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
               </div>
             </div>
@@ -9123,7 +9130,7 @@ export default function Home() {
             {deliveryTrack === "advanced" &&
             (stage === "advanced_boq" || stage === "advanced_plan") ? (
               <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>الربحية الداخلية (BOQ)</div>
+                <div style={styles.sideBlockTitle}>الربحية الداخلية (جدول الكميات)</div>
                 <div style={styles.sideSummaryPrimaryText}>
                   التكلفة: <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
                 </div>
