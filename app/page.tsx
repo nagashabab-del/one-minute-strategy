@@ -4225,52 +4225,52 @@ export default function Home() {
       const isCalmTheme = themeMode === "calm";
       const palette = isCalmTheme
         ? {
-            pageBg: "#0f1524",
-            pageText: "rgba(245,250,255,0.98)",
+            pageBg: "#d8deea",
+            pageText: "rgba(34,48,72,0.98)",
             glow:
-              "radial-gradient(circle, rgba(126,146,230,0.36) 0%, rgba(15,21,36,0) 62%)",
-            shellBorder: "1px solid rgba(166,185,216,0.24)",
+              "radial-gradient(circle, rgba(124,152,206,0.30) 0%, rgba(216,222,234,0) 62%)",
+            shellBorder: "1px solid rgba(158,176,206,0.38)",
             shellBg:
-              "linear-gradient(180deg, rgba(149,170,206,0.14), rgba(18,27,43,0.42) 70%)",
-            shellShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+              "linear-gradient(180deg, rgba(243,246,252,0.94), rgba(233,239,250,0.86) 70%)",
+            shellShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
             cardBg:
-              "linear-gradient(180deg, rgba(160,178,208,0.12), rgba(15,23,40,0.48) 72%)",
-            cardBorder: "1px solid rgba(166,185,216,0.22)",
-            inputBg: "rgba(18,28,46,0.62)",
-            inputBorder: "1px solid rgba(166,185,216,0.32)",
-            primaryBg: "linear-gradient(90deg, #6e6cff, #5faeeb)",
-            primaryDisabledBg: "rgba(166,185,216,0.28)",
-            secondaryBg: "rgba(166,185,216,0.10)",
-            secondaryBorder: "1px solid rgba(166,185,216,0.34)",
-            ghostBorder: "1px solid rgba(166,185,216,0.34)",
-            progressTrack: "rgba(166,185,216,0.18)",
-            progressBorder: "1px solid rgba(166,185,216,0.20)",
-            progressFill: "linear-gradient(90deg, #5faeeb, #7d8be8, #6e6cff)",
-            progressGlow: "0 0 14px rgba(95,174,235,0.20)",
-            accentBorder: "1px solid rgba(95,174,235,0.34)",
-            accentBg: "rgba(95,174,235,0.14)",
-            successBorder: "1px solid rgba(47,182,126,0.34)",
-            successBg: "rgba(47,182,126,0.13)",
-            warnBorder: "1px solid rgba(240,170,78,0.34)",
-            warnBg: "rgba(240,170,78,0.13)",
-            dangerBorder: "1px solid rgba(225,110,110,0.34)",
-            dangerBg: "rgba(225,110,110,0.13)",
-            infoBorder: "1px solid rgba(95,174,235,0.34)",
-            infoBg: "rgba(95,174,235,0.13)",
-            criticalBorder: "1px solid rgba(214,98,122,0.38)",
-            criticalBg: "rgba(214,98,122,0.14)",
-            infoSolid: "#5FAEEB",
+              "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(245,248,253,0.82) 72%)",
+            cardBorder: "1px solid rgba(186,202,228,0.72)",
+            inputBg: "rgba(255,255,255,0.86)",
+            inputBorder: "1px solid rgba(165,182,211,0.66)",
+            primaryBg: "linear-gradient(90deg, #5d358e, #7a4bc1)",
+            primaryDisabledBg: "rgba(165,182,211,0.42)",
+            secondaryBg: "rgba(245,248,255,0.92)",
+            secondaryBorder: "1px solid rgba(165,182,211,0.58)",
+            ghostBorder: "1px solid rgba(165,182,211,0.58)",
+            progressTrack: "rgba(176,193,222,0.44)",
+            progressBorder: "1px solid rgba(165,182,211,0.58)",
+            progressFill: "linear-gradient(90deg, #7a4bc1, #6a43ab, #5d358e)",
+            progressGlow: "0 0 14px rgba(93,53,142,0.24)",
+            accentBorder: "1px solid rgba(93,53,142,0.46)",
+            accentBg: "rgba(93,53,142,0.18)",
+            successBorder: "1px solid rgba(74,158,125,0.48)",
+            successBg: "rgba(74,158,125,0.16)",
+            warnBorder: "1px solid rgba(208,152,77,0.48)",
+            warnBg: "rgba(208,152,77,0.16)",
+            dangerBorder: "1px solid rgba(196,112,104,0.48)",
+            dangerBg: "rgba(196,112,104,0.16)",
+            infoBorder: "1px solid rgba(93,53,142,0.46)",
+            infoBg: "rgba(93,53,142,0.18)",
+            criticalBorder: "1px solid rgba(183,94,123,0.50)",
+            criticalBg: "rgba(183,94,123,0.18)",
+            infoSolid: "#5D358E",
             successSolid: "#2FB67E",
             warnSolid: "#F0AA4E",
             dangerSolid: "#E16E6E",
             criticalSolid: "#D6627A",
             sidePanelBg:
-              "linear-gradient(180deg, rgba(18,27,43,0.90), rgba(15,23,38,0.88) 55%, rgba(13,20,33,0.90))",
-            sidePanelBorder: "1px solid rgba(95,174,235,0.24)",
+              "linear-gradient(180deg, rgba(244,247,253,0.97), rgba(235,241,250,0.95) 55%, rgba(228,236,248,0.97))",
+            sidePanelBorder: "1px solid rgba(158,176,206,0.45)",
             sideBlockBg:
-              "linear-gradient(180deg, rgba(149,170,206,0.11), rgba(19,29,48,0.36))",
-            sideBlockBorder: "1px solid rgba(166,185,216,0.18)",
-            sideBlockAccent: "3px solid rgba(95,174,235,0.50)",
+              "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(247,250,255,0.88))",
+            sideBlockBorder: "1px solid rgba(182,198,224,0.72)",
+            sideBlockAccent: "3px solid rgba(93,53,142,0.54)",
           }
         : {
             pageBg: "#05070d",
@@ -4318,6 +4318,10 @@ export default function Home() {
             sideBlockBorder: "1px solid rgba(255,255,255,0.10)",
             sideBlockAccent: "3px solid rgba(0,229,255,0.38)",
           };
+      const textTone = (alpha: number) =>
+        isCalmTheme
+          ? `rgba(36,52,78,${Math.min(0.98, Math.max(0.64, alpha + 0.16)).toFixed(2)})`
+          : `rgba(255,255,255,${alpha})`;
 
       return ({
       page: {
@@ -4373,7 +4377,7 @@ export default function Home() {
         height: isMobile ? 40 : 48,
         width: "auto",
         filter: isCalmTheme
-          ? "drop-shadow(0 0 14px rgba(95,174,235,0.48))"
+          ? "drop-shadow(0 0 14px rgba(93,53,142,0.48))"
           : "drop-shadow(0 0 16px rgba(128,0,255,0.55))",
       } as CSSProperties,
       headerBrandText: {
@@ -4423,10 +4427,10 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(95,174,235,0.42)"
+            ? "1px solid rgba(93,53,142,0.42)"
             : "1px solid rgba(255,255,255,0.18)",
           background: active
-            ? "linear-gradient(180deg, rgba(95,174,235,0.20), rgba(110,108,255,0.10))"
+            ? "linear-gradient(180deg, rgba(93,53,142,0.24), rgba(122,75,193,0.12))"
             : "rgba(255,255,255,0.04)",
           color: "white",
           fontSize: 13,
@@ -4518,14 +4522,14 @@ export default function Home() {
       progressTitle: {
         fontSize: 12.5,
         fontWeight: 800,
-        color: "rgba(255,255,255,0.86)",
+        color: textTone(0.86),
         lineHeight: 1.4,
       } as CSSProperties,
       progressPercentBadge: {
         borderRadius: 999,
         border: palette.accentBorder,
         background: palette.accentBg,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
         fontSize: 12,
         fontWeight: 900,
         padding: "4px 8px",
@@ -4535,13 +4539,13 @@ export default function Home() {
         marginTop: 8,
         fontSize: isMobile ? 14 : 14.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       progressMetaLine: {
         marginTop: 4,
         fontSize: 12,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
       } as CSSProperties,
       progressBar: {
         marginTop: 9,
@@ -4560,7 +4564,7 @@ export default function Home() {
       progressFooterText: {
         marginTop: 6,
         fontSize: 12,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
       } as CSSProperties,
       grid: {
         display: "grid",
@@ -4576,13 +4580,13 @@ export default function Home() {
       },
       cardTitle: { fontSize: textScale.sectionTitle, fontWeight: 900, margin: 0 },
       muted: {
-        color: "rgba(255,255,255,0.76)",
+        color: textTone(0.76),
         fontSize: textScale.small,
         marginTop: space.xs,
       },
       label: {
         fontSize: textScale.small,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         marginBottom: space.xs,
       },
       input: {
@@ -4611,7 +4615,7 @@ export default function Home() {
         minWidth: 16,
         zIndex: 2,
         fontSize: 13,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
         pointerEvents: "none",
         userSelect: "none",
       } as CSSProperties,
@@ -4663,7 +4667,7 @@ export default function Home() {
         marginTop: 10,
         fontSize: 13,
       },
-      k: { color: "rgba(255,255,255,0.7)" },
+      k: { color: textTone(0.7) },
       v: { fontWeight: 900 },
       qCard: {
         padding: isMobile ? 12 : 14,
@@ -4679,7 +4683,7 @@ export default function Home() {
         border: palette.infoBorder,
         background:
           isCalmTheme
-            ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)"
+            ? "linear-gradient(180deg, rgba(93,53,142,0.14), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)"
             : "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)",
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 24px rgba(0,0,0,0.20)",
       } as CSSProperties,
@@ -4700,7 +4704,7 @@ export default function Home() {
         borderRadius: 999,
         border: palette.infoBorder,
         background: palette.infoBg,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
         fontSize: 11.5,
         fontWeight: 900,
         letterSpacing: 0.2,
@@ -4712,7 +4716,7 @@ export default function Home() {
         margin: 0,
         fontSize: isMobile ? 19 : 18,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.97)",
+        color: textTone(0.97),
         lineHeight: 1.5,
       } as CSSProperties,
       advancedSectionHint: {
@@ -4720,7 +4724,7 @@ export default function Home() {
         marginBottom: 0,
         fontSize: isMobile ? 12.5 : 12.8,
         lineHeight: 1.6,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
       } as CSSProperties,
       advancedSectionContent: {
         marginTop: 11,
@@ -4729,7 +4733,7 @@ export default function Home() {
         marginTop: 4,
         fontSize: 12.5,
         lineHeight: 1.6,
-        color: "rgba(255,255,255,0.80)",
+        color: textTone(0.80),
       } as CSSProperties,
       stageFlowList: {
         marginTop: 10,
@@ -4795,7 +4799,7 @@ export default function Home() {
           fontSize: isMobile ? 14 : 15,
         } as CSSProperties),
       advisorQuestionText: {
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
         fontWeight: 900,
         letterSpacing: 0.1,
         lineHeight: 1.45,
@@ -4803,7 +4807,7 @@ export default function Home() {
       } as CSSProperties,
       qHint: {
         fontSize: textScale.tiny,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         marginTop: space.xs,
         lineHeight: 1.55,
       } as CSSProperties,
@@ -4854,7 +4858,7 @@ export default function Home() {
             : "1px solid rgba(255,255,255,0.12)",
           background: active
             ? (isCalmTheme
-                ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03))"
+                ? "linear-gradient(180deg, rgba(93,53,142,0.14), rgba(255,255,255,0.03))"
                 : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
             : "rgba(255,255,255,0.025)",
           padding: "10px 11px",
@@ -4864,7 +4868,7 @@ export default function Home() {
           gap: 4,
           boxShadow: active
             ? isCalmTheme
-              ? "0 8px 20px rgba(95,174,235,0.10)"
+              ? "0 8px 20px rgba(93,53,142,0.10)"
               : "0 8px 20px rgba(0,229,255,0.10)"
             : "none",
           minHeight: 76,
@@ -4872,12 +4876,12 @@ export default function Home() {
       additionChoiceTitle: {
         fontSize: 13.5,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
         lineHeight: 1.45,
       } as CSSProperties,
       additionChoiceDesc: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
         lineHeight: 1.55,
       } as CSSProperties,
       additionInputCard: {
@@ -4907,12 +4911,12 @@ export default function Home() {
       permissionHintTitle: {
         fontSize: 12.5,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
         marginBottom: 6,
       } as CSSProperties,
       permissionHintItem: {
         fontSize: 12.5,
-        color: "rgba(255,255,255,0.88)",
+        color: textTone(0.88),
         lineHeight: 1.55,
         marginTop: 4,
       } as CSSProperties,
@@ -4971,13 +4975,13 @@ export default function Home() {
         margin: 0,
         fontSize: isMobile ? 17 : 18,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.97)",
+        color: textTone(0.97),
         lineHeight: 1.45,
       } as CSSProperties,
       confirmDesc: {
         marginTop: 8,
         fontSize: 13,
-        color: "rgba(255,255,255,0.82)",
+        color: textTone(0.82),
         lineHeight: 1.7,
       } as CSSProperties,
       confirmWarn: {
@@ -4987,7 +4991,7 @@ export default function Home() {
         background: palette.warnBg,
         padding: "8px 10px",
         fontSize: 12.5,
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
         lineHeight: 1.6,
       } as CSSProperties,
       confirmActions: {
@@ -5117,27 +5121,27 @@ export default function Home() {
       timelineFieldLabel: {
         fontSize: isMobile ? 13 : 12.5,
         fontWeight: 800,
-        color: "rgba(255,255,255,0.94)",
+        color: textTone(0.94),
       } as CSSProperties,
       timelineStatusChip: (tone: TimelineTone) =>
         ({
           borderRadius: 999,
           border:
             tone === "ok"
-              ? "1px solid rgba(0,216,130,0.30)"
+              ? palette.successBorder
               : tone === "warn"
-                ? "1px solid rgba(255,166,77,0.32)"
+                ? palette.warnBorder
                 : tone === "info"
-                  ? "1px solid rgba(0,198,228,0.30)"
-                  : "1px solid rgba(255,255,255,0.20)",
+                  ? palette.infoBorder
+                  : palette.secondaryBorder,
           background:
             tone === "ok"
-              ? "rgba(0,216,130,0.11)"
+              ? palette.successBg
               : tone === "warn"
-                ? "rgba(255,166,77,0.11)"
+                ? palette.warnBg
                 : tone === "info"
-                  ? "rgba(0,198,228,0.11)"
-                  : "rgba(255,255,255,0.06)",
+                  ? palette.infoBg
+                  : palette.secondaryBg,
           color: "white",
           fontSize: 11.5,
           fontWeight: 800,
@@ -5150,11 +5154,13 @@ export default function Home() {
         marginTop: 7,
         fontSize: 11.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.68)",
+        color: textTone(0.68),
       } as CSSProperties,
       timelineDateInput: {
-        background: "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(255,255,255,0.02))",
-        border: "1px solid rgba(255,255,255,0.16)",
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(255,255,255,0.90), rgba(244,248,255,0.86))"
+          : "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(255,255,255,0.02))",
+        border: isCalmTheme ? palette.inputBorder : "1px solid rgba(255,255,255,0.16)",
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
       } as CSSProperties,
       timelineSummaryGrid: {
@@ -5165,13 +5171,13 @@ export default function Home() {
       } as CSSProperties,
       timelineSummaryItem: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "8px 9px",
       } as CSSProperties,
       timelineSummaryLabel: {
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       timelineSummaryValue: (tone: TimelineTone) =>
         ({
@@ -5185,7 +5191,7 @@ export default function Home() {
                 ? palette.warnSolid
                 : tone === "info"
                   ? palette.infoSolid
-                  : "rgba(255,255,255,0.9)",
+                  : textTone(0.9),
         } as CSSProperties),
       scopeFieldsGrid: {
         marginTop: 10,
@@ -5195,25 +5201,25 @@ export default function Home() {
       } as CSSProperties,
       scopeFieldCard: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.11)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: isMobile ? 11 : 10,
       } as CSSProperties,
       scopeSectionTitle: {
         fontSize: 15,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       scopeSectionHint: {
         marginTop: 4,
         fontSize: 12.5,
         lineHeight: 1.6,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       scopeFieldTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
         marginBottom: 8,
       } as CSSProperties,
       scopeTextarea: {
@@ -5222,17 +5228,17 @@ export default function Home() {
       scopeStrategyCard: {
         marginTop: 10,
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.12)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         boxShadow: isCalmTheme
-          ? "inset 0 0 0 1px rgba(95,174,235,0.12)"
+          ? "inset 0 0 0 1px rgba(93,53,142,0.12)"
           : "inset 0 0 0 1px rgba(0,229,255,0.08)",
         padding: isMobile ? 11 : 10,
       } as CSSProperties,
       scopeStrategyTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.94)",
+        color: textTone(0.94),
         marginBottom: 8,
       } as CSSProperties,
       scopeStrategyTextarea: {
@@ -5240,8 +5246,8 @@ export default function Home() {
       } as CSSProperties,
       advancedScopeNavCard: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: isMobile ? 11 : 10,
       } as CSSProperties,
       advancedScopeMetaRow: {
@@ -5258,13 +5264,13 @@ export default function Home() {
           borderRadius: 999,
           border:
             tone === "ok"
-              ? "1px solid rgba(0,216,130,0.30)"
-              : "1px solid rgba(0,198,228,0.30)",
+              ? palette.successBorder
+              : palette.infoBorder,
           background:
             tone === "ok"
-              ? "rgba(0,216,130,0.11)"
-              : "rgba(0,198,228,0.11)",
-          color: "rgba(255,255,255,0.95)",
+              ? palette.successBg
+              : palette.infoBg,
+          color: textTone(0.95),
           fontSize: 12,
           fontWeight: 800,
           padding: "4px 8px",
@@ -5274,7 +5280,7 @@ export default function Home() {
         } as CSSProperties),
       advancedScopeMetaText: {
         fontSize: isMobile ? 12 : 12.5,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         lineHeight: 1.5,
       } as CSSProperties,
       advancedBoqNavGrid: {
@@ -5294,12 +5300,14 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(88,116,233,0.34)"
-            : "1px solid rgba(255,255,255,0.12)",
+            ? palette.infoBorder
+            : palette.secondaryBorder,
           background: active
-            ? "linear-gradient(180deg, rgba(88,116,233,0.18), rgba(0,198,228,0.08))"
-            : "rgba(255,255,255,0.03)",
-          color: "white",
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(93,53,142,0.16), rgba(122,75,193,0.08))"
+                : "linear-gradient(180deg, rgba(88,116,233,0.18), rgba(0,198,228,0.08))")
+            : palette.secondaryBg,
+          color: active ? "white" : textTone(0.9),
           padding: "10px 12px",
           textAlign: "right",
           cursor: "pointer",
@@ -5316,32 +5324,38 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 14,
           border: active
-            ? "1px solid rgba(0,198,228,0.30)"
-            : "1px solid rgba(255,255,255,0.10)",
+            ? palette.infoBorder
+            : palette.secondaryBorder,
           background: active
-            ? "linear-gradient(180deg, rgba(0,198,228,0.11), rgba(88,116,233,0.08))"
-            : "rgba(255,255,255,0.025)",
-          color: "white",
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(93,53,142,0.14), rgba(122,75,193,0.08))"
+                : "linear-gradient(180deg, rgba(0,198,228,0.11), rgba(88,116,233,0.08))")
+            : palette.secondaryBg,
+          color: active ? "white" : textTone(0.92),
           padding: "11px 12px",
           textAlign: "right",
           cursor: "pointer",
-          boxShadow: active ? "0 8px 22px rgba(0,198,228,0.07)" : "none",
+          boxShadow: active
+            ? isCalmTheme
+              ? "0 8px 22px rgba(93,53,142,0.10)"
+              : "0 8px 22px rgba(0,198,228,0.07)"
+            : "none",
         } as CSSProperties),
       sessionModeTitle: {
         fontWeight: 900,
         fontSize: 13,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       sessionModeDesc: {
         marginTop: 5,
         fontSize: 11.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
       } as CSSProperties,
       smallMuted: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         lineHeight: 1.5,
       } as CSSProperties,
       summaryMetaGrid: {
@@ -5392,7 +5406,7 @@ export default function Home() {
       },
       decisionStateLabel: {
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
       } as CSSProperties,
       decisionStateValue: (decision?: string) =>
         ({
@@ -5412,7 +5426,7 @@ export default function Home() {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(255,255,255,0.03)",
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
       } as CSSProperties,
       quickStatsGrid: {
         display: "grid",
@@ -5428,13 +5442,13 @@ export default function Home() {
       } as CSSProperties,
       statLabel: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.7)",
+        color: textTone(0.7),
         marginBottom: 4,
       } as CSSProperties,
       statValue: {
         fontSize: 17,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       qualityCard: {
         marginTop: 12,
@@ -5507,13 +5521,13 @@ export default function Home() {
       finalBodyText: {
         marginTop: space.xs,
         lineHeight: 1.7,
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
         fontSize: textScale.body,
       } as CSSProperties,
       dialogueStatement: {
         marginTop: 9,
         lineHeight: 1.75,
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
         fontSize: textScale.body,
       } as CSSProperties,
       openIssuesCard: {
@@ -5549,13 +5563,13 @@ export default function Home() {
         borderRadius: 10,
         border: "1px solid rgba(255,255,255,0.10)",
         background: "rgba(255,255,255,0.03)",
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
         lineHeight: 1.6,
       } as CSSProperties,
       questionPromptText: {
         marginTop: space.xs,
         lineHeight: 1.7,
-        color: "rgba(255,255,255,0.93)",
+        color: textTone(0.93),
         fontSize: textScale.body,
       } as CSSProperties,
       questionTextarea: {
@@ -5680,7 +5694,7 @@ export default function Home() {
             : palette.secondaryBorder,
           background: open
             ? (isCalmTheme
-                ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03))"
+                ? "linear-gradient(180deg, rgba(93,53,142,0.14), rgba(255,255,255,0.03))"
                 : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
             : palette.secondaryBg,
           color: "white",
@@ -5694,7 +5708,7 @@ export default function Home() {
           cursor: "pointer",
         } as CSSProperties),
       mobileSummaryAccordionLabel: {
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       mobileSummaryAccordionIcon: (open: boolean) =>
         ({
@@ -5726,13 +5740,13 @@ export default function Home() {
       mobileSummarySectionLabel: {
         fontSize: 12.5,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.94)",
+        color: textTone(0.94),
         lineHeight: 1.5,
       } as CSSProperties,
       mobileSummaryLine: {
         marginTop: 8,
         fontSize: 12.5,
-        color: "rgba(255,255,255,0.86)",
+        color: textTone(0.86),
         lineHeight: 1.6,
       } as CSSProperties,
       mobileSummaryAlertsList: {
@@ -5745,7 +5759,7 @@ export default function Home() {
         marginBottom: 8,
         fontSize: 11.5,
         letterSpacing: 0.3,
-        color: isCalmTheme ? "rgba(146,196,244,0.92)" : "rgba(0,229,255,0.82)",
+        color: isCalmTheme ? "rgba(108,72,164,0.92)" : "rgba(0,229,255,0.82)",
         fontWeight: 800,
       } as CSSProperties,
       sideBlock: {
@@ -5760,7 +5774,7 @@ export default function Home() {
       sideBlockTitle: {
         fontWeight: 900,
         fontSize: 12.5,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
         marginBottom: 7,
         lineHeight: 1.45,
       } as CSSProperties,
@@ -5785,7 +5799,7 @@ export default function Home() {
         marginTop: 5,
         fontSize: 11.5,
         lineHeight: 1.45,
-        color: "rgba(255,255,255,0.70)",
+        color: textTone(0.70),
       } as CSSProperties,
       stageStatusChip: (tone: "ready" | "active" | "working" | "idle") =>
         ({
@@ -5799,20 +5813,20 @@ export default function Home() {
           color: "white",
           border:
             tone === "ready"
-              ? "1px solid rgba(31,208,145,0.32)"
+              ? palette.successBorder
               : tone === "active"
-                ? "1px solid rgba(0,198,228,0.32)"
+                ? palette.infoBorder
                 : tone === "working"
-                  ? "1px solid rgba(255,184,107,0.32)"
-                  : "1px solid rgba(255,255,255,0.20)",
+                  ? palette.warnBorder
+                  : palette.secondaryBorder,
           background:
             tone === "ready"
-              ? "rgba(31,208,145,0.12)"
+              ? palette.successBg
               : tone === "active"
-                ? "rgba(0,198,228,0.12)"
+                ? palette.infoBg
                 : tone === "working"
-                  ? "rgba(255,184,107,0.12)"
-                  : "rgba(255,255,255,0.08)",
+                  ? palette.warnBg
+                  : palette.secondaryBg,
         } as CSSProperties),
       miniStatsGrid: {
         display: "grid",
@@ -5834,7 +5848,7 @@ export default function Home() {
           padding: "7px 8px",
           fontSize: 11.5,
           lineHeight: 1.45,
-          color: "rgba(255,255,255,0.92)",
+          color: textTone(0.92),
         } as CSSProperties),
       miniStat: {
         borderRadius: 12,
@@ -5844,13 +5858,13 @@ export default function Home() {
       } as CSSProperties,
       miniStatLabel: {
         fontSize: textScale.tiny,
-        color: "rgba(255,255,255,0.62)",
+        color: textTone(0.62),
         marginBottom: 3,
       } as CSSProperties,
       miniStatValue: {
         fontSize: textScale.body,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       welcomeHero: {
         display: "flex",
@@ -5877,7 +5891,7 @@ export default function Home() {
       } as CSSProperties,
       welcomeSubtitle: {
         marginTop: 6,
-        color: "rgba(255,255,255,0.84)",
+        color: textTone(0.84),
         fontSize: isMobile ? 12 : 15,
         fontWeight: 800,
         letterSpacing: 0.2,
@@ -5886,7 +5900,7 @@ export default function Home() {
         marginTop: 12,
         marginBottom: 0,
         maxWidth: isMobile ? "100%" : 620,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         fontSize: isMobile ? 12 : 13,
         fontWeight: 700,
         lineHeight: isMobile ? 1.7 : 1.75,
@@ -5913,27 +5927,27 @@ export default function Home() {
       } as CSSProperties,
       textPrimarySmall: {
         fontSize: 13,
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
       } as CSSProperties,
       textSecondarySmall: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
       } as CSSProperties,
       textTertiarySmall: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
       } as CSSProperties,
       textMutedSmall: {
         marginTop: 10,
         fontSize: 12,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
       } as CSSProperties,
       textMutedSmallTop8: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
       } as CSSProperties,
       blockTop12: { marginTop: 12 } as CSSProperties,
       blockTop10: { marginTop: 10 } as CSSProperties,
@@ -5952,7 +5966,7 @@ export default function Home() {
             : palette.sideBlockBorder,
           background: active
             ? (isCalmTheme
-                ? "linear-gradient(180deg, rgba(95,174,235,0.13), rgba(255,255,255,0.03))"
+                ? "linear-gradient(180deg, rgba(93,53,142,0.13), rgba(255,255,255,0.03))"
                 : "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))")
             : palette.sideBlockBg,
           padding: isMobile ? 11 : 10,
@@ -5971,12 +5985,12 @@ export default function Home() {
       orgRoleTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       orgRoleSummary: {
         marginTop: 3,
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
         lineHeight: 1.5,
       } as CSSProperties,
       orgRoleToggle: (active: boolean) =>
@@ -6011,7 +6025,7 @@ export default function Home() {
       } as CSSProperties,
       orgRoleMetaLabel: {
         fontSize: 11,
-        color: "rgba(255,255,255,0.70)",
+        color: textTone(0.70),
       } as CSSProperties,
       orgRoleMetaHead: {
         display: "flex",
@@ -6039,7 +6053,7 @@ export default function Home() {
         marginTop: 3,
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       orgRoleDetailsPanel: {
         marginTop: 8,
@@ -6051,18 +6065,18 @@ export default function Home() {
       orgRoleDetailsTitle: {
         fontSize: 11.5,
         fontWeight: 800,
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
       } as CSSProperties,
       orgRoleDetailsItem: {
         marginTop: 6,
         fontSize: 11.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.86)",
+        color: textTone(0.86),
       } as CSSProperties,
       orgRoleMetaText: {
         marginTop: 8,
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.78)",
+        color: textTone(0.78),
         lineHeight: 1.5,
       } as CSSProperties,
       actionTrackerHead: {
@@ -6095,13 +6109,13 @@ export default function Home() {
       } as CSSProperties,
       actionTrackerStatLabel: {
         fontSize: 11,
-        color: "rgba(255,255,255,0.70)",
+        color: textTone(0.70),
       } as CSSProperties,
       actionTrackerStatValue: {
         marginTop: 3,
         fontSize: 14,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       actionTaskCard: (status: ActionTaskStatus) =>
         ({
@@ -6109,20 +6123,20 @@ export default function Home() {
           borderRadius: 12,
           border:
             status === "مكتمل"
-              ? "1px solid rgba(0,255,133,0.26)"
+              ? palette.successBorder
               : status === "متعثر"
-                ? "1px solid rgba(255,122,69,0.30)"
+                ? palette.dangerBorder
                 : status === "جاري"
-                  ? "1px solid rgba(0,229,255,0.25)"
-                  : "1px solid rgba(255,255,255,0.10)",
+                  ? palette.infoBorder
+                  : palette.sideBlockBorder,
           background:
             status === "مكتمل"
-              ? "rgba(0,255,133,0.06)"
+              ? palette.successBg
               : status === "متعثر"
-                ? "rgba(255,122,69,0.08)"
+                ? palette.dangerBg
                 : status === "جاري"
-                  ? "rgba(0,229,255,0.07)"
-                  : "rgba(255,255,255,0.025)",
+                  ? palette.infoBg
+                  : palette.sideBlockBg,
           padding: 10,
         } as CSSProperties),
       actionTaskHead: {
@@ -6132,12 +6146,12 @@ export default function Home() {
       actionTaskTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
         lineHeight: 1.5,
       } as CSSProperties,
       actionTaskMeta: {
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       actionTaskGrid: {
         marginTop: 10,
@@ -6164,7 +6178,7 @@ export default function Home() {
       outputPackTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       outputPackActions: {
         marginTop: 8,
@@ -6208,13 +6222,13 @@ export default function Home() {
       } as CSSProperties,
       riskBoardStatLabel: {
         fontSize: 11,
-        color: "rgba(255,255,255,0.70)",
+        color: textTone(0.70),
       } as CSSProperties,
       riskBoardStatValue: {
         marginTop: 3,
         fontSize: 14,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       riskLegendRow: {
         marginTop: 10,
@@ -6231,7 +6245,7 @@ export default function Home() {
         alignItems: "center",
         gap: 8,
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.88)",
+        color: textTone(0.88),
       } as CSSProperties,
       riskLegendDot: (severity: RiskSeverity) =>
         ({
@@ -6245,7 +6259,7 @@ export default function Home() {
                 ? (isCalmTheme ? "#E16E6E" : "#FF7A45")
                 : severity === "medium"
                   ? (isCalmTheme ? "#F0AA4E" : "#FFC24D")
-                  : (isCalmTheme ? "#5FAEEB" : "#00E5FF"),
+                  : (isCalmTheme ? "#5D358E" : "#00E5FF"),
           boxShadow:
             severity === "critical"
               ? (isCalmTheme ? "0 0 10px rgba(214,98,122,0.44)" : "0 0 10px rgba(255,79,139,0.5)")
@@ -6253,7 +6267,7 @@ export default function Home() {
                 ? (isCalmTheme ? "0 0 10px rgba(225,110,110,0.40)" : "0 0 10px rgba(255,122,69,0.45)")
                 : severity === "medium"
                   ? (isCalmTheme ? "0 0 10px rgba(240,170,78,0.40)" : "0 0 10px rgba(255,194,77,0.45)")
-                  : (isCalmTheme ? "0 0 10px rgba(95,174,235,0.40)" : "0 0 10px rgba(0,229,255,0.45)"),
+                  : (isCalmTheme ? "0 0 10px rgba(93,53,142,0.40)" : "0 0 10px rgba(0,229,255,0.45)"),
           flexShrink: 0,
         } as CSSProperties),
       riskCard: (severity: RiskSeverity, status: RiskStatus) =>
@@ -6289,7 +6303,7 @@ export default function Home() {
                   ? `0 10px 24px ${isCalmTheme ? "rgba(225,110,110,0.12)" : "rgba(255,122,69,0.12)"}`
                   : severity === "medium"
                     ? `0 8px 20px ${isCalmTheme ? "rgba(240,170,78,0.10)" : "rgba(255,194,77,0.10)"}`
-                    : `0 8px 18px ${isCalmTheme ? "rgba(95,174,235,0.09)" : "rgba(0,229,255,0.09)"}`,
+                    : `0 8px 18px ${isCalmTheme ? "rgba(93,53,142,0.09)" : "rgba(0,229,255,0.09)"}`,
           padding: 10,
         } as CSSProperties),
       riskCardHead: {
@@ -6302,7 +6316,7 @@ export default function Home() {
       riskCardTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       riskSeverityBadge: (severity: RiskSeverity) =>
         ({
@@ -6357,7 +6371,7 @@ export default function Home() {
       riskCardMeta: {
         marginTop: 4,
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       riskLevelSelect: (level: RiskLevel) =>
         ({
@@ -6434,13 +6448,13 @@ export default function Home() {
       } as CSSProperties,
       governanceStatLabel: {
         fontSize: 11,
-        color: "rgba(255,255,255,0.70)",
+        color: textTone(0.70),
       } as CSSProperties,
       governanceStatValue: {
         marginTop: 3,
         fontSize: 14,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       crCard: (status: ChangeRequestStatus) =>
         ({
@@ -6448,27 +6462,27 @@ export default function Home() {
           borderRadius: 10,
           border:
             status === "معتمد"
-              ? "1px solid rgba(0,255,133,0.26)"
+              ? palette.successBorder
               : status === "مرفوض"
-                ? "1px solid rgba(255,79,216,0.28)"
-                : "1px solid rgba(0,229,255,0.24)",
+                ? palette.criticalBorder
+                : palette.infoBorder,
           background:
             status === "معتمد"
-              ? "rgba(0,255,133,0.06)"
+              ? palette.successBg
               : status === "مرفوض"
-                ? "rgba(255,79,216,0.08)"
-                : "rgba(0,229,255,0.06)",
+                ? palette.criticalBg
+                : palette.infoBg,
           padding: "9px 10px",
         } as CSSProperties),
       crTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
       } as CSSProperties,
       crMeta: {
         marginTop: 4,
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.74)",
+        color: textTone(0.74),
         lineHeight: 1.5,
       } as CSSProperties,
       radioLabel: {
@@ -6480,7 +6494,7 @@ export default function Home() {
       } as CSSProperties,
       textNeutralSmall72: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       qualityHeaderRow: {
         display: "flex",
@@ -6492,25 +6506,25 @@ export default function Home() {
       qualitySummaryText: {
         marginTop: 6,
         fontSize: 13,
-        color: "rgba(255,255,255,0.75)",
+        color: textTone(0.75),
         lineHeight: 1.6,
       } as CSSProperties,
       qualityPositiveText: {
         marginTop: 10,
         fontSize: 13,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       inlineWarnBoxTop10: {
         marginTop: 10,
       } as CSSProperties,
       advisorRecoEmptyText: {
         marginTop: 10,
-        color: "rgba(255,255,255,0.65)",
+        color: textTone(0.65),
         fontSize: 13,
       } as CSSProperties,
       reportHintText: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.7)",
+        color: textTone(0.7),
         marginTop: 2,
       } as CSSProperties,
       reportTextarea: {
@@ -6525,7 +6539,7 @@ export default function Home() {
       } as CSSProperties,
       sideSummaryPrimaryText: {
         fontSize: 13.5,
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
         lineHeight: 1.7,
       } as CSSProperties,
       compactGhostBtn: {
@@ -6541,13 +6555,13 @@ export default function Home() {
       sideDurationText: {
         marginTop: 10,
         fontSize: 12,
-        color: "rgba(255,255,255,0.76)",
+        color: textTone(0.76),
         lineHeight: 1.5,
       } as CSSProperties,
       sideQualityText: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
         lineHeight: 1.5,
       } as CSSProperties,
       kpiGrid: {
@@ -6574,18 +6588,18 @@ export default function Home() {
         } as CSSProperties),
       kpiLabel: {
         fontSize: 11.5,
-        color: "rgba(255,255,255,0.8)",
+        color: textTone(0.8),
       } as CSSProperties,
       kpiValue: {
         marginTop: 4,
         fontSize: 15,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.97)",
+        color: textTone(0.97),
       } as CSSProperties,
       kpiHint: {
         marginTop: 5,
         fontSize: 11,
-        color: "rgba(255,255,255,0.65)",
+        color: textTone(0.65),
         lineHeight: 1.45,
       } as CSSProperties,
       kpiBarTrack: {
@@ -6620,10 +6634,10 @@ export default function Home() {
         marginBottom: 4,
       } as CSSProperties,
       strongText92: {
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
       } as CSSProperties,
       strongText95: {
-        color: "rgba(255,255,255,0.95)",
+        color: textTone(0.95),
       } as CSSProperties,
       smallMutedTop4: {
         ...({
@@ -6637,7 +6651,7 @@ export default function Home() {
         height: 110,
       } as CSSProperties,
       emptyHintText: {
-        color: "rgba(255,255,255,0.7)",
+        color: textTone(0.7),
       } as CSSProperties,
       qTitleGap4: {
         ...({
@@ -6670,7 +6684,7 @@ export default function Home() {
                 : palette.successBg,
           fontSize: 12,
           lineHeight: 1.5,
-          color: "rgba(255,255,255,0.92)",
+          color: textTone(0.92),
         } as CSSProperties),
       advisorRecoGrid: {
         display: "grid",
@@ -6695,7 +6709,7 @@ export default function Home() {
         border: palette.sideBlockBorder,
         background: palette.sideBlockBg,
         padding: "8px 10px",
-        color: "rgba(255,255,255,0.9)",
+        color: textTone(0.9),
         lineHeight: 1.6,
       } as CSSProperties,
       inlineWarnBox: {
@@ -6704,17 +6718,17 @@ export default function Home() {
         borderRadius: 12,
         background: palette.warnBg,
         border: palette.warnBorder,
-        color: "rgba(255,255,255,0.92)",
+        color: textTone(0.92),
       } as CSSProperties,
       analysisCard: (tone: "strength" | "opportunity" | "gap" | "risk") => {
         const palette = {
           strength: {
-            accent: isCalmTheme ? "#5FAEEB" : "#00E5FF",
-            border: isCalmTheme ? "rgba(95,174,235,0.30)" : "rgba(0,229,255,0.22)",
+            accent: isCalmTheme ? "#5D358E" : "#00E5FF",
+            border: isCalmTheme ? "rgba(93,53,142,0.30)" : "rgba(0,229,255,0.22)",
             bg: isCalmTheme
-              ? "linear-gradient(180deg, rgba(95,174,235,0.11), rgba(255,255,255,0.02) 60%)"
+              ? "linear-gradient(180deg, rgba(93,53,142,0.11), rgba(255,255,255,0.02) 60%)"
               : "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02) 60%)",
-            glow: isCalmTheme ? "rgba(95,174,235,0.10)" : "rgba(0,229,255,0.10)",
+            glow: isCalmTheme ? "rgba(93,53,142,0.10)" : "rgba(0,229,255,0.10)",
           },
           opportunity: {
             accent: isCalmTheme ? "#2FB67E" : "#00FF85",
@@ -6758,13 +6772,13 @@ export default function Home() {
           alignItems: "center",
           gap: 8,
           marginBottom: 8,
-          color: "rgba(255,255,255,0.95)",
+          color: textTone(0.95),
           fontWeight: 900,
         } as CSSProperties;
       },
       analysisAccentDot: (tone: "strength" | "opportunity" | "gap" | "risk") => {
         const palette = {
-          strength: isCalmTheme ? "#5FAEEB" : "#00E5FF",
+          strength: isCalmTheme ? "#5D358E" : "#00E5FF",
           opportunity: isCalmTheme ? "#2FB67E" : "#00FF85",
           gap: isCalmTheme ? "#F0AA4E" : "#FFC24D",
           risk: isCalmTheme ? "#D6627A" : "#FF4FD8",
@@ -6788,13 +6802,13 @@ export default function Home() {
         borderRadius: 10,
         border: palette.sideBlockBorder,
         background: palette.sideBlockBg,
-        color: "rgba(255,255,255,0.88)",
+        color: textTone(0.88),
         lineHeight: 1.6,
       } as CSSProperties,
       upgradeSectionHint: {
         marginTop: 2,
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: textTone(0.72),
       } as CSSProperties,
       upgradeGrid: {
         marginTop: 10,
@@ -6805,11 +6819,11 @@ export default function Home() {
       upgradeCard: (priorityIdx: number) => {
         const palette = [
           {
-            border: isCalmTheme ? "rgba(95,174,235,0.30)" : "rgba(0,229,255,0.28)",
+            border: isCalmTheme ? "rgba(93,53,142,0.30)" : "rgba(0,229,255,0.28)",
             bg: isCalmTheme
-              ? "linear-gradient(180deg, rgba(95,174,235,0.12), rgba(255,255,255,0.02) 65%)"
+              ? "linear-gradient(180deg, rgba(93,53,142,0.12), rgba(255,255,255,0.02) 65%)"
               : "linear-gradient(180deg, rgba(0,229,255,0.11), rgba(255,255,255,0.02) 65%)",
-            glow: isCalmTheme ? "rgba(95,174,235,0.10)" : "rgba(0,229,255,0.12)",
+            glow: isCalmTheme ? "rgba(93,53,142,0.10)" : "rgba(0,229,255,0.12)",
           },
           {
             border: isCalmTheme ? "rgba(47,182,126,0.30)" : "rgba(0,255,133,0.28)",
@@ -6844,8 +6858,8 @@ export default function Home() {
       upgradePriorityBadge: (priorityIdx: number) => {
         const palette = [
           {
-            border: isCalmTheme ? "rgba(95,174,235,0.36)" : "rgba(0,229,255,0.35)",
-            bg: isCalmTheme ? "rgba(95,174,235,0.16)" : "rgba(0,229,255,0.14)",
+            border: isCalmTheme ? "rgba(93,53,142,0.36)" : "rgba(0,229,255,0.35)",
+            bg: isCalmTheme ? "rgba(93,53,142,0.16)" : "rgba(0,229,255,0.14)",
           },
           {
             border: isCalmTheme ? "rgba(47,182,126,0.36)" : "rgba(0,255,133,0.35)",
@@ -6872,13 +6886,13 @@ export default function Home() {
         marginTop: 8,
         fontSize: 13.5,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
+        color: textTone(0.96),
         lineHeight: 1.6,
       } as CSSProperties,
       upgradeDetail: {
         marginTop: 6,
         fontSize: 12.5,
-        color: "rgba(255,255,255,0.76)",
+        color: textTone(0.76),
         lineHeight: 1.65,
       } as CSSProperties,
     });
