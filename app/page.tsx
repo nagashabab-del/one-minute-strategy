@@ -5385,6 +5385,7 @@ export default function Home() {
         display: "grid",
         gridTemplateRows: "auto 1fr",
         overflow: "hidden",
+        touchAction: "pan-y",
       } as CSSProperties,
       mobileSummaryHead: {
         display: "flex",
@@ -5413,7 +5414,10 @@ export default function Home() {
       } as CSSProperties,
       mobileSummaryBody: {
         overflowY: "auto" as const,
+        minHeight: 0,
         padding: "10px 12px 18px",
+        WebkitOverflowScrolling: "touch",
+        overscrollBehavior: "contain",
       } as CSSProperties,
       mobileSummarySection: {
         marginTop: 10,
