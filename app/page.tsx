@@ -954,6 +954,7 @@ export default function Home() {
   const [loadingContext, setLoadingContext] = useState<LoadingContext>("");
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
+  const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
@@ -1657,6 +1658,30 @@ export default function Home() {
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [showClearSessionConfirm]);
+
+  useEffect(() => {
+    if (!isMobile || isWelcome) {
+      setShowMobileSummary(false);
+    }
+  }, [isMobile, isWelcome, stage]);
+
+  useEffect(() => {
+    if (!showMobileSummary) return;
+
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowMobileSummary(false);
+      }
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onEsc);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", onEsc);
+    };
+  }, [showMobileSummary]);
 
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
@@ -5320,6 +5345,102 @@ export default function Home() {
         position: "sticky" as const,
         top: 12,
         alignSelf: "start",
+      } as CSSProperties,
+      mobileSummaryTrigger: {
+        position: "fixed" as const,
+        right: 12,
+        left: 12,
+        bottom: 12,
+        zIndex: 30,
+      } as CSSProperties,
+      mobileSummaryBtn: {
+        width: "100%",
+        minHeight: touchTarget,
+        borderRadius: 14,
+        border: "1px solid rgba(0,229,255,0.28)",
+        background:
+          "linear-gradient(180deg, rgba(5,12,24,0.95), rgba(10,20,36,0.94))",
+        boxShadow: "0 10px 24px rgba(0,0,0,0.32)",
+        color: "white",
+        fontSize: 13.5,
+        fontWeight: 900,
+        padding: "10px 12px",
+        cursor: "pointer",
+      } as CSSProperties,
+      mobileSummaryOverlay: {
+        position: "fixed" as const,
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        zIndex: 40,
+      } as CSSProperties,
+      mobileSummarySheet: {
+        position: "fixed" as const,
+        right: 0,
+        left: 0,
+        bottom: 0,
+        maxHeight: "80vh",
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+        border: "1px solid rgba(255,255,255,0.12)",
+        background:
+          "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96) 48%, rgba(4,8,18,0.98))",
+        boxShadow: "0 -14px 34px rgba(0,0,0,0.35)",
+        display: "grid",
+        gridTemplateRows: "auto 1fr",
+        overflow: "hidden",
+      } as CSSProperties,
+      mobileSummaryHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        padding: "12px 14px",
+        borderBottom: "1px solid rgba(255,255,255,0.10)",
+      } as CSSProperties,
+      mobileSummaryHeadTitle: {
+        margin: 0,
+        fontSize: 14,
+        fontWeight: 900,
+        color: "white",
+      } as CSSProperties,
+      mobileSummaryCloseBtn: {
+        minHeight: 32,
+        borderRadius: 999,
+        border: "1px solid rgba(255,255,255,0.18)",
+        background: "rgba(255,255,255,0.05)",
+        color: "white",
+        fontSize: 12.5,
+        fontWeight: 800,
+        padding: "6px 10px",
+        cursor: "pointer",
+      } as CSSProperties,
+      mobileSummaryBody: {
+        overflowY: "auto" as const,
+        padding: "10px 12px 18px",
+      } as CSSProperties,
+      mobileSummarySection: {
+        marginTop: 10,
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgba(255,255,255,0.03)",
+        padding: "8px 10px",
+      } as CSSProperties,
+      mobileSummarySectionLabel: {
+        fontSize: 12.5,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.94)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      mobileSummaryLine: {
+        marginTop: 8,
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.86)",
+        lineHeight: 1.6,
+      } as CSSProperties,
+      mobileSummaryAlertsList: {
+        marginTop: 8,
+        display: "grid",
+        gap: 6,
       } as CSSProperties,
       sideSectionTitle: {
         marginTop: 14,
@@ -9468,6 +9589,7 @@ export default function Home() {
           </section>
 
           {/* Side Summary */}
+          {!isMobile ? (
           <aside style={styles.sidePanel}>
             {stage === "init" && initStep === "session" ? (
               <>
@@ -9920,8 +10042,162 @@ export default function Home() {
               </>
             )}
           </aside>
+          ) : null}
         </div> : null}
+
+        {isMobile && !isWelcome ? (
+          <div
+            style={{
+              ...styles.mobileSummaryTrigger,
+              bottom: uiError || uiSuccess ? 76 : 12,
+            }}
+          >
+            <button
+              type="button"
+              style={styles.mobileSummaryBtn}
+              onClick={() => setShowMobileSummary(true)}
+            >
+              ملخص الجلسة • {progressPercent()}%
+            </button>
+          </div>
+        ) : null}
       </div>
+
+      {isMobile && !isWelcome && showMobileSummary ? (
+        <div
+          style={styles.mobileSummaryOverlay}
+          onClick={() => setShowMobileSummary(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-summary-title"
+        >
+          <div style={styles.mobileSummarySheet} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.mobileSummaryHead}>
+              <h3 id="mobile-summary-title" style={styles.mobileSummaryHeadTitle}>
+                ملخص الجلسة
+              </h3>
+              <button
+                type="button"
+                style={styles.mobileSummaryCloseBtn}
+                onClick={() => setShowMobileSummary(false)}
+              >
+                إغلاق
+              </button>
+            </div>
+
+            <div style={styles.mobileSummaryBody}>
+              <div style={{ ...styles.mobileSummarySection, marginTop: 0 }}>
+                <div style={styles.mobileSummarySectionLabel}>الحالة السريعة</div>
+                <div style={styles.blockTop8}>
+                  <div style={styles.stageStatusChip(stageStatusTone())}>{stageStatusText()}</div>
+                </div>
+                <div style={styles.blockTop8}>
+                  <div style={styles.progressBar}>
+                    <div
+                      style={{
+                        ...styles.progressFill,
+                        width: `${progressPercent()}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div style={styles.mobileSummaryLine}>
+                  المرحلة الحالية: <strong>{stageLabel()}</strong>
+                </div>
+                <div style={styles.mobileSummaryLine}>
+                  نسبة التقدم: <strong>{progressPercent()}%</strong>
+                </div>
+                {progressMetaText() ? (
+                  <div style={styles.mobileSummaryLine}>{progressMetaText()}</div>
+                ) : null}
+              </div>
+
+              <div style={styles.mobileSummarySection}>
+                <div style={styles.mobileSummarySectionLabel}>بيانات المشروع</div>
+                <div style={styles.mobileSummaryLine}>نوع الفعالية: {eventType}</div>
+                <div style={styles.mobileSummaryLine}>وضع الجلسة: {mode}</div>
+                <div style={styles.mobileSummaryLine}>
+                  مسار التنفيذ: {deliveryTrack === "advanced" ? "متقدم" : "سريع"}
+                </div>
+                <div style={styles.mobileSummaryLine}>الموقع: {venueType}</div>
+                <div style={styles.mobileSummaryLine}>
+                  الميزانية:{" "}
+                  {budget?.trim()
+                    ? /[\d٠-٩]/.test(budget)
+                      ? renderMoneyValue(parseNumericInput(budget))
+                      : budget
+                    : "غير محدد"}
+                </div>
+                <div style={styles.mobileSummaryLine}>
+                  مدة الفعالية: {eventDurationSummary()?.label ?? "غير مكتملة"}
+                </div>
+              </div>
+
+              <div style={styles.mobileSummarySection}>
+                <div style={styles.mobileSummarySectionLabel}>المستشارون والصلاحيات</div>
+                <div style={styles.mobileSummaryLine}>
+                  المستشارون: <strong>{selectedAdvisorsSummary()}</strong>
+                </div>
+                <div style={styles.mobileSummaryLine}>
+                  الدور الحالي: <strong>{userRoleLabel(userRole)}</strong>
+                </div>
+                <div style={styles.mobileSummaryLine}>
+                  الصلاحيات المتاحة:{" "}
+                  <strong>
+                    {toArabicDigits(roleCapabilities.filter((cap) => cap.enabled).length)}/
+                    {toArabicDigits(roleCapabilities.length)}
+                  </strong>
+                </div>
+              </div>
+
+              {(stage === "addition" || stage === "done") ? (
+                <div style={styles.mobileSummarySection}>
+                  <div style={styles.mobileSummarySectionLabel}>جودة القرار</div>
+                  <div style={styles.mobileSummaryLine}>
+                    مستوى الجودة: <strong>{answerQuality.level}</strong>
+                  </div>
+                  <div style={styles.mobileSummaryLine}>
+                    النتيجة: <strong>{toArabicDigits(answerQuality.score)}%</strong>
+                  </div>
+                  <div style={styles.mobileSummaryLine}>
+                    إجابات تحتاج تفصيل: <strong>{toArabicDigits(answerQuality.weakCount)}</strong>
+                  </div>
+                </div>
+              ) : null}
+
+              {deliveryTrack === "advanced" && (stage === "advanced_boq" || stage === "advanced_plan") ? (
+                <div style={styles.mobileSummarySection}>
+                  <div style={styles.mobileSummarySectionLabel}>التنفيذ المتقدم</div>
+                  <div style={styles.mobileSummaryLine}>
+                    مخاطر نشطة: <strong>{toArabicDigits(liveRiskStats.active)}</strong> • حرجة:{" "}
+                    <strong>{toArabicDigits(liveRiskStats.critical)}</strong>
+                  </div>
+                  <div style={styles.mobileSummaryLine}>
+                    صافي الربحية:{" "}
+                    <strong>{renderMoneyValue(boqFinancialSummary.profit)}</strong>
+                  </div>
+                  {stage === "advanced_plan" ? (
+                    <div style={styles.mobileSummaryLine}>
+                      إنجاز التنفيذ: <strong>{toArabicDigits(actionTrackerProgress)}%</strong>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div style={styles.mobileSummarySection}>
+                <div style={styles.mobileSummarySectionLabel}>تنبيهات سريعة</div>
+                <div style={styles.mobileSummaryAlertsList}>
+                  {sessionAlerts().map((alert, idx) => (
+                    <div key={idx} style={styles.sideAlertItem(alert.tone)}>
+                      {alert.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showClearSessionConfirm ? (
         <div
