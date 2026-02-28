@@ -2546,7 +2546,9 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hostname = window.location.hostname;
-    setIsLocalHost(hostname === "localhost" || hostname === "127.0.0.1");
+    const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+    const isVercelHost = hostname.endsWith(".vercel.app");
+    setIsLocalHost(isLocal || isVercelHost);
   }, []);
 
   useEffect(() => {
@@ -8941,7 +8943,7 @@ export default function Home() {
                     }}
                   >
                     <div style={{ fontSize: 12.5, color: "#4F46A5", lineHeight: 1.55 }}>
-                      نسخة تجريبية محلية فقط: يمكنك التبديل بين الواجهة الحالية والتوجه الجديد بدون أي تأثير على المراحل الأخرى.
+                      نسخة تجريبية داخلية: يمكنك التبديل بين الواجهة الحالية والتوجه الجديد بدون أي تأثير على المراحل الأخرى.
                     </div>
                     <button
                       type="button"
