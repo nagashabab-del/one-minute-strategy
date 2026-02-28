@@ -6509,7 +6509,7 @@ export default function Home() {
             {stage === "round1" && (
               <>
                 <h3 style={styles.sectionHeading}>
-                  1) أسئلة الجولة الأولى
+                  المرحلة 1: أسئلة الجولة الأولى
                 </h3>
 
                 {round1Questions.map((q) => {
@@ -6579,7 +6579,7 @@ export default function Home() {
             {/* ROUND 2 */}
             {stage === "round2" && (
               <>
-                <h3 style={styles.sectionHeading}>2) تدقيق إضافي</h3>
+                <h3 style={styles.sectionHeading}>المرحلة 2: تدقيق إضافي</h3>
 
                 {followupQuestions.map((q) => {
                   const a = answers.find((x) => x.id === q.id);
@@ -6648,7 +6648,7 @@ export default function Home() {
             {/* DIALOGUE */}
             {stage === "dialogue" && (
               <>
-                <h3 style={styles.sectionHeading}>3) حوار المستشارين</h3>
+                <h3 style={styles.sectionHeading}>المرحلة 3: حوار المستشارين</h3>
 
                 <div style={styles.stackAfterBlock}>
                   {dialogue.map((m, i) => (
@@ -6717,7 +6717,7 @@ export default function Home() {
             {stage === "addition" && (
               <>
                 <h3 style={styles.sectionHeading}>
-                  4) قبل التحليل: هل لديك إضافة؟
+                  المرحلة 4: مراجعة قبل التحليل
                 </h3>
 
                 <div style={styles.radioRow}>
@@ -6854,7 +6854,7 @@ export default function Home() {
             {stage === "done" && analysis && (
               <>
                 <h3 style={styles.sectionHeading}>
-                  5) المخرجات النهائية: التحليل والقرار والتوصيات
+                  المرحلة 5: المخرجات النهائية
                 </h3>
 
                 <div style={styles.blockTop12}>
@@ -7135,11 +7135,10 @@ export default function Home() {
 
             {stage === "advanced_scope" && (
               <>
-                <h3 style={styles.sectionHeading}>
-                  {advancedScopeStep === "scope"
-                    ? "6) المسار المتقدم: نطاق واستراتيجية"
-                    : "6) المسار المتقدم: الهيكل التشغيلي"}
-                </h3>
+                <h3 style={styles.sectionHeading}>المرحلة 6: النطاق والهيكل التشغيلي</h3>
+                <div style={styles.textMutedSmallTop8}>
+                  حدّد نطاق التنفيذ ثم وزّع الأدوار قبل الانتقال لمرحلة التخطيط التشغيلي.
+                </div>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.advancedScopeNavCard}>
@@ -7150,7 +7149,7 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedScopeStep("scope")}
                       >
-                        6A: نطاق واستراتيجية
+                        النطاق والاستراتيجية
                       </button>
                       <button
                         type="button"
@@ -7158,12 +7157,15 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedScopeStep("org")}
                       >
-                        6B: الهيكل التشغيلي
+                        الهيكل التشغيلي
                       </button>
                     </div>
                     <div style={styles.advancedScopeMetaRow}>
                       {advancedScopeStep === "scope" ? (
                         <>
+                          <div style={styles.advancedScopeMetaChip("info")}>
+                            الخطوة الحالية: {toArabicDigits(1)} من {toArabicDigits(2)}
+                          </div>
                           <div
                             style={styles.advancedScopeMetaChip(
                               advancedScopeCompletedCount === advancedScopeTotalCount ? "ok" : "info"
@@ -7178,6 +7180,9 @@ export default function Home() {
                         </>
                       ) : (
                         <>
+                          <div style={styles.advancedScopeMetaChip("info")}>
+                            الخطوة الحالية: {toArabicDigits(2)} من {toArabicDigits(2)}
+                          </div>
                           <div
                             style={styles.advancedScopeMetaChip(
                               activeOrgRoles.length > 0 ? "ok" : "info"
@@ -7509,8 +7514,8 @@ export default function Home() {
                       style={styles.primaryBtn(isProcessing())}
                       disabled={isProcessing()}
                       onClick={() => setAdvancedScopeStep("org")}
-                    >
-                      التالي: 6B الهيكل التشغيلي
+                  >
+                      التالي: الهيكل التشغيلي
                     </button>
                   ) : (
                     <button
@@ -7521,7 +7526,7 @@ export default function Home() {
                         setStage("advanced_boq");
                       }}
                     >
-                      التالي: جدول الكميات والجودة والمخاطر
+                      التالي: التخطيط التشغيلي التفصيلي
                     </button>
                   )}
                   {advancedScopeStep === "org" ? (
@@ -7530,7 +7535,7 @@ export default function Home() {
                       disabled={isProcessing()}
                       onClick={() => setAdvancedScopeStep("scope")}
                     >
-                      رجوع: 6A نطاق واستراتيجية
+                      رجوع: النطاق والاستراتيجية
                     </button>
                   ) : null}
                   <button
@@ -7546,13 +7551,10 @@ export default function Home() {
 
             {stage === "advanced_boq" && (
               <>
-                <h3 style={styles.sectionHeading}>
-                  {advancedBoqStep === "boq"
-                    ? "7) المسار المتقدم: جدول الكميات والتسعير"
-                    : advancedBoqStep === "quality_risk"
-                      ? "7) المسار المتقدم: الجودة والمخاطر"
-                      : "7) المسار المتقدم: التشغيل والجاهزية"}
-                </h3>
+                <h3 style={styles.sectionHeading}>المرحلة 7: التخطيط التشغيلي التفصيلي</h3>
+                <div style={styles.textMutedSmallTop8}>
+                  أكمل جدول الكميات، ثم الجودة والمخاطر، ثم الجاهزية التشغيلية قبل توليد الخطة.
+                </div>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.advancedScopeNavCard}>
@@ -7563,7 +7565,7 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedBoqStep("boq")}
                       >
-                        7A: جدول الكميات
+                        جدول الكميات
                       </button>
                       <button
                         type="button"
@@ -7571,7 +7573,7 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedBoqStep("quality_risk")}
                       >
-                        7B: الجودة والمخاطر
+                        الجودة والمخاطر
                       </button>
                       <button
                         type="button"
@@ -7579,12 +7581,15 @@ export default function Home() {
                         disabled={isProcessing()}
                         onClick={() => setAdvancedBoqStep("operations")}
                       >
-                        7C: التشغيل والجاهزية
+                        التشغيل والجاهزية
                       </button>
                     </div>
                     <div style={styles.advancedScopeMetaRow}>
                       {advancedBoqStep === "boq" ? (
                         <>
+                          <div style={styles.advancedScopeMetaChip("info")}>
+                            الخطوة الحالية: {toArabicDigits(1)} من {toArabicDigits(3)}
+                          </div>
                           <div
                             style={styles.advancedScopeMetaChip(
                               advancedBoqFilledCount > 0 ? "ok" : "info"
@@ -7598,6 +7603,9 @@ export default function Home() {
                         </>
                       ) : advancedBoqStep === "quality_risk" ? (
                         <>
+                          <div style={styles.advancedScopeMetaChip("info")}>
+                            الخطوة الحالية: {toArabicDigits(2)} من {toArabicDigits(3)}
+                          </div>
                           <div
                             style={styles.advancedScopeMetaChip(
                               advancedQualityRiskCompletedCount === advancedQualityRiskTotalCount
@@ -7614,6 +7622,9 @@ export default function Home() {
                         </>
                       ) : (
                         <>
+                          <div style={styles.advancedScopeMetaChip("info")}>
+                            الخطوة الحالية: {toArabicDigits(3)} من {toArabicDigits(3)}
+                          </div>
                           <div
                             style={styles.advancedScopeMetaChip(
                               advancedOpsCompletedCount === advancedOpsTotalCount ? "ok" : "info"
@@ -8362,7 +8373,7 @@ export default function Home() {
                     disabled={isProcessing()}
                     onClick={() => setAdvancedBoqStep("quality_risk")}
                   >
-                    رجوع: 7B الجودة والمخاطر
+                    رجوع: الجودة والمخاطر
                   </button>
                   <button
                     style={styles.secondaryBtn(isProcessing())}
@@ -8372,7 +8383,7 @@ export default function Home() {
                       setStage("advanced_scope");
                     }}
                   >
-                    رجوع: 6B الهيكل التشغيلي
+                    رجوع: الهيكل التشغيلي
                   </button>
                 </div>
                 </>
@@ -8385,7 +8396,7 @@ export default function Home() {
                       disabled={isProcessing()}
                       onClick={() => setAdvancedBoqStep("quality_risk")}
                     >
-                      التالي: 7B الجودة والمخاطر
+                      التالي: الجودة والمخاطر
                     </button>
                     <button
                       style={styles.secondaryBtn(isProcessing())}
@@ -8395,7 +8406,7 @@ export default function Home() {
                         setStage("advanced_scope");
                       }}
                     >
-                      رجوع: 6B الهيكل التشغيلي
+                      رجوع: الهيكل التشغيلي
                     </button>
                   </div>
                 ) : null}
@@ -8407,14 +8418,14 @@ export default function Home() {
                       disabled={isProcessing()}
                       onClick={() => setAdvancedBoqStep("operations")}
                     >
-                      التالي: 7C التشغيل والجاهزية
+                      التالي: التشغيل والجاهزية
                     </button>
                     <button
                       style={styles.secondaryBtn(isProcessing())}
                       disabled={isProcessing()}
                       onClick={() => setAdvancedBoqStep("boq")}
                     >
-                      رجوع: 7A جدول الكميات
+                      رجوع: جدول الكميات
                     </button>
                     <button
                       style={styles.secondaryBtn(isProcessing())}
@@ -8424,7 +8435,7 @@ export default function Home() {
                         setStage("advanced_scope");
                       }}
                     >
-                      رجوع: 6B الهيكل التشغيلي
+                      رجوع: الهيكل التشغيلي
                     </button>
                   </div>
                 ) : null}
@@ -8433,7 +8444,7 @@ export default function Home() {
 
             {stage === "advanced_plan" && (
               <>
-                <h3 style={styles.sectionHeading}>8) خطة التنفيذ المتقدمة</h3>
+                <h3 style={styles.sectionHeading}>المرحلة 8: خطة التنفيذ المتقدمة</h3>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
