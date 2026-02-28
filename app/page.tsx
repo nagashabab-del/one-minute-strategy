@@ -17,6 +17,7 @@ type StageUI =
   | "advanced_plan";
 
 type DeliveryTrack = "fast" | "advanced";
+type ProjectHubView = "overview" | "board" | "list";
 
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
@@ -158,6 +159,8 @@ type ProjectBootstrap = {
   activeProjectId: string;
   projects: LocalProjectMeta[];
 };
+
+type ProjectHubTaskStatusGroup = "not_started" | "in_progress" | "blocked" | "done";
 
 type ProjectsBackupFile = {
   version: "oms_projects_backup_v1";
@@ -363,6 +366,26 @@ function stageLabelCompact(stage?: StageUI) {
       return "المتقدم: الخطة";
     default:
       return "غير محدد";
+  }
+}
+
+function projectHubTaskGroup(status: ActionTaskStatus): ProjectHubTaskStatusGroup {
+  if (status === "جاري") return "in_progress";
+  if (status === "متعثر") return "blocked";
+  if (status === "مكتمل") return "done";
+  return "not_started";
+}
+
+function projectHubTaskGroupLabel(group: ProjectHubTaskStatusGroup) {
+  switch (group) {
+    case "in_progress":
+      return "قيد التنفيذ";
+    case "blocked":
+      return "متعثر";
+    case "done":
+      return "مكتمل";
+    default:
+      return "لم تبدأ";
   }
 }
 
@@ -739,6 +762,7 @@ function formatNumericForInput(value: number) {
 const STORAGE_KEY = "oms_dashboard_full_v1";
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
+const EXPERIMENTAL_HUB_KEY = "oms_local_experimental_hub_v1";
 const FALLBACK_PROJECT_ID = "local_default_project";
 
 function projectDataKey(projectId: string) {
@@ -1176,10 +1200,27 @@ export default function Home() {
   const [pendingReplaceBackup, setPendingReplaceBackup] = useState<ProjectsBackupFile | null>(null);
   const [replaceImportConfirmText, setReplaceImportConfirmText] = useState("");
   const [backupImportMode, setBackupImportMode] = useState<"merge" | "replace">("merge");
+  const [isLocalHost, setIsLocalHost] = useState(false);
+  const [experimentalHubEnabled, setExperimentalHubEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(EXPERIMENTAL_HUB_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [projectHubView, setProjectHubView] = useState<ProjectHubView>("overview");
   const [projectHubQuery, setProjectHubQuery] = useState("");
   const [projectHubFilter, setProjectHubFilter] = useState<"all" | "active" | "archived">("all");
   const [projectHubSort, setProjectHubSort] = useState<"updated_desc" | "updated_asc" | "name_asc">(
     "updated_desc"
+  );
+  const [projectHubTaskQuery, setProjectHubTaskQuery] = useState("");
+  const [projectHubTaskFilter, setProjectHubTaskFilter] = useState<
+    "all" | "not_started" | "in_progress" | "blocked" | "done" | "overdue"
+  >("all");
+  const [projectHubTaskSort, setProjectHubTaskSort] = useState<"due_asc" | "due_desc" | "status">(
+    "due_asc"
   );
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
@@ -1324,6 +1365,130 @@ export default function Home() {
 
     return filtered;
   }, [projectRegistry, activeProjectId, projectHubQuery, projectHubFilter, projectHubSort]);
+  const projectHubTasks = useMemo(() => {
+    if (typeof window === "undefined") return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayMs = today.getTime();
+
+    const rows = projectRegistry.flatMap((meta) => {
+      let snapshot: PersistedState = {};
+      try {
+        const raw = localStorage.getItem(projectDataKey(meta.id));
+        if (raw) snapshot = JSON.parse(raw) as PersistedState;
+      } catch {
+        snapshot = {};
+      }
+
+      const tasks = Array.isArray(snapshot.actionTrackerItems) ? snapshot.actionTrackerItems : [];
+      return tasks.map((task) => {
+        const dueRaw = task.dueDate?.trim() ?? "";
+        const dueMs = dueRaw ? new Date(dueRaw).getTime() : Number.NaN;
+        const hasDue = Number.isFinite(dueMs);
+        const isOverdue = hasDue && dueMs < todayMs && task.status !== "مكتمل";
+        return {
+          id: `${meta.id}::${task.id}`,
+          projectId: meta.id,
+          projectName: meta.name || "مشروع بدون اسم",
+          isArchivedProject: Boolean(meta.isArchived),
+          taskId: task.id,
+          phase: task.phase,
+          stream: task.stream,
+          task: task.task,
+          owner: task.owner || "غير محدد",
+          dueDate: dueRaw || "غير محدد",
+          dueMs: hasDue ? dueMs : Number.NaN,
+          notes: task.notes || "",
+          status: task.status,
+          statusGroup: projectHubTaskGroup(task.status),
+          isOverdue,
+          isCurrentProject: meta.id === activeProjectId,
+        };
+      });
+    });
+
+    let filtered = rows.filter((row) => {
+      if (projectHubFilter === "active") return !row.isArchivedProject;
+      if (projectHubFilter === "archived") return row.isArchivedProject;
+      return true;
+    });
+
+    const query = projectHubTaskQuery.trim().toLowerCase();
+    if (query) {
+      filtered = filtered.filter((row) =>
+        [
+          row.projectName,
+          row.task,
+          row.owner,
+          row.stream,
+          row.phase,
+          projectHubTaskGroupLabel(row.statusGroup),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      );
+    }
+
+    if (projectHubTaskFilter !== "all") {
+      filtered = filtered.filter((row) => {
+        if (projectHubTaskFilter === "overdue") return row.isOverdue;
+        return row.statusGroup === projectHubTaskFilter;
+      });
+    }
+
+    filtered.sort((a, b) => {
+      if (projectHubTaskSort === "status") {
+        const order: Record<ProjectHubTaskStatusGroup, number> = {
+          blocked: 0,
+          in_progress: 1,
+          not_started: 2,
+          done: 3,
+        };
+        return order[a.statusGroup] - order[b.statusGroup];
+      }
+      if (projectHubTaskSort === "due_desc") {
+        const aVal = Number.isFinite(a.dueMs) ? a.dueMs : -Infinity;
+        const bVal = Number.isFinite(b.dueMs) ? b.dueMs : -Infinity;
+        return bVal - aVal;
+      }
+      const aVal = Number.isFinite(a.dueMs) ? a.dueMs : Infinity;
+      const bVal = Number.isFinite(b.dueMs) ? b.dueMs : Infinity;
+      return aVal - bVal;
+    });
+
+    return filtered;
+  }, [
+    projectRegistry,
+    activeProjectId,
+    projectHubFilter,
+    projectHubTaskQuery,
+    projectHubTaskFilter,
+    projectHubTaskSort,
+  ]);
+  const projectHubTaskColumns = useMemo(
+    () =>
+      ([
+        { id: "not_started", label: "لم تبدأ" },
+        { id: "in_progress", label: "قيد التنفيذ" },
+        { id: "blocked", label: "متعثر" },
+        { id: "done", label: "مكتمل" },
+      ] as const).map((column) => ({
+        ...column,
+        tasks: projectHubTasks.filter((task) => task.statusGroup === column.id),
+      })),
+    [projectHubTasks]
+  );
+  const projectHubOverview = useMemo(() => {
+    const total = projectHubTasks.length;
+    const overdue = projectHubTasks.filter((item) => item.isOverdue).length;
+    const blocked = projectHubTasks.filter((item) => item.statusGroup === "blocked").length;
+    const done = projectHubTasks.filter((item) => item.statusGroup === "done").length;
+    const inProgress = projectHubTasks.filter((item) => item.statusGroup === "in_progress").length;
+    const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    return { total, overdue, blocked, done, inProgress, progressPct };
+  }, [projectHubTasks]);
 
   const stagePermissionHints = useMemo(() => {
     const p = computeRolePermissions(userRole);
@@ -1674,6 +1839,7 @@ export default function Home() {
   ].filter(Boolean).length;
   const advancedOpsTotalCount = 3;
   const isMobile = viewportWidth <= 768;
+  const isTablet = viewportWidth > 768 && viewportWidth < 1200;
   const isNarrowMobile = viewportWidth <= 480;
   const advancedTimelineInfo = useMemo(() => {
     const oneDayMs = 1000 * 60 * 60 * 24;
@@ -2376,6 +2542,21 @@ export default function Home() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hostname = window.location.hostname;
+    setIsLocalHost(hostname === "localhost" || hostname === "127.0.0.1");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(EXPERIMENTAL_HUB_KEY, experimentalHubEnabled ? "1" : "0");
+    } catch {
+      // no-op
+    }
+  }, [experimentalHubEnabled]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -5871,6 +6052,474 @@ export default function Home() {
         gap: 10,
         marginTop: 6,
       } as CSSProperties,
+      projectHubExperimentShell: {
+        marginTop: 8,
+        borderRadius: 18,
+        border: "1px solid #EAE5DE",
+        background: "#F6F4F1",
+        padding: isMobile ? 8 : 10,
+        maxWidth: isMobile ? "100%" : 1240,
+        marginInline: "auto",
+      } as CSSProperties,
+      projectHubExperimentTopBar: {
+        borderRadius: 14,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: isMobile ? "8px 10px" : "8px 10px",
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 8,
+      } as CSSProperties,
+      projectHubExperimentTitleWrap: {
+        display: "grid",
+        gap: 2,
+        maxWidth: isMobile ? "100%" : 720,
+      } as CSSProperties,
+      projectHubExperimentTitle: {
+        margin: 0,
+        fontSize: isMobile ? 17 : 19,
+        fontWeight: 900,
+        color: "#1B2430",
+        lineHeight: 1.3,
+      } as CSSProperties,
+      projectHubExperimentSub: {
+        margin: 0,
+        fontSize: 12,
+        color: "#5B6472",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      projectHubExperimentActions: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+        justifyContent: isMobile ? "stretch" : "flex-end",
+      } as CSSProperties,
+      projectHubExperimentBackBtn: {
+        minHeight: 34,
+        padding: "0 10px",
+        fontSize: 12.5,
+        fontWeight: 700,
+        borderRadius: 10,
+        border: "1px solid #E5E0D8",
+        background: "#FFFFFF",
+        color: "#6B7280",
+        textDecoration: "none",
+        cursor: "pointer",
+      } as CSSProperties,
+      projectHubViewTabs: {
+        marginTop: 8,
+        borderRadius: 12,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: 6,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 6,
+      } as CSSProperties,
+      projectHubViewTabBtn: (active: boolean) =>
+        ({
+          minHeight: 40,
+          borderRadius: 10,
+          border: active ? "1px solid #D8D2EE" : "1px solid #EAE5DE",
+          background: active ? "#F3EFFD" : "#FFFFFF",
+          color: active ? "#4B3FA1" : "#6B7280",
+          fontSize: 13,
+          fontWeight: active ? 800 : 700,
+          boxShadow: active ? "inset 0 -1px 0 #6A5CC5" : "none",
+          transition: "all 120ms ease",
+          cursor: "pointer",
+        } as CSSProperties),
+      projectHubResponsiveLayout: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "300px 1fr",
+        gap: 10,
+      } as CSSProperties,
+      projectHubSideCard: {
+        borderRadius: 14,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: 10,
+        display: "grid",
+        gap: 16,
+        height: "fit-content",
+      } as CSSProperties,
+      projectHubSideTitle: {
+        margin: 0,
+        fontSize: 13.5,
+        color: "#1B2430",
+        fontWeight: 900,
+      } as CSSProperties,
+      projectHubKpiGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      projectHubKpiCard: (
+        tone: "default" | "primary" | "warning" | "danger" = "default"
+      ) =>
+        ({
+          borderRadius: 12,
+          border:
+            tone === "primary"
+              ? "1px solid #D8CFF2"
+              : tone === "warning"
+                ? "1px solid #FCD5AE"
+                : tone === "danger"
+                  ? "1px solid #FBCACA"
+                  : "1px solid #EDE8E2",
+          background:
+            tone === "primary"
+              ? "#F7F3FF"
+              : tone === "warning"
+                ? "#FFF8F1"
+                : tone === "danger"
+                  ? "#FFF7F7"
+                  : "#FFFFFF",
+          padding: "10px 11px",
+        } as CSSProperties),
+      projectHubKpiValue: {
+        fontSize: 30,
+        color: "#1B2430",
+        fontWeight: 900,
+        lineHeight: 1.05,
+      } as CSSProperties,
+      projectHubKpiLabel: {
+        marginTop: 4,
+        fontSize: 13,
+        color: "#4B5563",
+        fontWeight: 700,
+      } as CSSProperties,
+      projectHubKpiProgressTrack: {
+        marginTop: 8,
+        height: 6,
+        borderRadius: 999,
+        background: "#ECE7E0",
+        overflow: "hidden",
+      } as CSSProperties,
+      projectHubKpiProgressFill: (pct: number) =>
+        ({
+          width: `${Math.max(0, Math.min(100, pct))}%`,
+          height: "100%",
+          borderRadius: 999,
+          background: "#4F46A5",
+        } as CSSProperties),
+      projectHubMainPanel: {
+        borderRadius: 14,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: isMobile ? 10 : 14,
+      } as CSSProperties,
+      projectHubExpInput: {
+        width: "100%",
+        borderRadius: 10,
+        border: "1px solid #E4DFD8",
+        background: "#FCFBF9",
+        color: "#1B2430",
+        padding: "10px 12px",
+        fontSize: 13,
+        outline: "none",
+      } as CSSProperties,
+      projectHubExpEmpty: {
+        marginTop: 12,
+        borderRadius: 12,
+        border: "1px solid #ECE7E0",
+        background: "#FBFAF8",
+        padding: "14px 12px",
+        fontSize: 13,
+        color: "#5B6472",
+      } as CSSProperties,
+      projectHubExpProjectsGrid: {
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 12,
+        alignItems: "start",
+      } as CSSProperties,
+      projectHubExpProjectCard: (isCurrent: boolean) =>
+        ({
+          borderRadius: 18,
+          border: isCurrent ? "1px solid #C7BDE8" : "1px solid #ECE7E0",
+          background: "#FFFFFF",
+          padding: isMobile ? "12px" : "14px",
+          display: "grid",
+          gap: 10,
+          alignSelf: "start",
+        } as CSSProperties),
+      projectHubExpHero: (isCurrent: boolean) =>
+        ({
+          borderRadius: 14,
+          border: isCurrent ? "1px solid #D8CFF2" : "1px solid #EEE9E3",
+          background: isCurrent ? "#F6F2FF" : "#FAF9F7",
+          padding: "10px",
+          display: "grid",
+          gap: 10,
+        } as CSSProperties),
+      projectHubExpProjectHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+      } as CSSProperties,
+      projectHubExpProjectTitleWrap: {
+        minWidth: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      } as CSSProperties,
+      projectHubExpProjectTitle: {
+        fontSize: 15,
+        fontWeight: 900,
+        color: "#1B2430",
+        overflow: "hidden",
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical",
+        lineHeight: 1.35,
+        minHeight: "2.7em",
+      } as CSSProperties,
+      projectHubExpCurrentChip: {
+        borderRadius: 999,
+        border: "1px solid #C7BDE8",
+        background: "#F4F0FF",
+        color: "#4F46A5",
+        fontSize: 11.5,
+        fontWeight: 800,
+        padding: "4px 8px",
+        whiteSpace: "nowrap",
+      } as CSSProperties,
+      projectHubExpProjectStateChip: (archived: boolean) =>
+        ({
+          borderRadius: 999,
+          border: archived ? "1px solid #FECACA" : "1px solid #BBF7D0",
+          background: archived ? "#FEF2F2" : "#F0FDF4",
+          color: archived ? "#991B1B" : "#166534",
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: "4px 8px",
+          whiteSpace: "nowrap",
+        } as CSSProperties),
+      projectHubExpMetaGrid: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      projectHubExpMetaItem: {
+        borderRadius: 10,
+        border: "1px solid #EEE9E3",
+        background: "#FFFFFF",
+        padding: "8px 9px",
+        display: "grid",
+        gap: 3,
+      } as CSSProperties,
+      projectHubExpMetaLabel: {
+        fontSize: 11,
+        color: "#5B6472",
+        fontWeight: 600,
+      } as CSSProperties,
+      projectHubExpMetaValue: {
+        fontSize: 12.5,
+        color: "#1B2430",
+        fontWeight: 700,
+      } as CSSProperties,
+      projectHubExpActions: {
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1.3fr 0.85fr 0.85fr",
+        gap: 8,
+      } as CSSProperties,
+      projectHubExpPrimaryBtn: (disabled: boolean) =>
+        ({
+          minHeight: touchTarget,
+          borderRadius: 12,
+          border: "1px solid #4F46A5",
+          background: disabled ? "#D1CBDD" : "#4F46A5",
+          color: "#FFFFFF",
+          fontSize: 14,
+          fontWeight: 800,
+          padding: "0 16px",
+          whiteSpace: "nowrap",
+          textDecoration: "none",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.8 : 1,
+        } as CSSProperties),
+      projectHubExpSecondaryBtn: (disabled: boolean) =>
+        ({
+          minHeight: touchTarget - 4,
+          borderRadius: 12,
+          border: "1px solid #E6E0D9",
+          background: "#FAF9F7",
+          color: disabled ? "#A8A29E" : "#4B5563",
+          fontSize: 12.5,
+          fontWeight: 600,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.85 : 1,
+        } as CSSProperties),
+      projectHubExpDangerBtn: (disabled: boolean) =>
+        ({
+          minHeight: touchTarget - 4,
+          borderRadius: 12,
+          border: "1px solid #F9B5B5",
+          background: "#FFF7F7",
+          color: disabled ? "#BCA9A9" : "#991B1B",
+          fontSize: 12.5,
+          fontWeight: 600,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.8 : 1,
+        } as CSSProperties),
+      projectHubExpCreateCard: {
+        borderRadius: 18,
+        border: "1px dashed #CFC7BD",
+        background: "#FBFAF8",
+        padding: isMobile ? "12px" : "14px",
+        display: "grid",
+        gap: 10,
+        alignContent: "center",
+        justifyItems: "center",
+        textAlign: "center",
+        minHeight: isMobile ? 220 : 320,
+      } as CSSProperties,
+      projectHubExpCreateIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 999,
+        border: "1px solid #DCD6CE",
+        background: "#FFFFFF",
+        color: "#4F46A5",
+        display: "grid",
+        placeItems: "center",
+        fontSize: 24,
+        fontWeight: 800,
+      } as CSSProperties,
+      projectHubExpCreateTitle: {
+        margin: 0,
+        fontSize: 18,
+        fontWeight: 900,
+        color: "#1B2430",
+        lineHeight: 1.35,
+      } as CSSProperties,
+      projectHubExpCreateDesc: {
+        margin: 0,
+        maxWidth: 280,
+        fontSize: 12.5,
+        color: "#5B6472",
+        lineHeight: 1.65,
+      } as CSSProperties,
+      projectHubExpCreateBtn: {
+        minWidth: 170,
+        width: "fit-content",
+        justifySelf: "center",
+      } as CSSProperties,
+      projectHubTaskToolbar: {
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      projectHubBoard: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))",
+        gap: 10,
+      } as CSSProperties,
+      projectHubBoardColumn: {
+        borderRadius: 12,
+        border: "1px solid #ECE7E0",
+        background: "#FCFBF9",
+        padding: 8,
+        minHeight: 150,
+      } as CSSProperties,
+      projectHubBoardColumnHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+      } as CSSProperties,
+      projectHubBoardColumnTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: "#1B2430",
+      } as CSSProperties,
+      projectHubBoardColumnCount: {
+        borderRadius: 999,
+        border: "1px solid #E6E0D9",
+        background: "#FFFFFF",
+        fontSize: 11.5,
+        color: "#6B7280",
+        fontWeight: 800,
+        padding: "3px 7px",
+      } as CSSProperties,
+      projectHubTaskCard: {
+        borderRadius: 12,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: 9,
+        display: "grid",
+        gap: 6,
+      } as CSSProperties,
+      projectHubTaskTitle: {
+        fontSize: 13.5,
+        lineHeight: 1.5,
+        color: "#1B2430",
+        fontWeight: 800,
+      } as CSSProperties,
+      projectHubTaskMeta: {
+        fontSize: 12,
+        color: "#6B7280",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      projectHubStatusPill: (group: ProjectHubTaskStatusGroup) =>
+        ({
+          borderRadius: 999,
+          border:
+            group === "done"
+              ? "1px solid #16A34A33"
+              : group === "blocked"
+                ? "1px solid #DC262633"
+                : group === "in_progress"
+                  ? "1px solid #4F46A533"
+                  : "1px solid #E3DED7",
+          background:
+            group === "done"
+              ? "#DCFCE7"
+              : group === "blocked"
+                ? "#FEE2E2"
+                : group === "in_progress"
+                  ? "#ECE9FF"
+                  : "#F5F2EE",
+          color:
+            group === "done"
+              ? "#166534"
+              : group === "blocked"
+                ? "#991B1B"
+                : group === "in_progress"
+                  ? "#4338CA"
+                  : "#44403C",
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: "4px 8px",
+          width: "fit-content",
+        } as CSSProperties),
+      projectHubListWrap: {
+        marginTop: 10,
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      projectHubListRow: {
+        borderRadius: 12,
+        border: "1px solid #ECE7E0",
+        background: "#FFFFFF",
+        padding: "9px 10px",
+        display: "grid",
+        gap: 6,
+      } as CSSProperties,
+      projectHubListHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      } as CSSProperties,
       projectHubEmpty: {
         marginTop: 12,
         borderRadius: 14,
@@ -7923,7 +8572,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, isProjectsHub]
+    [isMobile, isNarrowMobile, isTablet, isProjectsHub]
   );
 
   const renderSummarySection = (
@@ -8276,135 +8925,583 @@ export default function Home() {
             {/* PROJECTS HUB */}
             {stage === "projects_hub" && (
               <>
-                <div style={styles.projectHubToolbar}>
-                  <input
-                    value={projectHubQuery}
-                    onChange={(e) => setProjectHubQuery(e.target.value)}
-                    placeholder="ابحث باسم المشروع أو المرحلة..."
-                    style={styles.input}
-                  />
-                  <select
-                    value={projectHubFilter}
-                    onChange={(e) => setProjectHubFilter(e.target.value as "all" | "active" | "archived")}
-                    style={styles.input}
+                {isLocalHost ? (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      borderRadius: 12,
+                      border: "1px solid #C7BDE8",
+                      background: "#F4F0FF",
+                      padding: "10px 12px",
+                      display: "flex",
+                      alignItems: isMobile ? "stretch" : "center",
+                      justifyContent: "space-between",
+                      flexDirection: isMobile ? "column" : "row",
+                      gap: 8,
+                    }}
                   >
-                    <option value="all">الكل</option>
-                    <option value="active">نشطة فقط</option>
-                    <option value="archived">مؤرشفة فقط</option>
-                  </select>
-                  <select
-                    value={projectHubSort}
-                    onChange={(e) =>
-                      setProjectHubSort(e.target.value as "updated_desc" | "updated_asc" | "name_asc")
-                    }
-                    style={styles.input}
-                  >
-                    <option value="updated_desc">الأحدث تحديثًا</option>
-                    <option value="updated_asc">الأقدم تحديثًا</option>
-                    <option value="name_asc">الاسم (أ-ي)</option>
-                  </select>
-                </div>
-                <div style={styles.blockTop12}>
-                  <button
-                    style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
-                    onClick={() => setStage("welcome")}
-                  >
-                    العودة لشاشة البداية
-                  </button>
-                </div>
+                    <div style={{ fontSize: 12.5, color: "#4F46A5", lineHeight: 1.55 }}>
+                      نسخة تجريبية محلية فقط: يمكنك التبديل بين الواجهة الحالية والتوجه الجديد بدون أي تأثير على المراحل الأخرى.
+                    </div>
+                    <button
+                      type="button"
+                      style={styles.projectHubExpSecondaryBtn(false)}
+                      onClick={() => setExperimentalHubEnabled((prev) => !prev)}
+                    >
+                      {experimentalHubEnabled ? "تعطيل النسخة التجريبية" : "تفعيل النسخة التجريبية"}
+                    </button>
+                  </div>
+                ) : null}
 
-                {projectHubRows.length === 0 ? (
-                  <div style={styles.projectHubEmpty}>
-                    لا توجد نتائج مطابقة للبحث الحالي.
+                {isLocalHost && experimentalHubEnabled ? (
+                  <div style={styles.projectHubExperimentShell}>
+                    <div style={styles.projectHubExperimentTopBar}>
+                      <div style={styles.projectHubExperimentTitleWrap}>
+                        <h3 style={styles.projectHubExperimentTitle}>مركز المشاريع • نسخة تجريبية</h3>
+                        <p style={styles.projectHubExperimentSub}>
+                          تخطيط موحّد لسطح المكتب والجوال والتابلت مع نفس البيانات والمنطق الحالي.
+                        </p>
+                      </div>
+                      <div style={styles.projectHubExperimentActions}>
+                        <button
+                          type="button"
+                          style={styles.projectHubExperimentBackBtn}
+                          onClick={() => setStage("welcome")}
+                        >
+                          العودة لشاشة البداية
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={styles.projectHubViewTabs}>
+                      <button
+                        type="button"
+                        style={styles.projectHubViewTabBtn(projectHubView === "overview")}
+                        onClick={() => setProjectHubView("overview")}
+                      >
+                        نظرة عامة
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.projectHubViewTabBtn(projectHubView === "board")}
+                        onClick={() => setProjectHubView("board")}
+                      >
+                        لوحة المهام
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.projectHubViewTabBtn(projectHubView === "list")}
+                        onClick={() => setProjectHubView("list")}
+                      >
+                        قائمة المهام
+                      </button>
+                    </div>
+
+                    <div style={styles.projectHubResponsiveLayout}>
+                      <aside style={styles.projectHubSideCard}>
+                        <h4 style={styles.projectHubSideTitle}>مؤشرات سريعة</h4>
+                        <div style={styles.projectHubKpiGrid}>
+                          <div style={styles.projectHubKpiCard("primary")}>
+                            <div style={styles.projectHubKpiValue}>{toArabicDigits(projectHubRows.length)}</div>
+                            <div style={styles.projectHubKpiLabel}>المشاريع المعروضة</div>
+                          </div>
+                          <div style={styles.projectHubKpiCard("primary")}>
+                            <div style={styles.projectHubKpiValue}>
+                              {toArabicDigits(projectHubRows.filter((item) => !item.isArchived).length)}
+                            </div>
+                            <div style={styles.projectHubKpiLabel}>مشاريع نشطة</div>
+                          </div>
+                          <div style={styles.projectHubKpiCard()}>
+                            <div style={styles.projectHubKpiValue}>{toArabicDigits(projectHubOverview.total)}</div>
+                            <div style={styles.projectHubKpiLabel}>إجمالي المهام</div>
+                          </div>
+                          <div style={styles.projectHubKpiCard("primary")}>
+                            <div style={styles.projectHubKpiValue}>
+                              ٪{toArabicDigits(projectHubOverview.progressPct)}
+                            </div>
+                            <div style={styles.projectHubKpiLabel}>نسبة الإنجاز</div>
+                            <div style={styles.projectHubKpiProgressTrack}>
+                              <div style={styles.projectHubKpiProgressFill(projectHubOverview.progressPct)} />
+                            </div>
+                          </div>
+                          <div
+                            style={styles.projectHubKpiCard(
+                              projectHubOverview.overdue > 0 ? "danger" : "default"
+                            )}
+                          >
+                            <div style={styles.projectHubKpiValue}>{toArabicDigits(projectHubOverview.overdue)}</div>
+                            <div style={styles.projectHubKpiLabel}>مهام متأخرة</div>
+                          </div>
+                          <div
+                            style={styles.projectHubKpiCard(
+                              projectHubOverview.blocked > 0 ? "warning" : "default"
+                            )}
+                          >
+                            <div style={styles.projectHubKpiValue}>{toArabicDigits(projectHubOverview.blocked)}</div>
+                            <div style={styles.projectHubKpiLabel}>مهام متعثرة</div>
+                          </div>
+                        </div>
+
+                        <h4 style={{ ...styles.projectHubSideTitle, marginTop: 4 }}>فلترة المشاريع</h4>
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <input
+                            value={projectHubQuery}
+                            onChange={(e) => setProjectHubQuery(e.target.value)}
+                            placeholder="ابحث باسم المشروع أو المرحلة..."
+                            style={styles.projectHubExpInput}
+                          />
+                          <select
+                            value={projectHubFilter}
+                            onChange={(e) => setProjectHubFilter(e.target.value as "all" | "active" | "archived")}
+                            style={styles.projectHubExpInput}
+                          >
+                            <option value="all">الكل</option>
+                            <option value="active">نشطة فقط</option>
+                            <option value="archived">مؤرشفة فقط</option>
+                          </select>
+                          <select
+                            value={projectHubSort}
+                            onChange={(e) =>
+                              setProjectHubSort(e.target.value as "updated_desc" | "updated_asc" | "name_asc")
+                            }
+                            style={styles.projectHubExpInput}
+                          >
+                            <option value="updated_desc">الأحدث تحديثًا</option>
+                            <option value="updated_asc">الأقدم تحديثًا</option>
+                            <option value="name_asc">الاسم (أ-ي)</option>
+                          </select>
+                        </div>
+
+                        {projectHubView !== "overview" ? (
+                          <>
+                            <h4 style={{ ...styles.projectHubSideTitle, marginTop: 4 }}>فلترة المهام</h4>
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <input
+                                value={projectHubTaskQuery}
+                                onChange={(e) => setProjectHubTaskQuery(e.target.value)}
+                                placeholder="ابحث في المهام أو المسؤول..."
+                                style={styles.projectHubExpInput}
+                              />
+                              <select
+                                value={projectHubTaskFilter}
+                                onChange={(e) =>
+                                  setProjectHubTaskFilter(
+                                    e.target.value as
+                                      | "all"
+                                      | "not_started"
+                                      | "in_progress"
+                                      | "blocked"
+                                      | "done"
+                                      | "overdue"
+                                  )
+                                }
+                                style={styles.projectHubExpInput}
+                              >
+                                <option value="all">كل الحالات</option>
+                                <option value="not_started">لم تبدأ</option>
+                                <option value="in_progress">قيد التنفيذ</option>
+                                <option value="blocked">متعثر</option>
+                                <option value="done">مكتمل</option>
+                                <option value="overdue">متأخرة</option>
+                              </select>
+                              <select
+                                value={projectHubTaskSort}
+                                onChange={(e) =>
+                                  setProjectHubTaskSort(e.target.value as "due_asc" | "due_desc" | "status")
+                                }
+                                style={styles.projectHubExpInput}
+                              >
+                                <option value="due_asc">الأقرب استحقاقًا</option>
+                                <option value="due_desc">الأبعد استحقاقًا</option>
+                                <option value="status">حسب الحالة</option>
+                              </select>
+                            </div>
+                          </>
+                        ) : null}
+                      </aside>
+
+                      <div style={styles.projectHubMainPanel}>
+                        {projectHubView === "overview" ? (
+                          <>
+                            {projectHubRows.length === 0 ? (
+                              <div style={styles.projectHubExpEmpty}>لا توجد نتائج مطابقة للبحث الحالي.</div>
+                            ) : (
+                              <div
+                                style={{
+                                  ...styles.projectHubExpProjectsGrid,
+                                  gridTemplateColumns:
+                                    projectHubRows.length <= 1
+                                      ? "1fr"
+                                      : isMobile
+                                        ? "1fr"
+                                        : "1fr 1fr",
+                                }}
+                              >
+                                {projectHubRows.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    style={styles.projectHubExpProjectCard(item.isCurrent)}
+                                  >
+                                    <div style={styles.projectHubExpHero(item.isCurrent)}>
+                                      <div style={styles.projectHubExpProjectHead}>
+                                        <div style={styles.projectHubExpProjectTitleWrap}>
+                                          <div style={styles.projectHubExpProjectTitle}>
+                                            {item.name || "مشروع بدون اسم"}
+                                          </div>
+                                          {item.isCurrent ? (
+                                            <span style={styles.projectHubExpCurrentChip}>الحالي</span>
+                                          ) : null}
+                                        </div>
+                                        <span style={styles.projectHubExpProjectStateChip(Boolean(item.isArchived))}>
+                                          {item.isArchived ? "مؤرشف" : "نشط"}
+                                        </span>
+                                      </div>
+
+                                      <div style={styles.projectHubExpMetaGrid}>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>المرحلة</span>
+                                          <span style={styles.projectHubExpMetaValue}>{item.snapshotStageLabel}</span>
+                                        </div>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>المسار</span>
+                                          <span style={styles.projectHubExpMetaValue}>
+                                            {item.deliveryTrack === "advanced" ? "متقدم" : "سريع"}
+                                          </span>
+                                        </div>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>الجاهزية</span>
+                                          <span
+                                            style={{
+                                              ...styles.projectHubExpMetaValue,
+                                              color: item.readinessLevel.includes("جاهز")
+                                                ? "#166534"
+                                                : item.readinessLevel.includes("تحسين")
+                                                  ? "#B45309"
+                                                  : "#5B6472",
+                                            }}
+                                          >
+                                            {item.readinessLevel}
+                                          </span>
+                                        </div>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>آخر تحديث</span>
+                                          <span style={styles.projectHubExpMetaValue}>
+                                            {item.updatedAt ? formatDateTimeLabel(item.updatedAt) : "غير محدد"}
+                                          </span>
+                                        </div>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>بنود BOQ</span>
+                                          <span style={styles.projectHubExpMetaValue}>{toArabicDigits(item.boqCount)}</span>
+                                        </div>
+                                        <div style={styles.projectHubExpMetaItem}>
+                                          <span style={styles.projectHubExpMetaLabel}>هامش الربح</span>
+                                          <span style={styles.projectHubExpMetaValue}>
+                                            {item.marginPct === null
+                                              ? "غير متاح"
+                                              : `${toArabicDigits(item.marginPct.toFixed(1))}%`}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div style={styles.projectHubExpActions}>
+                                      {!item.isArchived ? (
+                                        <>
+                                          <button
+                                            style={styles.projectHubExpPrimaryBtn(false)}
+                                            onClick={() => openProjectFromHub(item.id)}
+                                          >
+                                            فتح المشروع
+                                          </button>
+                                          <button
+                                            style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
+                                            disabled={!canEditSessionSetup}
+                                            onClick={() => duplicateProjectById(item.id, false)}
+                                          >
+                                            نسخ
+                                          </button>
+                                          <button
+                                            style={styles.projectHubExpDangerBtn(
+                                              !canEditSessionSetup || activeProjects.length <= 1
+                                            )}
+                                            disabled={!canEditSessionSetup || activeProjects.length <= 1}
+                                            onClick={() => archiveProjectById(item.id)}
+                                          >
+                                            أرشفة
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
+                                          disabled={!canEditSessionSetup}
+                                          onClick={() => restoreArchivedProject(item.id)}
+                                        >
+                                          استعادة
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                                {!isMobile &&
+                                projectHubRows.length > 1 &&
+                                projectHubRows.length % 2 === 1 ? (
+                                  <div style={styles.projectHubExpCreateCard}>
+                                    <div style={styles.projectHubExpCreateIcon}>+</div>
+                                    <h4 style={styles.projectHubExpCreateTitle}>مشروع جديد</h4>
+                                    <p style={styles.projectHubExpCreateDesc}>
+                                      أنشئ مشروعًا جديدًا من هنا لبدء جلسة مستقلة بدون التأثير على المشاريع الحالية.
+                                    </p>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        ...styles.projectHubExpPrimaryBtn(!canEditSessionSetup),
+                                        ...styles.projectHubExpCreateBtn,
+                                      }}
+                                      onClick={createNewProject}
+                                      disabled={!canEditSessionSetup}
+                                      title={
+                                        canEditSessionSetup
+                                          ? undefined
+                                          : permissionHintText(
+                                              "إنشاء مشروع جديد",
+                                              ["project_manager", "operations_manager"],
+                                              userRole
+                                            )
+                                      }
+                                    >
+                                      إنشاء مشروع جديد
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </>
+                        ) : null}
+
+                        {projectHubView === "board" ? (
+                          <>
+                            {projectHubTasks.length === 0 ? (
+                              <div style={styles.projectHubExpEmpty}>لا توجد مهام مطابقة للمرشحات الحالية.</div>
+                            ) : (
+                              <div style={styles.projectHubBoard}>
+                                {projectHubTaskColumns.map((column) => (
+                                  <div key={column.id} style={styles.projectHubBoardColumn}>
+                                    <div style={styles.projectHubBoardColumnHead}>
+                                      <div style={styles.projectHubBoardColumnTitle}>{column.label}</div>
+                                      <div style={styles.projectHubBoardColumnCount}>
+                                        {toArabicDigits(column.tasks.length)}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "grid", gap: 8 }}>
+                                      {column.tasks.map((task) => (
+                                        <div key={task.id} style={styles.projectHubTaskCard}>
+                                          <span style={styles.projectHubStatusPill(task.statusGroup)}>
+                                            {projectHubTaskGroupLabel(task.statusGroup)}
+                                          </span>
+                                          <div style={styles.projectHubTaskTitle}>{task.task}</div>
+                                          <div style={styles.projectHubTaskMeta}>المشروع: {task.projectName}</div>
+                                          <div style={styles.projectHubTaskMeta}>المسؤول: {task.owner}</div>
+                                          <div style={styles.projectHubTaskMeta}>الاستحقاق: {task.dueDate}</div>
+                                          {task.isOverdue ? (
+                                            <span style={styles.projectHubStatusPill("blocked")}>متأخرة</span>
+                                          ) : null}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : null}
+
+                        {projectHubView === "list" ? (
+                          <>
+                            {projectHubTasks.length === 0 ? (
+                              <div style={styles.projectHubExpEmpty}>لا توجد مهام مطابقة للمرشحات الحالية.</div>
+                            ) : (
+                              <div style={styles.projectHubListWrap}>
+                                {projectHubTasks.map((task) => (
+                                  <div key={task.id} style={styles.projectHubListRow}>
+                                    <div style={styles.projectHubListHead}>
+                                      <div style={styles.projectHubTaskTitle}>{task.task}</div>
+                                      <span style={styles.projectHubStatusPill(task.statusGroup)}>
+                                        {projectHubTaskGroupLabel(task.statusGroup)}
+                                      </span>
+                                    </div>
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: isMobile ? "1fr" : "repeat(5, minmax(0, 1fr))",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <div style={styles.projectHubTaskMeta}>المشروع: {task.projectName}</div>
+                                      <div style={styles.projectHubTaskMeta}>المسار: {task.stream}</div>
+                                      <div style={styles.projectHubTaskMeta}>المرحلة: {task.phase}</div>
+                                      <div style={styles.projectHubTaskMeta}>المسؤول: {task.owner}</div>
+                                      <div style={styles.projectHubTaskMeta}>الاستحقاق: {task.dueDate}</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      {task.isOverdue ? (
+                                        <span style={styles.projectHubStatusPill("blocked")}>متأخرة</span>
+                                      ) : null}
+                                      {task.isArchivedProject ? (
+                                        <span style={styles.projectHubStatusPill("not_started")}>
+                                          مشروع مؤرشف
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          style={styles.projectHubExpSecondaryBtn(false)}
+                                          onClick={() => openProjectFromHub(task.projectId)}
+                                        >
+                                          فتح المشروع
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div style={styles.projectHubGrid}>
-                    {projectHubRows.map((item) => (
-                      <div key={item.id} style={styles.projectHubCard(item.isCurrent)}>
-                        <div style={styles.projectHubCardHead}>
-                          <div style={styles.projectHubCardTitleWrap}>
-                            <div style={styles.projectHubCardTitle}>
-                              {item.name || "مشروع بدون اسم"}
-                            </div>
-                            {item.isCurrent ? (
-                              <span style={styles.stageStatusChip("ready")}>الحالي</span>
-                            ) : null}
-                          </div>
-                          <span style={styles.projectHubStateChip(Boolean(item.isArchived))}>
-                            {item.isArchived ? "مؤرشف" : "نشط"}
-                          </span>
-                        </div>
+                  <>
+                    <div style={styles.projectHubToolbar}>
+                      <input
+                        value={projectHubQuery}
+                        onChange={(e) => setProjectHubQuery(e.target.value)}
+                        placeholder="ابحث باسم المشروع أو المرحلة..."
+                        style={styles.input}
+                      />
+                      <select
+                        value={projectHubFilter}
+                        onChange={(e) => setProjectHubFilter(e.target.value as "all" | "active" | "archived")}
+                        style={styles.input}
+                      >
+                        <option value="all">الكل</option>
+                        <option value="active">نشطة فقط</option>
+                        <option value="archived">مؤرشفة فقط</option>
+                      </select>
+                      <select
+                        value={projectHubSort}
+                        onChange={(e) =>
+                          setProjectHubSort(e.target.value as "updated_desc" | "updated_asc" | "name_asc")
+                        }
+                        style={styles.input}
+                      >
+                        <option value="updated_desc">الأحدث تحديثًا</option>
+                        <option value="updated_asc">الأقدم تحديثًا</option>
+                        <option value="name_asc">الاسم (أ-ي)</option>
+                      </select>
+                    </div>
+                    <div style={styles.blockTop12}>
+                      <button
+                        style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
+                        onClick={() => setStage("welcome")}
+                      >
+                        العودة لشاشة البداية
+                      </button>
+                    </div>
 
-                        <div style={styles.projectHubMetaGrid}>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>المرحلة</span>
-                            <span style={styles.v}>{item.snapshotStageLabel}</span>
-                          </div>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>المسار</span>
-                            <span style={styles.v}>{item.deliveryTrack === "advanced" ? "متقدم" : "سريع"}</span>
-                          </div>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>الجاهزية</span>
-                            <span style={{ ...styles.v, color: readinessAccent(item.readinessLevel) }}>
-                              {item.readinessLevel}
-                            </span>
-                          </div>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>آخر تحديث</span>
-                            <span style={styles.v}>
-                              {item.updatedAt ? formatDateTimeLabel(item.updatedAt) : "غير محدد"}
-                            </span>
-                          </div>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>بنود BOQ</span>
-                            <span style={styles.v}>{toArabicDigits(item.boqCount)}</span>
-                          </div>
-                          <div style={styles.projectHubMetaItem}>
-                            <span style={styles.k}>هامش الربح</span>
-                            <span style={styles.v}>
-                              {item.marginPct === null ? "غير متاح" : `${toArabicDigits(item.marginPct.toFixed(1))}%`}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div style={styles.projectHubActions}>
-                          {!item.isArchived ? (
-                            <>
-                              <button
-                                style={styles.primaryBtn(false)}
-                                onClick={() => openProjectFromHub(item.id)}
-                              >
-                                فتح المشروع
-                              </button>
-                              <button
-                                style={styles.secondaryBtn(!canEditSessionSetup)}
-                                disabled={!canEditSessionSetup}
-                                onClick={() => duplicateProjectById(item.id, false)}
-                              >
-                                نسخ
-                              </button>
-                              <button
-                                style={styles.dangerGhostBtn(!canEditSessionSetup || activeProjects.length <= 1)}
-                                disabled={!canEditSessionSetup || activeProjects.length <= 1}
-                                onClick={() => archiveProjectById(item.id)}
-                              >
-                                أرشفة
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              style={styles.secondaryBtn(!canEditSessionSetup)}
-                              disabled={!canEditSessionSetup}
-                              onClick={() => restoreArchivedProject(item.id)}
-                            >
-                              استعادة
-                            </button>
-                          )}
-                        </div>
+                    {projectHubRows.length === 0 ? (
+                      <div style={styles.projectHubEmpty}>
+                        لا توجد نتائج مطابقة للبحث الحالي.
                       </div>
-                    ))}
-                  </div>
+                    ) : (
+                      <div style={styles.projectHubGrid}>
+                        {projectHubRows.map((item) => (
+                          <div key={item.id} style={styles.projectHubCard(item.isCurrent)}>
+                            <div style={styles.projectHubCardHead}>
+                              <div style={styles.projectHubCardTitleWrap}>
+                                <div style={styles.projectHubCardTitle}>
+                                  {item.name || "مشروع بدون اسم"}
+                                </div>
+                                {item.isCurrent ? (
+                                  <span style={styles.stageStatusChip("ready")}>الحالي</span>
+                                ) : null}
+                              </div>
+                              <span style={styles.projectHubStateChip(Boolean(item.isArchived))}>
+                                {item.isArchived ? "مؤرشف" : "نشط"}
+                              </span>
+                            </div>
+
+                            <div style={styles.projectHubMetaGrid}>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>المرحلة</span>
+                                <span style={styles.v}>{item.snapshotStageLabel}</span>
+                              </div>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>المسار</span>
+                                <span style={styles.v}>{item.deliveryTrack === "advanced" ? "متقدم" : "سريع"}</span>
+                              </div>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>الجاهزية</span>
+                                <span style={{ ...styles.v, color: readinessAccent(item.readinessLevel) }}>
+                                  {item.readinessLevel}
+                                </span>
+                              </div>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>آخر تحديث</span>
+                                <span style={styles.v}>
+                                  {item.updatedAt ? formatDateTimeLabel(item.updatedAt) : "غير محدد"}
+                                </span>
+                              </div>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>بنود BOQ</span>
+                                <span style={styles.v}>{toArabicDigits(item.boqCount)}</span>
+                              </div>
+                              <div style={styles.projectHubMetaItem}>
+                                <span style={styles.k}>هامش الربح</span>
+                                <span style={styles.v}>
+                                  {item.marginPct === null ? "غير متاح" : `${toArabicDigits(item.marginPct.toFixed(1))}%`}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={styles.projectHubActions}>
+                              {!item.isArchived ? (
+                                <>
+                                  <button
+                                    style={styles.primaryBtn(false)}
+                                    onClick={() => openProjectFromHub(item.id)}
+                                  >
+                                    فتح المشروع
+                                  </button>
+                                  <button
+                                    style={styles.secondaryBtn(!canEditSessionSetup)}
+                                    disabled={!canEditSessionSetup}
+                                    onClick={() => duplicateProjectById(item.id, false)}
+                                  >
+                                    نسخ
+                                  </button>
+                                  <button
+                                    style={styles.dangerGhostBtn(!canEditSessionSetup || activeProjects.length <= 1)}
+                                    disabled={!canEditSessionSetup || activeProjects.length <= 1}
+                                    onClick={() => archiveProjectById(item.id)}
+                                  >
+                                    أرشفة
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  style={styles.secondaryBtn(!canEditSessionSetup)}
+                                  disabled={!canEditSessionSetup}
+                                  onClick={() => restoreArchivedProject(item.id)}
+                                >
+                                  استعادة
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
