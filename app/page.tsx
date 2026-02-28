@@ -138,6 +138,24 @@ type PersistedState = {
   demoMode?: boolean;
 };
 
+type LocalProjectMeta = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ProjectsRegistry = {
+  activeProjectId: string;
+  projects: LocalProjectMeta[];
+};
+
+type ProjectBootstrap = {
+  saved: PersistedState;
+  activeProjectId: string;
+  projects: LocalProjectMeta[];
+};
+
 type BoqItem = {
   id: string;
   category: string;
@@ -679,6 +697,128 @@ function formatNumericForInput(value: number) {
 }
 
 const STORAGE_KEY = "oms_dashboard_full_v1";
+const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
+const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
+const FALLBACK_PROJECT_ID = "local_default_project";
+
+function projectDataKey(projectId: string) {
+  return `${PROJECT_DATA_KEY_PREFIX}${projectId}`;
+}
+
+function createProjectId() {
+  return `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function projectNameFromSnapshot(saved: PersistedState, index: number) {
+  const projectText = typeof saved.project === "string" ? saved.project.trim() : "";
+  if (projectText) {
+    return projectText.length > 28 ? `${projectText.slice(0, 28).trim()}...` : projectText;
+  }
+  const eventText = typeof saved.eventType === "string" ? saved.eventType.trim() : "";
+  if (eventText) return eventText;
+  return `مشروع ${toArabicDigits(index)}`;
+}
+
+function isValidLocalProjectMeta(item: unknown): item is LocalProjectMeta {
+  if (!item || typeof item !== "object") return false;
+  const candidate = item as LocalProjectMeta;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.trim().length > 0 &&
+    typeof candidate.name === "string"
+  );
+}
+
+function loadProjectBootstrap(): ProjectBootstrap {
+  const fallbackProjects: LocalProjectMeta[] = [
+    {
+      id: FALLBACK_PROJECT_ID,
+      name: "مشروع 1",
+      createdAt: "",
+      updatedAt: "",
+    },
+  ];
+
+  if (typeof window === "undefined") {
+    return {
+      saved: {},
+      activeProjectId: FALLBACK_PROJECT_ID,
+      projects: fallbackProjects,
+    };
+  }
+
+  try {
+    const registryRaw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
+    if (registryRaw) {
+      const parsed = JSON.parse(registryRaw) as Partial<ProjectsRegistry>;
+      const parsedProjects = Array.isArray(parsed.projects)
+        ? parsed.projects.filter(isValidLocalProjectMeta)
+        : [];
+      if (parsedProjects.length > 0) {
+        const nextActiveId =
+          typeof parsed.activeProjectId === "string" &&
+          parsedProjects.some((item) => item.id === parsed.activeProjectId)
+            ? parsed.activeProjectId
+            : parsedProjects[0].id;
+        const activeRaw = localStorage.getItem(projectDataKey(nextActiveId));
+        let saved: PersistedState = {};
+        if (activeRaw) {
+          try {
+            saved = JSON.parse(activeRaw) as PersistedState;
+          } catch {
+            saved = {};
+          }
+        }
+        return {
+          saved,
+          activeProjectId: nextActiveId,
+          projects: parsedProjects,
+        };
+      }
+    }
+
+    let legacy: PersistedState = {};
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if (legacyRaw) {
+      try {
+        legacy = JSON.parse(legacyRaw) as PersistedState;
+      } catch {
+        legacy = {};
+      }
+    }
+
+    const now = new Date().toISOString();
+    const migratedId = createProjectId();
+    const migratedProjects: LocalProjectMeta[] = [
+      {
+        id: migratedId,
+        name: projectNameFromSnapshot(legacy, 1),
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const registry: ProjectsRegistry = {
+      activeProjectId: migratedId,
+      projects: migratedProjects,
+    };
+    localStorage.setItem(PROJECTS_REGISTRY_KEY, JSON.stringify(registry));
+    localStorage.setItem(projectDataKey(migratedId), JSON.stringify(legacy));
+
+    return {
+      saved: legacy,
+      activeProjectId: migratedId,
+      projects: migratedProjects,
+    };
+  } catch {
+    return {
+      saved: {},
+      activeProjectId: FALLBACK_PROJECT_ID,
+      projects: fallbackProjects,
+    };
+  }
+}
+
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
     id: "1",
@@ -807,16 +947,12 @@ function normalizeBoqItems(saved?: BoqItem[]) {
 }
 
 export default function Home() {
-  const [initialSaved] = useState<PersistedState>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      return JSON.parse(raw) as PersistedState;
-    } catch {
-      return {};
-    }
-  });
+  const [projectBootstrap] = useState<ProjectBootstrap>(() => loadProjectBootstrap());
+  const initialSaved = projectBootstrap.saved;
+  const [activeProjectId] = useState(projectBootstrap.activeProjectId);
+  const [projectRegistry, setProjectRegistry] = useState<LocalProjectMeta[]>(
+    projectBootstrap.projects
+  );
 
   // ============ Inputs ============
   const [eventType, setEventType] = useState(
@@ -1031,6 +1167,10 @@ export default function Home() {
     { id: "governance", label: "الحوكمة", enabled: canEditGovernance },
     { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
   ] as const;
+  const activeProjectMeta =
+    projectRegistry.find((entry) => entry.id === activeProjectId) ?? projectRegistry[0] ?? null;
+  const activeProjectName = activeProjectMeta?.name ?? "";
+
   const stagePermissionHints = useMemo(() => {
     const p = computeRolePermissions(userRole);
     const hints: string[] = [];
@@ -1494,10 +1634,160 @@ export default function Home() {
       ? { tone: "active" as const, label: "غير مكتمل" }
       : { tone: "ready" as const, label: "متماسك" };
 
+  function buildSnapshot(): PersistedState {
+    return {
+      eventType,
+      mode,
+      userRole,
+      initStep,
+      deliveryTrack,
+      advisorSelectionMode,
+      selectedAdvisors,
+      venueType,
+      startAt,
+      endAt,
+      budget,
+      project,
+      commissioningDate,
+      projectStartDate,
+      scopeSite,
+      scopeTechnical,
+      scopeProgram,
+      scopeCeremony,
+      executionStrategy,
+      qualityStandards,
+      riskManagement,
+      responseSla,
+      closureRemovalHours,
+      boqItems,
+      orgRoles,
+      actionTrackerItems,
+      liveRiskItems,
+      baselineFreeze,
+      changeRequests,
+      managementBriefText,
+      fieldChecklistText,
+      advancedPlanText,
+      advancedApproved,
+      demoMode,
+      stage,
+      round1Questions,
+      followupQuestions,
+      answers,
+      dialogue,
+      dialogueSignature,
+      openIssues,
+      hasAddition,
+      userAddition,
+      analysis,
+      analysisSignature,
+      reportText,
+    };
+  }
+
+  function persistRegistry(nextProjects: LocalProjectMeta[], nextActiveProjectId: string) {
+    if (typeof window === "undefined") return;
+    const payload: ProjectsRegistry = {
+      activeProjectId: nextActiveProjectId,
+      projects: nextProjects,
+    };
+    localStorage.setItem(PROJECTS_REGISTRY_KEY, JSON.stringify(payload));
+  }
+
+  function persistActiveProjectSnapshot() {
+    if (typeof window === "undefined") return;
+    const snapshot = buildSnapshot();
+    localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(snapshot));
+    // توافق خلفي حتى لا تتعطل النسخ السابقة.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  }
+
+  function switchProject(nextProjectId: string) {
+    if (!nextProjectId || nextProjectId === activeProjectId) return;
+    persistActiveProjectSnapshot();
+    persistRegistry(projectRegistry, nextProjectId);
+    location.reload();
+  }
+
+  function renameActiveProject(nextName: string) {
+    if (!canEditSessionSetup) return;
+    setProjectRegistry((prev) =>
+      prev.map((entry) =>
+        entry.id === activeProjectId
+          ? {
+              ...entry,
+              name: nextName,
+              updatedAt: new Date().toISOString(),
+            }
+          : entry
+      )
+    );
+  }
+
+  function normalizeActiveProjectName() {
+    if (!canEditSessionSetup) return;
+    const fallbackName = projectNameFromSnapshot(buildSnapshot(), 1);
+    const cleanName = activeProjectName.trim() || fallbackName;
+    renameActiveProject(cleanName);
+  }
+
+  function createNewProject() {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("إنشاء مشروع جديد", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    persistActiveProjectSnapshot();
+
+    const now = new Date().toISOString();
+    const projectId = createProjectId();
+    const nextProjects: LocalProjectMeta[] = [
+      {
+        id: projectId,
+        name: `مشروع ${toArabicDigits(projectRegistry.length + 1)}`,
+        createdAt: now,
+        updatedAt: now,
+      },
+      ...projectRegistry,
+    ];
+
+    localStorage.setItem(projectDataKey(projectId), JSON.stringify({}));
+    persistRegistry(nextProjects, projectId);
+    location.reload();
+  }
+
+  function duplicateCurrentProject() {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("نسخ المشروع", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    persistActiveProjectSnapshot();
+
+    const source = localStorage.getItem(projectDataKey(activeProjectId)) ?? "{}";
+    const now = new Date().toISOString();
+    const projectId = createProjectId();
+    const baseName = activeProjectName.trim() || "مشروع";
+    const nextProjects: LocalProjectMeta[] = [
+      {
+        id: projectId,
+        name: `${baseName} - نسخة`,
+        createdAt: now,
+        updatedAt: now,
+      },
+      ...projectRegistry,
+    ];
+
+    localStorage.setItem(projectDataKey(projectId), source);
+    persistRegistry(nextProjects, projectId);
+    location.reload();
+  }
+
   // ============ Save (no save while loading) ============
   useEffect(() => {
     if (loading) return;
-
     const snapshot = {
       eventType,
       mode,
@@ -1546,9 +1836,11 @@ export default function Home() {
       analysisSignature,
       reportText,
     };
-
+    localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(snapshot));
+    // توافق خلفي حتى لا تتعطل النسخ السابقة.
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   }, [
+    activeProjectId,
     loading,
     eventType,
     mode,
@@ -1597,6 +1889,11 @@ export default function Home() {
     analysisSignature,
     reportText,
   ]);
+
+  useEffect(() => {
+    if (!projectRegistry.length) return;
+    persistRegistry(projectRegistry, activeProjectId);
+  }, [projectRegistry, activeProjectId]);
 
   useEffect(() => {
     function onResize() {
@@ -1713,6 +2010,8 @@ export default function Home() {
   }, [showMobileSummary, isMobile]);
 
   function clearSession() {
+    localStorage.removeItem(projectDataKey(activeProjectId));
+    // توافق خلفي مع التخزين القديم.
     localStorage.removeItem(STORAGE_KEY);
     location.reload();
   }
@@ -4401,8 +4700,16 @@ export default function Home() {
         flexDirection: isMobile ? "column" : "row",
       } as CSSProperties,
       sessionAdminRoleField: {
+        minWidth: isMobile ? "100%" : 170,
+        maxWidth: isMobile ? "100%" : 220,
+      } as CSSProperties,
+      sessionAdminProjectField: {
         minWidth: isMobile ? "100%" : 220,
         maxWidth: isMobile ? "100%" : 280,
+      } as CSSProperties,
+      sessionAdminProjectNameField: {
+        minWidth: isMobile ? "100%" : 260,
+        flex: isMobile ? "none" : 1,
       } as CSSProperties,
       sessionAdminActions: {
         display: "flex",
@@ -4410,7 +4717,8 @@ export default function Home() {
         alignItems: "center",
         justifyContent: isMobile ? "stretch" : "flex-end",
         flexWrap: "wrap",
-        width: isMobile ? "100%" : "auto",
+        width: isMobile ? "100%" : "fit-content",
+        minWidth: isMobile ? "100%" : 260,
       } as CSSProperties,
       themeSwitchBtn: (active: boolean) =>
         ({
@@ -7123,6 +7431,42 @@ export default function Home() {
 
           {!isWelcome ? (
             <div style={styles.sessionAdminBar}>
+              <div style={styles.sessionAdminProjectField}>
+                <div style={styles.label}>المشروع الحالي</div>
+                <select
+                  value={activeProjectId}
+                  onChange={(e) => switchProject(e.target.value)}
+                  style={styles.input}
+                >
+                  {projectRegistry.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name || "مشروع بدون اسم"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.sessionAdminProjectNameField}>
+                <div style={styles.label}>اسم المشروع</div>
+                <input
+                  value={activeProjectName}
+                  onChange={(e) => renameActiveProject(e.target.value)}
+                  onBlur={normalizeActiveProjectName}
+                  disabled={!canEditSessionSetup}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "تعديل اسم المشروع",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                  style={styles.input}
+                  placeholder="اكتب اسم المشروع"
+                />
+              </div>
+
               <div style={styles.sessionAdminRoleField}>
                 <div style={styles.label}>الدور الحالي</div>
                 <select
@@ -7138,6 +7482,44 @@ export default function Home() {
               </div>
 
               <div style={styles.sessionAdminActions}>
+                <button
+                  style={{
+                    ...styles.secondaryBtn(!canEditSessionSetup),
+                    width: isMobile ? "100%" : "auto",
+                  }}
+                  onClick={createNewProject}
+                  disabled={!canEditSessionSetup}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "إنشاء مشروع جديد",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                >
+                  مشروع جديد
+                </button>
+                <button
+                  style={{
+                    ...styles.secondaryBtn(!canEditSessionSetup),
+                    width: isMobile ? "100%" : "auto",
+                  }}
+                  onClick={duplicateCurrentProject}
+                  disabled={!canEditSessionSetup}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "نسخ المشروع الحالي",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                >
+                  نسخ المشروع
+                </button>
                 {!isSelectionStep ? (
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
@@ -10581,10 +10963,10 @@ export default function Home() {
               تأكيد مسح الجلسة
             </h3>
             <div style={styles.confirmDesc}>
-              سيتم حذف جميع المدخلات الحالية في كل المراحل، ولن يمكنك التراجع بعد المسح.
+              سيتم حذف جميع مدخلات المشروع الحالي ({activeProjectName || "بدون اسم"}) في كل المراحل، ولن يمكنك التراجع بعد المسح.
             </div>
             <div style={styles.confirmWarn}>
-              إذا كنت تحتاج البيانات لاحقًا، احفظ نسخة قبل المتابعة.
+              إذا كنت تحتاج البيانات لاحقًا، استخدم زر «نسخ المشروع» قبل المتابعة.
             </div>
             <div style={styles.confirmActions}>
               <button
