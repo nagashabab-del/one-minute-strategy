@@ -4151,23 +4151,6 @@ export default function Home() {
         color: "rgba(255,255,255,0.72)",
         fontSize: textScale.small,
       },
-      headerContext: {
-        display: "grid",
-        gap: 8,
-        justifyItems: isMobile ? "stretch" : "end",
-        width: isMobile ? "100%" : "auto",
-      } as CSSProperties,
-      headerStageChip: {
-        borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.30)",
-        background: "rgba(0,229,255,0.10)",
-        color: "rgba(255,255,255,0.95)",
-        fontSize: 12.5,
-        fontWeight: 800,
-        padding: "6px 11px",
-        textAlign: isMobile ? "center" : "right",
-        lineHeight: 1.35,
-      } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
         borderRadius: 12,
@@ -6272,10 +6255,6 @@ export default function Home() {
                 </div>
               </div>
 
-              <div style={styles.headerContext}>
-                <div style={styles.headerStageChip}>{stageLabel()}</div>
-                <div style={styles.stageStatusChip(stageStatusTone())}>{stageStatusText()}</div>
-              </div>
             </header>
           )}
 
