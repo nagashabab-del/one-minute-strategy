@@ -5385,18 +5385,19 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
-        padding: isMobile ? `${space.xs}px ${space.xs}px` : `${space.sm}px ${space.xs}px`,
+        padding: isMobile ? `${space.xs}px 4px` : `${space.sm}px ${space.xs}px`,
         maxWidth: isMobile ? "100%" : 920,
         margin: "0 auto",
       } as CSSProperties,
       welcomeLogoMark: {
-        height: isMobile ? 108 : 156,
-        width: "auto",
+        width: isMobile ? (isNarrowMobile ? 200 : 230) : 420,
+        maxWidth: "100%",
+        height: "auto",
         filter: "drop-shadow(0 0 26px rgba(128,0,255,0.56))",
       } as CSSProperties,
       welcomeTitle: {
-        margin: `${space.sm}px 0 0 0`,
-        fontSize: isMobile ? 28 : 38,
+        margin: `${isMobile ? 10 : space.sm}px 0 0 0`,
+        fontSize: isMobile ? (isNarrowMobile ? 24 : 26) : 38,
         fontWeight: 900,
         letterSpacing: 0.24,
         lineHeight: 1.15,
@@ -5404,18 +5405,18 @@ export default function Home() {
       welcomeSubtitle: {
         marginTop: 6,
         color: "rgba(255,255,255,0.84)",
-        fontSize: isMobile ? 12.5 : 15,
+        fontSize: isMobile ? 12 : 15,
         fontWeight: 800,
         letterSpacing: 0.2,
       } as CSSProperties,
       welcomeFootnote: {
         marginTop: 12,
         marginBottom: 0,
-        maxWidth: isMobile ? 340 : 620,
+        maxWidth: isMobile ? "100%" : 620,
         color: "rgba(255,255,255,0.78)",
         fontSize: isMobile ? 12 : 13,
         fontWeight: 700,
-        lineHeight: 1.75,
+        lineHeight: isMobile ? 1.7 : 1.75,
         textAlign: "center",
       } as CSSProperties,
       welcomeActions: {
@@ -6425,8 +6426,8 @@ export default function Home() {
               <Image
                 src="/logo.svg"
                 alt="One Minute Strategy"
-                width={isMobile ? 280 : 420}
-                height={isMobile ? 94 : 142}
+                width={420}
+                height={142}
                 style={styles.welcomeLogoMark}
               />
               <h1 style={styles.welcomeTitle}>
@@ -6464,9 +6465,15 @@ export default function Home() {
                 </button>
               </div>
               <p style={styles.welcomeFootnote}>
-                مجلس استشاري ذكي يوحّد رؤية المالي والتشغيلي والمخاطر والتسويق،
-                <br />
-                ويحوّل مدخلاتك إلى قرار واضح وخطة تنفيذ قابلة للتطبيق.
+                {isMobile ? (
+                  "مجلس استشاري ذكي يوحّد رؤية المالي والتشغيلي والمخاطر والتسويق، ويحوّل مدخلاتك إلى قرار واضح وخطة تنفيذ قابلة للتطبيق."
+                ) : (
+                  <>
+                    مجلس استشاري ذكي يوحّد رؤية المالي والتشغيلي والمخاطر والتسويق،
+                    <br />
+                    ويحوّل مدخلاتك إلى قرار واضح وخطة تنفيذ قابلة للتطبيق.
+                  </>
+                )}
               </p>
             </div>
           ) : (
