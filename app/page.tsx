@@ -1606,7 +1606,7 @@ export default function Home() {
     }
 
     window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
-  }, [stage, initStep]);
+  }, [stage]);
 
   useEffect(() => {
     const scopeStepChanged = prevAdvancedScopeStepRef.current !== advancedScopeStep;
