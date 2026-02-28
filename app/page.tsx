@@ -957,6 +957,9 @@ export default function Home() {
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
   const [advancedScopeStep, setAdvancedScopeStep] = useState<"scope" | "org">("scope");
+  const [advancedBoqStep, setAdvancedBoqStep] = useState<
+    "boq" | "quality_risk" | "operations"
+  >("boq");
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
 
   const effectiveSelectedAdvisors =
@@ -1324,6 +1327,19 @@ export default function Home() {
   ];
   const advancedScopeCompletedCount = advancedScopeChecklist.filter((item) => item.done).length;
   const advancedScopeTotalCount = advancedScopeChecklist.length;
+  const advancedBoqFilledCount = boqItems.filter((row) => row.item.trim().length > 0).length;
+  const advancedBoqTotalCount = boqItems.length;
+  const advancedQualityRiskCompletedCount = [
+    qualityStandards.trim().length > 0,
+    riskManagement.trim().length > 0,
+  ].filter(Boolean).length;
+  const advancedQualityRiskTotalCount = 2;
+  const advancedOpsCompletedCount = [
+    responseSla.trim().length > 0,
+    closureRemovalHours.trim().length > 0,
+    liveRiskItems.length > 0,
+  ].filter(Boolean).length;
+  const advancedOpsTotalCount = 3;
   const isMobile = viewportWidth <= 768;
   const isNarrowMobile = viewportWidth <= 480;
   const advancedTimelineInfo = useMemo(() => {
@@ -1559,7 +1575,7 @@ export default function Home() {
       top: 0,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
-  }, [stage, initStep, advancedScopeStep]);
+  }, [stage, initStep, advancedScopeStep, advancedBoqStep]);
 
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
@@ -2317,6 +2333,7 @@ export default function Home() {
   function openAdvancedTrack() {
     if (!canEditAdvancedExecution && canEditGovernance) {
       setDeliveryTrack("advanced");
+      setAdvancedBoqStep("boq");
       setStage(advancedPlanText.trim() ? "advanced_plan" : "advanced_boq");
       showSuccess("تم فتح المسار المتقدم بصلاحية الحوكمة.");
       return;
@@ -3286,7 +3303,9 @@ export default function Home() {
       case "advanced_scope":
         return "المسار المتقدم: نطاق واستراتيجية";
       case "advanced_boq":
-        return "المسار المتقدم: BOQ والجودة والمخاطر";
+        if (advancedBoqStep === "boq") return "المسار المتقدم: BOQ";
+        if (advancedBoqStep === "quality_risk") return "المسار المتقدم: الجودة والمخاطر";
+        return "المسار المتقدم: المخاطر التشغيلية والجاهزية";
       case "advanced_plan":
         return "المسار المتقدم: خطة التنفيذ";
       default:
@@ -3339,7 +3358,13 @@ export default function Home() {
     }
 
     if (stage === "advanced_boq") {
-      return "استكمال BOQ والجودة والمخاطر";
+      if (advancedBoqStep === "boq") {
+        return `BOQ (${toArabicDigits(advancedBoqFilledCount)}/${toArabicDigits(advancedBoqTotalCount)})`;
+      }
+      if (advancedBoqStep === "quality_risk") {
+        return `الجودة + المخاطر النصية (${toArabicDigits(advancedQualityRiskCompletedCount)}/${toArabicDigits(advancedQualityRiskTotalCount)})`;
+      }
+      return `التشغيل والمخاطر (${toArabicDigits(advancedOpsCompletedCount)}/${toArabicDigits(advancedOpsTotalCount)})`;
     }
 
     if (stage === "advanced_plan") {
@@ -3376,7 +3401,9 @@ export default function Home() {
       case "advanced_scope":
         return "تجهيز النطاق المتقدم";
       case "advanced_boq":
-        return "تجهيز BOQ والمخاطر";
+        if (advancedBoqStep === "boq") return "تجهيز BOQ";
+        if (advancedBoqStep === "quality_risk") return "تجهيز الجودة والمخاطر النصية";
+        return "جاهزية التشغيل قبل توليد الخطة";
       case "advanced_plan":
         return advancedApproved ? "الخطة المعتمدة جاهزة" : "مراجعة الخطة المتقدمة";
       case "dialogue":
@@ -4706,6 +4733,12 @@ export default function Home() {
         fontSize: 12.5,
         color: "rgba(255,255,255,0.78)",
         lineHeight: 1.5,
+      } as CSSProperties,
+      advancedBoqNavGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
+        gap: 10,
+        marginBottom: 12,
       } as CSSProperties,
       selectorRow: {
         display: "grid",
@@ -7476,7 +7509,10 @@ export default function Home() {
                     <button
                       style={styles.primaryBtn(isProcessing())}
                       disabled={isProcessing() || !canEditAdvancedExecution}
-                      onClick={() => setStage("advanced_boq")}
+                      onClick={() => {
+                        setAdvancedBoqStep("boq");
+                        setStage("advanced_boq");
+                      }}
                     >
                       التالي: BOQ + الجودة + المخاطر
                     </button>
@@ -7503,8 +7539,91 @@ export default function Home() {
 
             {stage === "advanced_boq" && (
               <>
-                <h3 style={styles.sectionHeading}>7) المسار المتقدم: BOQ والجودة والمخاطر</h3>
+                <h3 style={styles.sectionHeading}>
+                  {advancedBoqStep === "boq"
+                    ? "7) المسار المتقدم: BOQ"
+                    : advancedBoqStep === "quality_risk"
+                      ? "7) المسار المتقدم: الجودة والمخاطر"
+                      : "7) المسار المتقدم: التشغيل والجاهزية"}
+                </h3>
 
+                <div style={styles.blockTop12}>
+                  <div style={styles.advancedScopeNavCard}>
+                    <div style={styles.advancedBoqNavGrid}>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advancedBoqStep === "boq")}
+                        disabled={isProcessing()}
+                        onClick={() => setAdvancedBoqStep("boq")}
+                      >
+                        7A: BOQ
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advancedBoqStep === "quality_risk")}
+                        disabled={isProcessing()}
+                        onClick={() => setAdvancedBoqStep("quality_risk")}
+                      >
+                        7B: الجودة + المخاطر النصية
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.selectorBtn(advancedBoqStep === "operations")}
+                        disabled={isProcessing()}
+                        onClick={() => setAdvancedBoqStep("operations")}
+                      >
+                        7C: التشغيل والجاهزية
+                      </button>
+                    </div>
+                    <div style={styles.advancedScopeMetaRow}>
+                      {advancedBoqStep === "boq" ? (
+                        <>
+                          <div
+                            style={styles.advancedScopeMetaChip(
+                              advancedBoqFilledCount > 0 ? "ok" : "info"
+                            )}
+                          >
+                            بنود BOQ المعبأة: {toArabicDigits(advancedBoqFilledCount)}/{toArabicDigits(advancedBoqTotalCount)}
+                          </div>
+                          <div style={styles.advancedScopeMetaText}>
+                            أكمِل البنود الأساسية ثم انتقل إلى الجودة والمخاطر النصية.
+                          </div>
+                        </>
+                      ) : advancedBoqStep === "quality_risk" ? (
+                        <>
+                          <div
+                            style={styles.advancedScopeMetaChip(
+                              advancedQualityRiskCompletedCount === advancedQualityRiskTotalCount
+                                ? "ok"
+                                : "info"
+                            )}
+                          >
+                            الجودة + المخاطر النصية:{" "}
+                            {toArabicDigits(advancedQualityRiskCompletedCount)}/{toArabicDigits(advancedQualityRiskTotalCount)}
+                          </div>
+                          <div style={styles.advancedScopeMetaText}>
+                            حدّد معايير الجودة وسجل المخاطر قبل الإعداد التشغيلي النهائي.
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div
+                            style={styles.advancedScopeMetaChip(
+                              advancedOpsCompletedCount === advancedOpsTotalCount ? "ok" : "info"
+                            )}
+                          >
+                            جاهزية التشغيل: {toArabicDigits(advancedOpsCompletedCount)}/{toArabicDigits(advancedOpsTotalCount)}
+                          </div>
+                          <div style={styles.advancedScopeMetaText}>
+                            راجع لوحة المخاطر وسرعة الاستجابة قبل توليد الخطة المتقدمة.
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {advancedBoqStep === "boq" ? (
                 <div style={styles.blockTop12}>
                   <div style={styles.label}>2.3 جدول الكميات والمواصفات (مختصر V1)</div>
                   <div style={styles.textMutedSmallTop8}>
@@ -7911,27 +8030,46 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.5 معايير الجودة</div>
-                  <textarea
-                    value={qualityStandards}
-                    onChange={(e) => setQualityStandards(e.target.value)}
-                    style={styles.textarea}
-                    disabled={!canEditAdvancedExecution}
-                    placeholder="اكتب معايير الجودة وآلية التحقق..."
-                  />
-                </div>
+                ) : null}
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.label}>2.6 إدارة المخاطر</div>
-                  <textarea
-                    value={riskManagement}
-                    onChange={(e) => setRiskManagement(e.target.value)}
-                    style={styles.textarea}
-                    disabled={!canEditAdvancedExecution}
-                    placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
-                  />
-                </div>
+                {advancedBoqStep === "quality_risk" ? (
+                  <>
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.scopeSectionTitle}>2.5 معايير الجودة</div>
+                        <div style={styles.scopeSectionHint}>
+                          اكتب معايير الجودة وآلية التحقق الميداني والاعتماد قبل التنفيذ.
+                        </div>
+                        <textarea
+                          value={qualityStandards}
+                          onChange={(e) => setQualityStandards(e.target.value)}
+                          style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                          disabled={!canEditAdvancedExecution}
+                          placeholder="اكتب معايير الجودة وآلية التحقق..."
+                        />
+                      </div>
+                    </div>
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.scopeSectionTitle}>2.6 إدارة المخاطر</div>
+                        <div style={styles.scopeSectionHint}>
+                          وثّق المخاطر الرئيسية وخطط الاستجابة قبل بناء لوحة المخاطر الحية.
+                        </div>
+                        <textarea
+                          value={riskManagement}
+                          onChange={(e) => setRiskManagement(e.target.value)}
+                          style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                          disabled={!canEditAdvancedExecution}
+                          placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                {advancedBoqStep === "operations" ? (
+                  <>
 
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
@@ -8215,6 +8353,13 @@ export default function Home() {
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
+                    onClick={() => setAdvancedBoqStep("quality_risk")}
+                  >
+                    رجوع: 7B الجودة + المخاطر النصية
+                  </button>
+                  <button
+                    style={styles.secondaryBtn(isProcessing())}
+                    disabled={isProcessing()}
                     onClick={() => {
                       setAdvancedScopeStep("org");
                       setStage("advanced_scope");
@@ -8223,6 +8368,59 @@ export default function Home() {
                     رجوع: 6B الهيكل التشغيلي
                   </button>
                 </div>
+                </>
+                ) : null}
+
+                {advancedBoqStep === "boq" ? (
+                  <div style={styles.stackAfterSection}>
+                    <button
+                      style={styles.primaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => setAdvancedBoqStep("quality_risk")}
+                    >
+                      التالي: 7B الجودة + المخاطر النصية
+                    </button>
+                    <button
+                      style={styles.secondaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => {
+                        setAdvancedScopeStep("org");
+                        setStage("advanced_scope");
+                      }}
+                    >
+                      رجوع: 6B الهيكل التشغيلي
+                    </button>
+                  </div>
+                ) : null}
+
+                {advancedBoqStep === "quality_risk" ? (
+                  <div style={styles.stackAfterSection}>
+                    <button
+                      style={styles.primaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => setAdvancedBoqStep("operations")}
+                    >
+                      التالي: 7C التشغيل والجاهزية
+                    </button>
+                    <button
+                      style={styles.secondaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => setAdvancedBoqStep("boq")}
+                    >
+                      رجوع: 7A BOQ
+                    </button>
+                    <button
+                      style={styles.secondaryBtn(isProcessing())}
+                      disabled={isProcessing()}
+                      onClick={() => {
+                        setAdvancedScopeStep("org");
+                        setStage("advanced_scope");
+                      }}
+                    >
+                      رجوع: 6B الهيكل التشغيلي
+                    </button>
+                  </div>
+                ) : null}
               </>
             )}
 
@@ -8692,7 +8890,10 @@ export default function Home() {
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
-                    onClick={() => setStage("advanced_boq")}
+                    onClick={() => {
+                      setAdvancedBoqStep("operations");
+                      setStage("advanced_boq");
+                    }}
                   >
                     رجوع: BOQ والجودة والمخاطر
                   </button>
