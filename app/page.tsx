@@ -5389,18 +5389,6 @@ export default function Home() {
         maxWidth: isMobile ? "100%" : 920,
         margin: "0 auto",
       } as CSSProperties,
-      welcomeEyebrow: {
-        display: "inline-flex",
-        alignItems: "center",
-        borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.30)",
-        background: "rgba(0,229,255,0.10)",
-        color: "rgba(255,255,255,0.95)",
-        fontSize: isMobile ? 11.5 : 12.5,
-        fontWeight: 800,
-        padding: "5px 10px",
-        letterSpacing: 0.12,
-      } as CSSProperties,
       welcomeLogoMark: {
         height: isMobile ? 108 : 156,
         width: "auto",
@@ -5420,48 +5408,23 @@ export default function Home() {
         fontWeight: 800,
         letterSpacing: 0.2,
       } as CSSProperties,
-      welcomeMessage: {
-        marginTop: 10,
+      welcomeFootnote: {
+        marginTop: 12,
         marginBottom: 0,
-        maxWidth: isMobile ? 340 : 700,
-        color: "rgba(255,255,255,0.88)",
-        fontSize: isMobile ? 14 : 17,
+        maxWidth: isMobile ? 340 : 620,
+        color: "rgba(255,255,255,0.78)",
+        fontSize: isMobile ? 12 : 13,
         fontWeight: 700,
-        lineHeight: isMobile ? 1.8 : 1.85,
+        lineHeight: 1.75,
         textAlign: "center",
-      } as CSSProperties,
-      welcomeValueGrid: {
-        marginTop: 14,
-        width: "100%",
-        display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "1fr 1fr 1fr",
-        gap: 10,
-      } as CSSProperties,
-      welcomeValueCard: {
-        borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
-        padding: isMobile ? "10px 11px" : "11px 12px",
-        textAlign: "right",
-      } as CSSProperties,
-      welcomeValueTitle: {
-        fontSize: 13.5,
-        fontWeight: 900,
-        color: "rgba(255,255,255,0.96)",
-        lineHeight: 1.45,
-      } as CSSProperties,
-      welcomeValueDesc: {
-        marginTop: 4,
-        fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
-        lineHeight: 1.6,
       } as CSSProperties,
       welcomeActions: {
         marginTop: 14,
-        width: "100%",
-        display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        width: isMobile ? "100%" : "auto",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: isMobile ? "column" : "row",
         gap: 10,
       } as CSSProperties,
       stackAfterSection: {
@@ -6453,7 +6416,6 @@ export default function Home() {
         <div style={styles.headerShell}>
           {isWelcome ? (
             <div style={styles.welcomeHero}>
-              <div style={styles.welcomeEyebrow}>من الفكرة إلى قرار تنفيذي خلال دقائق</div>
               <Image
                 src="/logo.svg"
                 alt="One Minute Strategy"
@@ -6467,35 +6429,10 @@ export default function Home() {
               <div style={styles.welcomeSubtitle}>
                 Executive Decision Intelligence Platform
               </div>
-              <p style={styles.welcomeMessage}>
-                مجلس استشاري ذكي يوحّد رؤية المالي والتشغيلي والمخاطر والتسويق، ويحوّل مدخلاتك إلى
-                قرار واضح وخطة تنفيذ قابلة للتطبيق.
-              </p>
-
-              <div style={styles.welcomeValueGrid}>
-                <div style={styles.welcomeValueCard}>
-                  <div style={styles.welcomeValueTitle}>قرار أسرع</div>
-                  <div style={styles.welcomeValueDesc}>
-                    اختصر وقت التقييم عبر مسار واضح من الأسئلة حتى القرار التنفيذي.
-                  </div>
-                </div>
-                <div style={styles.welcomeValueCard}>
-                  <div style={styles.welcomeValueTitle}>تحليل متوازن</div>
-                  <div style={styles.welcomeValueDesc}>
-                    مخرجات مبنية على منظور المستشارين الأساسيين بدل رأي واحد منفرد.
-                  </div>
-                </div>
-                <div style={styles.welcomeValueCard}>
-                  <div style={styles.welcomeValueTitle}>جاهزية تنفيذ</div>
-                  <div style={styles.welcomeValueDesc}>
-                    انتقل من التقييم إلى خطة تشغيلية وتقارير جاهزة للاعتماد.
-                  </div>
-                </div>
-              </div>
 
               <div style={styles.welcomeActions}>
                 <button
-                  style={styles.primaryBtn(false)}
+                  style={{ ...styles.primaryBtn(false), width: isMobile ? "100%" : 260 }}
                   onClick={() => {
                     setInitStep("session");
                     setStage("init");
@@ -6504,7 +6441,7 @@ export default function Home() {
                   🚀 انطلق الآن
                 </button>
                 <button
-                  style={styles.secondaryBtn(!canLoadDemo)}
+                  style={{ ...styles.secondaryBtn(!canLoadDemo), width: isMobile ? "100%" : 260 }}
                   disabled={!canLoadDemo}
                   title={
                     canLoadDemo
@@ -6520,6 +6457,11 @@ export default function Home() {
                   🧪 تحميل نموذج تجريبي كامل
                 </button>
               </div>
+              <p style={styles.welcomeFootnote}>
+                مجلس استشاري ذكي يوحّد رؤية المالي والتشغيلي والمخاطر والتسويق،
+                <br />
+                ويحوّل مدخلاتك إلى قرار واضح وخطة تنفيذ قابلة للتطبيق.
+              </p>
             </div>
           ) : (
             <header style={styles.header}>
