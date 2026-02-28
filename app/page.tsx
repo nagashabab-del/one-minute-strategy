@@ -6239,12 +6239,6 @@ export default function Home() {
                   </select>
                 </div>
 
-                {stage === "done" && reportText?.trim() ? (
-                  <button style={styles.ghostBtn} onClick={copyReport}>
-                    نسخ التقرير
-                  </button>
-                ) : null}
-
                 {!isSelectionStep ? (
                   <button
                     style={styles.ghostBtn}
