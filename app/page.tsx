@@ -16,7 +16,6 @@ type StageUI =
   | "advanced_plan";
 
 type DeliveryTrack = "fast" | "advanced";
-type ThemeMode = "glass" | "calm";
 
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
@@ -137,7 +136,6 @@ type PersistedState = {
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
-  themeMode?: ThemeMode;
 };
 
 type BoqItem = {
@@ -925,7 +923,6 @@ export default function Home() {
     initialSaved.advancedApproved ?? false
   );
   const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(initialSaved.themeMode ?? "glass");
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>(() =>
@@ -1536,7 +1533,6 @@ export default function Home() {
       advancedPlanText,
       advancedApproved,
       demoMode,
-      themeMode,
       stage,
       round1Questions,
       followupQuestions,
@@ -1588,7 +1584,6 @@ export default function Home() {
     advancedPlanText,
     advancedApproved,
     demoMode,
-    themeMode,
     stage,
     round1Questions,
     followupQuestions,
@@ -4222,7 +4217,7 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
-      const isCalmTheme = themeMode === "calm";
+      const isCalmTheme = false;
       const palette = isCalmTheme
         ? {
             pageBg: "#d8deea",
@@ -6897,7 +6892,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, themeMode]
+    [isMobile, isNarrowMobile]
   );
 
   const renderSummarySection = (
@@ -7062,14 +7057,6 @@ export default function Home() {
                 >
                   🧪 تحميل نموذج تجريبي كامل
                 </button>
-                <button
-                  style={{ ...styles.ghostBtn, width: isMobile ? "100%" : 260 }}
-                  onClick={() =>
-                    setThemeMode((prev) => (prev === "glass" ? "calm" : "glass"))
-                  }
-                >
-                  🎨 النمط: {themeMode === "glass" ? "زجاجي" : "هادئ"}
-                </button>
               </div>
               <p style={styles.welcomeFootnote}>
                 {isMobile ? (
@@ -7122,18 +7109,6 @@ export default function Home() {
               </div>
 
               <div style={styles.sessionAdminActions}>
-                <button
-                  style={styles.themeSwitchBtn(themeMode === "glass")}
-                  onClick={() => setThemeMode("glass")}
-                >
-                  النمط الزجاجي
-                </button>
-                <button
-                  style={styles.themeSwitchBtn(themeMode === "calm")}
-                  onClick={() => setThemeMode("calm")}
-                >
-                  النمط الهادئ
-                </button>
                 {!isSelectionStep ? (
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
