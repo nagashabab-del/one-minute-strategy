@@ -16,6 +16,7 @@ type StageUI =
   | "advanced_plan";
 
 type DeliveryTrack = "fast" | "advanced";
+type ThemeMode = "glass" | "calm";
 
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
@@ -136,6 +137,7 @@ type PersistedState = {
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
+  themeMode?: ThemeMode;
 };
 
 type BoqItem = {
@@ -923,6 +925,7 @@ export default function Home() {
     initialSaved.advancedApproved ?? false
   );
   const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialSaved.themeMode ?? "glass");
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>(() =>
@@ -1533,6 +1536,7 @@ export default function Home() {
       advancedPlanText,
       advancedApproved,
       demoMode,
+      themeMode,
       stage,
       round1Questions,
       followupQuestions,
@@ -1584,6 +1588,7 @@ export default function Home() {
     advancedPlanText,
     advancedApproved,
     demoMode,
+    themeMode,
     stage,
     round1Questions,
     followupQuestions,
@@ -4217,12 +4222,108 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
+      const isCalmTheme = themeMode === "calm";
+      const palette = isCalmTheme
+        ? {
+            pageBg: "#0f1524",
+            pageText: "rgba(245,250,255,0.98)",
+            glow:
+              "radial-gradient(circle, rgba(126,146,230,0.36) 0%, rgba(15,21,36,0) 62%)",
+            shellBorder: "1px solid rgba(166,185,216,0.24)",
+            shellBg:
+              "linear-gradient(180deg, rgba(149,170,206,0.14), rgba(18,27,43,0.42) 70%)",
+            shellShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+            cardBg:
+              "linear-gradient(180deg, rgba(160,178,208,0.12), rgba(15,23,40,0.48) 72%)",
+            cardBorder: "1px solid rgba(166,185,216,0.22)",
+            inputBg: "rgba(18,28,46,0.62)",
+            inputBorder: "1px solid rgba(166,185,216,0.32)",
+            primaryBg: "linear-gradient(90deg, #6e6cff, #5faeeb)",
+            primaryDisabledBg: "rgba(166,185,216,0.28)",
+            secondaryBg: "rgba(166,185,216,0.10)",
+            secondaryBorder: "1px solid rgba(166,185,216,0.34)",
+            ghostBorder: "1px solid rgba(166,185,216,0.34)",
+            progressTrack: "rgba(166,185,216,0.18)",
+            progressBorder: "1px solid rgba(166,185,216,0.20)",
+            progressFill: "linear-gradient(90deg, #5faeeb, #7d8be8, #6e6cff)",
+            progressGlow: "0 0 14px rgba(95,174,235,0.20)",
+            accentBorder: "1px solid rgba(95,174,235,0.34)",
+            accentBg: "rgba(95,174,235,0.14)",
+            successBorder: "1px solid rgba(47,182,126,0.34)",
+            successBg: "rgba(47,182,126,0.13)",
+            warnBorder: "1px solid rgba(240,170,78,0.34)",
+            warnBg: "rgba(240,170,78,0.13)",
+            dangerBorder: "1px solid rgba(225,110,110,0.34)",
+            dangerBg: "rgba(225,110,110,0.13)",
+            infoBorder: "1px solid rgba(95,174,235,0.34)",
+            infoBg: "rgba(95,174,235,0.13)",
+            criticalBorder: "1px solid rgba(214,98,122,0.38)",
+            criticalBg: "rgba(214,98,122,0.14)",
+            infoSolid: "#5FAEEB",
+            successSolid: "#2FB67E",
+            warnSolid: "#F0AA4E",
+            dangerSolid: "#E16E6E",
+            criticalSolid: "#D6627A",
+            sidePanelBg:
+              "linear-gradient(180deg, rgba(18,27,43,0.90), rgba(15,23,38,0.88) 55%, rgba(13,20,33,0.90))",
+            sidePanelBorder: "1px solid rgba(95,174,235,0.24)",
+            sideBlockBg:
+              "linear-gradient(180deg, rgba(149,170,206,0.11), rgba(19,29,48,0.36))",
+            sideBlockBorder: "1px solid rgba(166,185,216,0.18)",
+            sideBlockAccent: "3px solid rgba(95,174,235,0.50)",
+          }
+        : {
+            pageBg: "#05070d",
+            pageText: "white",
+            glow:
+              "radial-gradient(circle, rgba(128,0,255,0.55) 0%, rgba(5,7,13,0) 60%)",
+            shellBorder: "1px solid rgba(255,255,255,0.08)",
+            shellBg: "rgba(255,255,255,0.03)",
+            shellShadow: "none",
+            cardBg: "rgba(255,255,255,0.04)",
+            cardBorder: "1px solid rgba(255,255,255,0.08)",
+            inputBg: "rgba(0,0,0,0.35)",
+            inputBorder: "1px solid rgba(255,255,255,0.12)",
+            primaryBg: "linear-gradient(90deg, #6a00ff, #b300ff)",
+            primaryDisabledBg: "rgba(255,255,255,0.10)",
+            secondaryBg: "rgba(255,255,255,0.04)",
+            secondaryBorder: "1px solid rgba(255,255,255,0.18)",
+            ghostBorder: "1px solid rgba(255,255,255,0.18)",
+            progressTrack: "rgba(255,255,255,0.11)",
+            progressBorder: "1px solid rgba(255,255,255,0.08)",
+            progressFill: "linear-gradient(90deg, #00d4ee, #4f6fe6, #7f5fd1)",
+            progressGlow: "0 0 14px rgba(0,212,238,0.18)",
+            accentBorder: "1px solid rgba(0,229,255,0.30)",
+            accentBg: "rgba(0,229,255,0.12)",
+            successBorder: "1px solid rgba(31,208,145,0.34)",
+            successBg: "rgba(31,208,145,0.13)",
+            warnBorder: "1px solid rgba(255,184,107,0.34)",
+            warnBg: "rgba(255,184,107,0.13)",
+            dangerBorder: "1px solid rgba(255,138,92,0.34)",
+            dangerBg: "rgba(255,138,92,0.13)",
+            infoBorder: "1px solid rgba(0,198,228,0.34)",
+            infoBg: "rgba(0,198,228,0.13)",
+            criticalBorder: "1px solid rgba(255,111,120,0.38)",
+            criticalBg: "rgba(255,111,120,0.14)",
+            infoSolid: "#00C6E4",
+            successSolid: "#1FD091",
+            warnSolid: "#FFB86B",
+            dangerSolid: "#FF8A5C",
+            criticalSolid: "#FF6F78",
+            sidePanelBg:
+              "linear-gradient(180deg, rgba(5,12,24,0.88), rgba(8,16,30,0.82) 45%, rgba(4,8,18,0.86))",
+            sidePanelBorder: "1px solid rgba(0,229,255,0.16)",
+            sideBlockBg:
+              "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))",
+            sideBlockBorder: "1px solid rgba(255,255,255,0.10)",
+            sideBlockAccent: "3px solid rgba(0,229,255,0.38)",
+          };
 
       return ({
       page: {
         minHeight: "100vh",
-        background: "#05070d",
-        color: "white",
+        background: palette.pageBg,
+        color: palette.pageText,
         position: "relative" as const,
         overflow: "hidden" as const,
       },
@@ -4233,8 +4334,7 @@ export default function Home() {
         transform: "translateX(-50%)",
         width: isMobile ? 720 : 980,
         height: isMobile ? 720 : 980,
-        background:
-          "radial-gradient(circle, rgba(128,0,255,0.55) 0%, rgba(5,7,13,0) 60%)",
+        background: palette.glow,
         filter: "blur(90px)",
         zIndex: 0,
       },
@@ -4247,8 +4347,9 @@ export default function Home() {
       },
       headerShell: {
         borderRadius: 18,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.shellBorder,
+        background: palette.shellBg,
+        boxShadow: palette.shellShadow,
         backdropFilter: "blur(14px)",
         padding: isMobile ? space.sm : space.md,
         marginBottom: space.sm,
@@ -4271,7 +4372,9 @@ export default function Home() {
       headerLogoMark: {
         height: isMobile ? 40 : 48,
         width: "auto",
-        filter: "drop-shadow(0 0 16px rgba(128,0,255,0.55))",
+        filter: isCalmTheme
+          ? "drop-shadow(0 0 14px rgba(95,174,235,0.48))"
+          : "drop-shadow(0 0 16px rgba(128,0,255,0.55))",
       } as CSSProperties,
       headerBrandText: {
         display: "grid",
@@ -4286,7 +4389,7 @@ export default function Home() {
       } as CSSProperties,
       headerTagline: {
         marginTop: 2,
-        color: "rgba(255,255,255,0.72)",
+        color: isCalmTheme ? "rgba(228,237,252,0.86)" : "rgba(255,255,255,0.72)",
         fontSize: isMobile ? 11.5 : 12.5,
         fontWeight: 700,
         lineHeight: 1.35,
@@ -4294,8 +4397,8 @@ export default function Home() {
       sessionAdminBar: {
         marginTop: 12,
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: isMobile ? "10px" : "10px 12px",
         display: "flex",
         alignItems: isMobile ? "stretch" : "center",
@@ -4311,12 +4414,31 @@ export default function Home() {
         display: "flex",
         gap: 8,
         alignItems: "center",
+        justifyContent: isMobile ? "stretch" : "flex-end",
+        flexWrap: "wrap",
         width: isMobile ? "100%" : "auto",
       } as CSSProperties,
+      themeSwitchBtn: (active: boolean) =>
+        ({
+          minHeight: touchTarget,
+          borderRadius: 12,
+          border: active
+            ? "1px solid rgba(95,174,235,0.42)"
+            : "1px solid rgba(255,255,255,0.18)",
+          background: active
+            ? "linear-gradient(180deg, rgba(95,174,235,0.20), rgba(110,108,255,0.10))"
+            : "rgba(255,255,255,0.04)",
+          color: "white",
+          fontSize: 13,
+          fontWeight: active ? 900 : 700,
+          padding: "10px 12px",
+          cursor: "pointer",
+          width: isMobile ? "100%" : "auto",
+        } as CSSProperties),
       dangerGhostBtn: (disabled: boolean) =>
         ({
-          background: "rgba(255,122,69,0.08)",
-          border: "1px solid rgba(255,122,69,0.36)",
+          background: palette.dangerBg,
+          border: palette.dangerBorder,
           padding: "10px 14px",
           minHeight: touchTarget,
           display: "inline-flex",
@@ -4332,7 +4454,7 @@ export default function Home() {
         } as CSSProperties),
       ghostBtn: {
         background: "transparent",
-        border: "1px solid rgba(255,255,255,0.18)",
+        border: palette.ghostBorder,
         padding: "10px 14px",
         minHeight: touchTarget,
         display: "inline-flex",
@@ -4355,8 +4477,8 @@ export default function Home() {
           borderRadius: 14,
           border: "none",
           background: disabled
-            ? "rgba(255,255,255,0.10)"
-            : "linear-gradient(90deg, #6a00ff, #b300ff)",
+            ? palette.primaryDisabledBg
+            : palette.primaryBg,
           color: "white",
           fontWeight: 900,
           lineHeight: 1.2,
@@ -4371,8 +4493,8 @@ export default function Home() {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 14,
-          border: "1px solid rgba(255,255,255,0.18)",
-          background: "rgba(255,255,255,0.04)",
+          border: palette.secondaryBorder,
+          background: palette.secondaryBg,
           color: "white",
           fontWeight: 800,
           lineHeight: 1.2,
@@ -4382,8 +4504,8 @@ export default function Home() {
       progressWrapper: {
         marginBottom: 18,
         borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
         padding: isMobile ? "10px 11px" : "11px 12px",
       } as CSSProperties,
@@ -4401,8 +4523,8 @@ export default function Home() {
       } as CSSProperties,
       progressPercentBadge: {
         borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.30)",
-        background: "rgba(0,229,255,0.12)",
+        border: palette.accentBorder,
+        background: palette.accentBg,
         color: "rgba(255,255,255,0.95)",
         fontSize: 12,
         fontWeight: 900,
@@ -4424,15 +4546,15 @@ export default function Home() {
       progressBar: {
         marginTop: 9,
         height: 9,
-        background: "rgba(255,255,255,0.11)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: palette.progressTrack,
+        border: palette.progressBorder,
         borderRadius: 20,
         overflow: "hidden",
       } as CSSProperties,
       progressFill: {
         height: "100%",
-        background: "linear-gradient(90deg, #00d4ee, #4f6fe6, #7f5fd1)",
-        boxShadow: "0 0 14px rgba(0,212,238,0.18)",
+        background: palette.progressFill,
+        boxShadow: palette.progressGlow,
         transition: "width 260ms ease",
       } as CSSProperties,
       progressFooterText: {
@@ -4446,9 +4568,9 @@ export default function Home() {
         gap: space.md,
       },
       card: {
-        background: "rgba(255,255,255,0.04)",
+        background: palette.cardBg,
         backdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: palette.cardBorder,
         borderRadius: 16,
         padding: isMobile ? space.sm : space.md,
       },
@@ -4468,8 +4590,8 @@ export default function Home() {
         padding: space.xs,
         minHeight: touchTarget,
         borderRadius: 12,
-        background: "rgba(0,0,0,0.35)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        background: palette.inputBg,
+        border: palette.inputBorder,
         color: "white",
         outline: "none",
         fontSize: isMobile ? 16 : 14,
@@ -4516,8 +4638,8 @@ export default function Home() {
         width: "100%",
         padding: space.sm,
         borderRadius: 14,
-        background: "rgba(0,0,0,0.35)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        background: palette.inputBg,
+        border: palette.inputBorder,
         color: "white",
         outline: "none",
         resize: "none" as const,
@@ -4546,17 +4668,19 @@ export default function Home() {
       qCard: {
         padding: isMobile ? 12 : 14,
         borderRadius: 14,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: palette.cardBg,
+        border: palette.cardBorder,
         marginTop: 12,
       } as CSSProperties,
       advancedScopeCard: {
         marginTop: 0,
         padding: isMobile ? 13 : 15,
         borderRadius: 15,
-        border: "1px solid rgba(0,229,255,0.20)",
+        border: palette.infoBorder,
         background:
-          "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)",
+          isCalmTheme
+            ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)"
+            : "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)",
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 24px rgba(0,0,0,0.20)",
       } as CSSProperties,
       advancedSectionHeader: {
@@ -4574,8 +4698,8 @@ export default function Home() {
       } as CSSProperties,
       advancedSectionIndexChip: {
         borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.32)",
-        background: "rgba(0,229,255,0.14)",
+        border: palette.infoBorder,
+        background: palette.infoBg,
         color: "rgba(255,255,255,0.96)",
         fontSize: 11.5,
         fontWeight: 900,
@@ -4679,7 +4803,7 @@ export default function Home() {
       } as CSSProperties,
       qHint: {
         fontSize: textScale.tiny,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
         marginTop: space.xs,
         lineHeight: 1.55,
       } as CSSProperties,
@@ -4707,10 +4831,8 @@ export default function Home() {
       additionStateBadge: (hasExtra: boolean) =>
         ({
           borderRadius: 999,
-          border: hasExtra
-            ? "1px solid rgba(0,255,133,0.30)"
-            : "1px solid rgba(0,229,255,0.30)",
-          background: hasExtra ? "rgba(0,255,133,0.12)" : "rgba(0,229,255,0.10)",
+          border: hasExtra ? palette.successBorder : palette.infoBorder,
+          background: hasExtra ? palette.successBg : palette.infoBg,
           color: "white",
           padding: "5px 10px",
           fontSize: 12,
@@ -4728,17 +4850,23 @@ export default function Home() {
           textAlign: "right",
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(0,229,255,0.35)"
+            ? palette.infoBorder
             : "1px solid rgba(255,255,255,0.12)",
           background: active
-            ? "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))"
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03))"
+                : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
             : "rgba(255,255,255,0.025)",
           padding: "10px 11px",
           color: "white",
           cursor: "pointer",
           display: "grid",
           gap: 4,
-          boxShadow: active ? "0 8px 20px rgba(0,229,255,0.10)" : "none",
+          boxShadow: active
+            ? isCalmTheme
+              ? "0 8px 20px rgba(95,174,235,0.10)"
+              : "0 8px 20px rgba(0,229,255,0.10)"
+            : "none",
           minHeight: 76,
         } as CSSProperties),
       additionChoiceTitle: {
@@ -4755,15 +4883,17 @@ export default function Home() {
       additionInputCard: {
         marginTop: 10,
         borderRadius: 13,
-        border: "1px solid rgba(0,255,133,0.24)",
-        background: "linear-gradient(180deg, rgba(0,255,133,0.08), rgba(255,255,255,0.02))",
+        border: palette.successBorder,
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(47,182,126,0.11), rgba(255,255,255,0.02))"
+          : "linear-gradient(180deg, rgba(0,255,133,0.08), rgba(255,255,255,0.02))",
         padding: isMobile ? 11 : 12,
       } as CSSProperties,
       warnBox: {
         padding: 12,
         borderRadius: 14,
-        background: "rgba(255, 200, 0, 0.10)",
-        border: "1px solid rgba(255, 200, 0, 0.18)",
+        background: palette.warnBg,
+        border: palette.warnBorder,
         marginTop: 10,
       },
       permissionHintBox: {
@@ -4771,8 +4901,8 @@ export default function Home() {
         marginBottom: 10,
         padding: "10px 12px",
         borderRadius: 12,
-        background: "rgba(0, 229, 255, 0.08)",
-        border: "1px solid rgba(0, 229, 255, 0.22)",
+        background: palette.infoBg,
+        border: palette.infoBorder,
       } as CSSProperties,
       permissionHintTitle: {
         fontSize: 12.5,
@@ -4789,8 +4919,8 @@ export default function Home() {
       successBox: {
         padding: 12,
         borderRadius: 14,
-        background: "rgba(0, 255, 133, 0.10)",
-        border: "1px solid rgba(0, 255, 133, 0.18)",
+        background: palette.successBg,
+        border: palette.successBorder,
         marginTop: 10,
       },
       toastWrap: {
@@ -4829,9 +4959,11 @@ export default function Home() {
       confirmCard: {
         width: "min(560px, 100%)",
         borderRadius: 16,
-        border: "1px solid rgba(255,122,69,0.34)",
+        border: palette.warnBorder,
         background:
-          "linear-gradient(180deg, rgba(255,122,69,0.14), rgba(15,20,34,0.95) 42%, rgba(10,14,24,0.97))",
+          isCalmTheme
+            ? "linear-gradient(180deg, rgba(240,170,78,0.14), rgba(15,20,34,0.95) 42%, rgba(10,14,24,0.97))"
+            : "linear-gradient(180deg, rgba(255,122,69,0.14), rgba(15,20,34,0.95) 42%, rgba(10,14,24,0.97))",
         boxShadow: "0 16px 40px rgba(0,0,0,0.38)",
         padding: isMobile ? 14 : 16,
       } as CSSProperties,
@@ -4851,8 +4983,8 @@ export default function Home() {
       confirmWarn: {
         marginTop: 10,
         borderRadius: 11,
-        border: "1px solid rgba(255,122,69,0.30)",
-        background: "rgba(255,122,69,0.12)",
+        border: palette.warnBorder,
+        background: palette.warnBg,
         padding: "8px 10px",
         fontSize: 12.5,
         color: "rgba(255,255,255,0.9)",
@@ -4928,10 +5060,16 @@ export default function Home() {
           height: 12,
           borderRadius: 999,
           border: active
-            ? "1px solid rgba(0,255,133,0.45)"
+            ? isCalmTheme
+              ? "1px solid rgba(47,182,126,0.52)"
+              : "1px solid rgba(0,255,133,0.45)"
             : "1px solid rgba(255,255,255,0.20)",
-          background: active ? "#00FF85" : "transparent",
-          boxShadow: active ? "0 0 10px rgba(0,255,133,0.55)" : "none",
+          background: active ? palette.successSolid : "transparent",
+          boxShadow: active
+            ? isCalmTheme
+              ? "0 0 10px rgba(47,182,126,0.55)"
+              : "0 0 10px rgba(0,255,133,0.55)"
+            : "none",
         } as CSSProperties),
 
       advisorIconS: {
@@ -5042,11 +5180,11 @@ export default function Home() {
           fontWeight: 900,
           color:
             tone === "ok"
-              ? "#00FF85"
+              ? palette.successSolid
               : tone === "warn"
-                ? "#FF7A45"
+                ? palette.warnSolid
                 : tone === "info"
-                  ? "#00E5FF"
+                  ? palette.infoSolid
                   : "rgba(255,255,255,0.9)",
         } as CSSProperties),
       scopeFieldsGrid: {
@@ -5086,7 +5224,9 @@ export default function Home() {
         borderRadius: 12,
         border: "1px solid rgba(255,255,255,0.12)",
         background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-        boxShadow: "inset 0 0 0 1px rgba(0,229,255,0.08)",
+        boxShadow: isCalmTheme
+          ? "inset 0 0 0 1px rgba(95,174,235,0.12)"
+          : "inset 0 0 0 1px rgba(0,229,255,0.08)",
         padding: isMobile ? 11 : 10,
       } as CSSProperties,
       scopeStrategyTitle: {
@@ -5426,10 +5566,9 @@ export default function Home() {
         padding: isMobile ? 12 : 14,
       } as CSSProperties,
       sidePanel: {
-        background:
-          "linear-gradient(180deg, rgba(5,12,24,0.88), rgba(8,16,30,0.82) 45%, rgba(4,8,18,0.86))",
+        background: palette.sidePanelBg,
         backdropFilter: "blur(16px)",
-        border: "1px solid rgba(0,229,255,0.16)",
+        border: palette.sidePanelBorder,
         borderRadius: 18,
         boxShadow: "0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: isMobile ? 14 : 16,
@@ -5444,9 +5583,11 @@ export default function Home() {
         width: "100%",
         minHeight: touchTarget,
         borderRadius: 14,
-        border: "1px solid rgba(0,229,255,0.28)",
+        border: palette.infoBorder,
         background:
-          "linear-gradient(180deg, rgba(5,12,24,0.95), rgba(10,20,36,0.94))",
+          isCalmTheme
+            ? "linear-gradient(180deg, rgba(18,27,43,0.95), rgba(20,31,49,0.94))"
+            : "linear-gradient(180deg, rgba(5,12,24,0.95), rgba(10,20,36,0.94))",
         boxShadow: "0 10px 24px rgba(0,0,0,0.32)",
         color: "white",
         fontSize: 13.5,
@@ -5457,14 +5598,16 @@ export default function Home() {
       mobileSummaryOverlay: {
         position: "fixed" as const,
         inset: 0,
-        background: "rgba(0,0,0,0.55)",
+        background: isCalmTheme ? "rgba(9,14,24,0.56)" : "rgba(0,0,0,0.55)",
         zIndex: 40,
       } as CSSProperties,
       mobileSummaryInline: {
         marginTop: 12,
         background:
-          "linear-gradient(180deg, rgba(5,12,24,0.94), rgba(8,16,30,0.90) 45%, rgba(4,8,18,0.94))",
-        border: "1px solid rgba(0,229,255,0.16)",
+          isCalmTheme
+            ? "linear-gradient(180deg, rgba(18,27,43,0.94), rgba(15,23,38,0.90) 45%, rgba(13,20,33,0.94))"
+            : "linear-gradient(180deg, rgba(5,12,24,0.94), rgba(8,16,30,0.90) 45%, rgba(4,8,18,0.94))",
+        border: palette.sidePanelBorder,
         borderRadius: 16,
         boxShadow: "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: 12,
@@ -5480,8 +5623,9 @@ export default function Home() {
         maxHeight: "100dvh",
         borderRadius: 0,
         border: "none",
-        background:
-          "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96) 48%, rgba(4,8,18,0.98))",
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(18,27,43,0.98), rgba(15,23,38,0.96) 48%, rgba(13,20,33,0.98))"
+          : "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96) 48%, rgba(4,8,18,0.98))",
         boxShadow: "none",
         display: "block",
         overflowY: "auto" as const,
@@ -5498,9 +5642,10 @@ export default function Home() {
         justifyContent: "space-between",
         gap: 10,
         padding: "12px 14px",
-        borderBottom: "1px solid rgba(255,255,255,0.10)",
-        background:
-          "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96))",
+        borderBottom: palette.sideBlockBorder,
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(18,27,43,0.98), rgba(15,23,38,0.96))"
+          : "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96))",
       } as CSSProperties,
       mobileSummaryHeadTitle: {
         margin: 0,
@@ -5511,8 +5656,8 @@ export default function Home() {
       mobileSummaryCloseBtn: {
         minHeight: 32,
         borderRadius: 999,
-        border: "1px solid rgba(255,255,255,0.18)",
-        background: "rgba(255,255,255,0.05)",
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
         color: "white",
         fontSize: 12.5,
         fontWeight: 800,
@@ -5531,11 +5676,13 @@ export default function Home() {
           minHeight: 40,
           borderRadius: 12,
           border: open
-            ? "1px solid rgba(0,229,255,0.30)"
-            : "1px solid rgba(255,255,255,0.14)",
+            ? palette.infoBorder
+            : palette.secondaryBorder,
           background: open
-            ? "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))"
-            : "rgba(255,255,255,0.04)",
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(95,174,235,0.14), rgba(255,255,255,0.03))"
+                : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
+            : palette.secondaryBg,
           color: "white",
           display: "flex",
           alignItems: "center",
@@ -5554,8 +5701,8 @@ export default function Home() {
           width: 22,
           height: 22,
           borderRadius: 999,
-          border: "1px solid rgba(255,255,255,0.20)",
-          background: open ? "rgba(0,229,255,0.16)" : "rgba(255,255,255,0.06)",
+          border: open ? palette.infoBorder : palette.secondaryBorder,
+          background: open ? palette.infoBg : palette.secondaryBg,
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
@@ -5572,8 +5719,8 @@ export default function Home() {
       mobileSummarySection: {
         marginTop: 10,
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "8px 10px",
       } as CSSProperties,
       mobileSummarySectionLabel: {
@@ -5598,15 +5745,15 @@ export default function Home() {
         marginBottom: 8,
         fontSize: 11.5,
         letterSpacing: 0.3,
-        color: "rgba(0,229,255,0.82)",
+        color: isCalmTheme ? "rgba(146,196,244,0.92)" : "rgba(0,229,255,0.82)",
         fontWeight: 800,
       } as CSSProperties,
       sideBlock: {
         marginTop: 12,
         borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.10)",
-        borderRight: "3px solid rgba(0,229,255,0.38)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))",
+        border: palette.sideBlockBorder,
+        borderRight: palette.sideBlockAccent,
+        background: palette.sideBlockBg,
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: isMobile ? 11 : 12,
       } as CSSProperties,
@@ -5626,9 +5773,9 @@ export default function Home() {
       } as CSSProperties,
       sideProgressBadge: {
         borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.26)",
-        background: "rgba(0,229,255,0.10)",
-        color: "rgba(255,255,255,0.94)",
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        color: isCalmTheme ? "rgba(236,244,255,0.96)" : "rgba(255,255,255,0.94)",
         fontSize: 11.5,
         fontWeight: 900,
         padding: "3px 7px",
@@ -5681,9 +5828,9 @@ export default function Home() {
         ({
           borderRadius: 10,
           border: enabled
-            ? "1px solid rgba(0,255,133,0.28)"
-            : "1px solid rgba(255,255,255,0.14)",
-          background: enabled ? "rgba(0,255,133,0.10)" : "rgba(255,255,255,0.035)",
+            ? palette.successBorder
+            : palette.sideBlockBorder,
+          background: enabled ? palette.successBg : palette.sideBlockBg,
           padding: "7px 8px",
           fontSize: 11.5,
           lineHeight: 1.45,
@@ -5691,8 +5838,8 @@ export default function Home() {
         } as CSSProperties),
       miniStat: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "9px 10px",
       } as CSSProperties,
       miniStatLabel: {
@@ -5801,11 +5948,13 @@ export default function Home() {
         ({
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(0,229,255,0.24)"
-            : "1px solid rgba(255,255,255,0.10)",
+            ? palette.infoBorder
+            : palette.sideBlockBorder,
           background: active
-            ? "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))"
-            : "rgba(255,255,255,0.025)",
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(95,174,235,0.13), rgba(255,255,255,0.03))"
+                : "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))")
+            : palette.sideBlockBg,
           padding: isMobile ? 11 : 10,
         } as CSSProperties),
       orgRoleHead: {
@@ -5835,11 +5984,11 @@ export default function Home() {
           minHeight: 30,
           borderRadius: 999,
           border: active
-            ? "1px solid rgba(0,255,133,0.30)"
-            : "1px solid rgba(255,194,77,0.32)",
+            ? palette.successBorder
+            : palette.warnBorder,
           background: active
-            ? "rgba(0,255,133,0.12)"
-            : "rgba(255,194,77,0.10)",
+            ? palette.successBg
+            : palette.warnBg,
           color: "white",
           fontSize: 11.5,
           fontWeight: 800,
@@ -5856,8 +6005,8 @@ export default function Home() {
       } as CSSProperties,
       orgRoleMetaBox: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "7px 8px",
       } as CSSProperties,
       orgRoleMetaLabel: {
@@ -5874,8 +6023,8 @@ export default function Home() {
         width: 20,
         height: 20,
         borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.32)",
-        background: "rgba(0,229,255,0.10)",
+        border: palette.infoBorder,
+        background: palette.infoBg,
         color: "white",
         fontSize: 11,
         fontWeight: 900,
@@ -5895,8 +6044,8 @@ export default function Home() {
       orgRoleDetailsPanel: {
         marginTop: 8,
         borderRadius: 10,
-        border: "1px solid rgba(0,229,255,0.22)",
-        background: "rgba(0,229,255,0.06)",
+        border: palette.infoBorder,
+        background: palette.infoBg,
         padding: "8px 10px",
       } as CSSProperties,
       orgRoleDetailsTitle: {
@@ -5925,8 +6074,8 @@ export default function Home() {
       } as CSSProperties,
       actionTrackerBadge: {
         borderRadius: 999,
-        border: "1px solid rgba(0,229,255,0.26)",
-        background: "rgba(0,229,255,0.10)",
+        border: palette.infoBorder,
+        background: palette.infoBg,
         padding: "6px 10px",
         fontSize: 12,
         fontWeight: 800,
@@ -5940,8 +6089,8 @@ export default function Home() {
       } as CSSProperties,
       actionTrackerStat: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "7px 8px",
       } as CSSProperties,
       actionTrackerStatLabel: {
@@ -6008,8 +6157,8 @@ export default function Home() {
       } as CSSProperties,
       outputPackCard: {
         borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: 10,
       } as CSSProperties,
       outputPackTitle: {
@@ -6038,8 +6187,8 @@ export default function Home() {
       } as CSSProperties,
       riskBoardBadge: {
         borderRadius: 999,
-        border: "1px solid rgba(255,194,77,0.30)",
-        background: "rgba(255,194,77,0.10)",
+        border: palette.warnBorder,
+        background: palette.warnBg,
         padding: "6px 10px",
         fontSize: 12,
         fontWeight: 800,
@@ -6053,8 +6202,8 @@ export default function Home() {
       } as CSSProperties,
       riskBoardStat: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "7px 8px",
       } as CSSProperties,
       riskBoardStatLabel: {
@@ -6075,8 +6224,8 @@ export default function Home() {
       } as CSSProperties,
       riskLegendItem: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "7px 8px",
         display: "flex",
         alignItems: "center",
@@ -6091,20 +6240,20 @@ export default function Home() {
           borderRadius: 999,
           background:
             severity === "critical"
-              ? "#FF4F8B"
+              ? (isCalmTheme ? "#D6627A" : "#FF4F8B")
               : severity === "high"
-                ? "#FF7A45"
+                ? (isCalmTheme ? "#E16E6E" : "#FF7A45")
                 : severity === "medium"
-                  ? "#FFC24D"
-                  : "#00E5FF",
+                  ? (isCalmTheme ? "#F0AA4E" : "#FFC24D")
+                  : (isCalmTheme ? "#5FAEEB" : "#00E5FF"),
           boxShadow:
             severity === "critical"
-              ? "0 0 10px rgba(255,79,139,0.5)"
+              ? (isCalmTheme ? "0 0 10px rgba(214,98,122,0.44)" : "0 0 10px rgba(255,79,139,0.5)")
               : severity === "high"
-                ? "0 0 10px rgba(255,122,69,0.45)"
+                ? (isCalmTheme ? "0 0 10px rgba(225,110,110,0.40)" : "0 0 10px rgba(255,122,69,0.45)")
                 : severity === "medium"
-                  ? "0 0 10px rgba(255,194,77,0.45)"
-                  : "0 0 10px rgba(0,229,255,0.45)",
+                  ? (isCalmTheme ? "0 0 10px rgba(240,170,78,0.40)" : "0 0 10px rgba(255,194,77,0.45)")
+                  : (isCalmTheme ? "0 0 10px rgba(95,174,235,0.40)" : "0 0 10px rgba(0,229,255,0.45)"),
           flexShrink: 0,
         } as CSSProperties),
       riskCard: (severity: RiskSeverity, status: RiskStatus) =>
@@ -6113,34 +6262,34 @@ export default function Home() {
           borderRadius: 12,
           border:
             status === "مغلق"
-              ? "1px solid rgba(0,255,133,0.28)"
+              ? palette.successBorder
               : severity === "critical"
-                ? "1px solid rgba(255,79,139,0.42)"
+                ? palette.criticalBorder
                 : severity === "high"
-                  ? "1px solid rgba(255,122,69,0.38)"
+                  ? palette.dangerBorder
                   : severity === "medium"
-                    ? "1px solid rgba(255,194,77,0.34)"
-                    : "1px solid rgba(0,229,255,0.28)",
+                    ? palette.warnBorder
+                    : palette.infoBorder,
           background:
             status === "مغلق"
-              ? "rgba(0,255,133,0.06)"
+              ? palette.successBg
               : severity === "critical"
-                ? "linear-gradient(180deg, rgba(255,79,139,0.14), rgba(255,255,255,0.02))"
+                ? `linear-gradient(180deg, ${palette.criticalBg}, rgba(255,255,255,0.02))`
                 : severity === "high"
-                  ? "linear-gradient(180deg, rgba(255,122,69,0.13), rgba(255,255,255,0.02))"
+                  ? `linear-gradient(180deg, ${palette.dangerBg}, rgba(255,255,255,0.02))`
                   : severity === "medium"
-                    ? "linear-gradient(180deg, rgba(255,194,77,0.11), rgba(255,255,255,0.02))"
-                    : "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02))",
+                    ? `linear-gradient(180deg, ${palette.warnBg}, rgba(255,255,255,0.02))`
+                    : `linear-gradient(180deg, ${palette.infoBg}, rgba(255,255,255,0.02))`,
           boxShadow:
             status === "مغلق"
               ? "none"
               : severity === "critical"
-                ? "0 10px 24px rgba(255,79,139,0.14)"
+                ? `0 10px 24px ${isCalmTheme ? "rgba(214,98,122,0.14)" : "rgba(255,79,139,0.14)"}`
                 : severity === "high"
-                  ? "0 10px 24px rgba(255,122,69,0.12)"
+                  ? `0 10px 24px ${isCalmTheme ? "rgba(225,110,110,0.12)" : "rgba(255,122,69,0.12)"}`
                   : severity === "medium"
-                    ? "0 8px 20px rgba(255,194,77,0.10)"
-                    : "0 8px 18px rgba(0,229,255,0.09)",
+                    ? `0 8px 20px ${isCalmTheme ? "rgba(240,170,78,0.10)" : "rgba(255,194,77,0.10)"}`
+                    : `0 8px 18px ${isCalmTheme ? "rgba(95,174,235,0.09)" : "rgba(0,229,255,0.09)"}`,
           padding: 10,
         } as CSSProperties),
       riskCardHead: {
@@ -6160,20 +6309,20 @@ export default function Home() {
           borderRadius: 999,
           border:
             severity === "critical"
-              ? "1px solid rgba(255,79,139,0.38)"
+              ? palette.criticalBorder
               : severity === "high"
-                ? "1px solid rgba(255,122,69,0.34)"
+                ? palette.dangerBorder
                 : severity === "medium"
-                  ? "1px solid rgba(255,194,77,0.30)"
-                  : "1px solid rgba(0,229,255,0.28)",
+                  ? palette.warnBorder
+                  : palette.infoBorder,
           background:
             severity === "critical"
-              ? "rgba(255,79,139,0.14)"
+              ? palette.criticalBg
               : severity === "high"
-                ? "rgba(255,122,69,0.12)"
+                ? palette.dangerBg
                 : severity === "medium"
-                  ? "rgba(255,194,77,0.10)"
-                  : "rgba(0,229,255,0.10)",
+                  ? palette.warnBg
+                  : palette.infoBg,
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
@@ -6185,20 +6334,20 @@ export default function Home() {
           borderRadius: 999,
           border:
             status === "مغلق"
-              ? "1px solid rgba(0,255,133,0.30)"
+              ? palette.successBorder
               : status === "مصعّد"
-                ? "1px solid rgba(255,79,139,0.36)"
+                ? palette.criticalBorder
                 : status === "قيد المعالجة"
-                  ? "1px solid rgba(255,194,77,0.30)"
-                  : "1px solid rgba(0,229,255,0.28)",
+                  ? palette.warnBorder
+                  : palette.infoBorder,
           background:
             status === "مغلق"
-              ? "rgba(0,255,133,0.10)"
+              ? palette.successBg
               : status === "مصعّد"
-                ? "rgba(255,79,139,0.12)"
+                ? palette.criticalBg
                 : status === "قيد المعالجة"
-                  ? "rgba(255,194,77,0.10)"
-                  : "rgba(0,229,255,0.10)",
+                  ? palette.warnBg
+                  : palette.infoBg,
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
@@ -6214,51 +6363,51 @@ export default function Home() {
         ({
           border:
             level === "مرتفع"
-              ? "1px solid rgba(255,79,139,0.40)"
+              ? palette.criticalBorder
               : level === "متوسط"
-                ? "1px solid rgba(255,194,77,0.34)"
-                : "1px solid rgba(0,229,255,0.30)",
+                ? palette.warnBorder
+                : palette.infoBorder,
           background:
             level === "مرتفع"
-              ? "rgba(255,79,139,0.10)"
+              ? palette.criticalBg
               : level === "متوسط"
-                ? "rgba(255,194,77,0.10)"
-                : "rgba(0,229,255,0.08)",
+                ? palette.warnBg
+                : palette.infoBg,
         } as CSSProperties),
       riskStatusSelect: (status: RiskStatus) =>
         ({
           border:
             status === "مغلق"
-              ? "1px solid rgba(0,255,133,0.32)"
+              ? palette.successBorder
               : status === "مصعّد"
-                ? "1px solid rgba(255,79,139,0.38)"
+                ? palette.criticalBorder
                 : status === "قيد المعالجة"
-                  ? "1px solid rgba(255,194,77,0.34)"
-                  : "1px solid rgba(0,229,255,0.30)",
+                  ? palette.warnBorder
+                  : palette.infoBorder,
           background:
             status === "مغلق"
-              ? "rgba(0,255,133,0.09)"
+              ? palette.successBg
               : status === "مصعّد"
-                ? "rgba(255,79,139,0.10)"
+                ? palette.criticalBg
                 : status === "قيد المعالجة"
-                  ? "rgba(255,194,77,0.10)"
-                  : "rgba(0,229,255,0.08)",
+                  ? palette.warnBg
+                  : palette.infoBg,
         } as CSSProperties),
       governanceBadge: (tone: "frozen" | "changed" | "idle") =>
         ({
           borderRadius: 999,
           border:
             tone === "frozen"
-              ? "1px solid rgba(0,255,133,0.30)"
+              ? palette.successBorder
               : tone === "changed"
-                ? "1px solid rgba(255,194,77,0.30)"
-                : "1px solid rgba(255,255,255,0.16)",
+                ? palette.warnBorder
+                : palette.secondaryBorder,
           background:
             tone === "frozen"
-              ? "rgba(0,255,133,0.10)"
+              ? palette.successBg
               : tone === "changed"
-                ? "rgba(255,194,77,0.10)"
-                : "rgba(255,255,255,0.04)",
+                ? palette.warnBg
+                : palette.secondaryBg,
           padding: "6px 10px",
           fontSize: 12,
           fontWeight: 800,
@@ -6509,16 +6658,16 @@ export default function Home() {
           marginTop: 8,
           border:
             tone === "warn"
-              ? "1px solid rgba(255,166,77,0.34)"
+              ? palette.warnBorder
               : tone === "info"
-                ? "1px solid rgba(0,198,228,0.32)"
-                : "1px solid rgba(31,208,145,0.32)",
+                ? palette.infoBorder
+                : palette.successBorder,
           background:
             tone === "warn"
-              ? "rgba(255,166,77,0.12)"
+              ? palette.warnBg
               : tone === "info"
-                ? "rgba(0,198,228,0.12)"
-                : "rgba(31,208,145,0.12)",
+                ? palette.infoBg
+                : palette.successBg,
           fontSize: 12,
           lineHeight: 1.5,
           color: "rgba(255,255,255,0.92)",
@@ -6543,8 +6692,8 @@ export default function Home() {
       } as CSSProperties,
       advisorRecoItem: {
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(255,255,255,0.025)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         padding: "8px 10px",
         color: "rgba(255,255,255,0.9)",
         lineHeight: 1.6,
@@ -6553,27 +6702,43 @@ export default function Home() {
         marginTop: 10,
         padding: "10px 12px",
         borderRadius: 12,
-        background: "rgba(255, 122, 69, 0.10)",
-        border: "1px solid rgba(255, 122, 69, 0.26)",
+        background: palette.warnBg,
+        border: palette.warnBorder,
         color: "rgba(255,255,255,0.92)",
       } as CSSProperties,
       analysisCard: (tone: "strength" | "opportunity" | "gap" | "risk") => {
         const palette = {
           strength: {
-            accent: "#00E5FF",
-            bg: "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02) 60%)",
+            accent: isCalmTheme ? "#5FAEEB" : "#00E5FF",
+            border: isCalmTheme ? "rgba(95,174,235,0.30)" : "rgba(0,229,255,0.22)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(95,174,235,0.11), rgba(255,255,255,0.02) 60%)"
+              : "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(255,255,255,0.02) 60%)",
+            glow: isCalmTheme ? "rgba(95,174,235,0.10)" : "rgba(0,229,255,0.10)",
           },
           opportunity: {
-            accent: "#00FF85",
-            bg: "linear-gradient(180deg, rgba(0,255,133,0.09), rgba(255,255,255,0.02) 60%)",
+            accent: isCalmTheme ? "#2FB67E" : "#00FF85",
+            border: isCalmTheme ? "rgba(47,182,126,0.30)" : "rgba(0,255,133,0.22)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(47,182,126,0.10), rgba(255,255,255,0.02) 60%)"
+              : "linear-gradient(180deg, rgba(0,255,133,0.09), rgba(255,255,255,0.02) 60%)",
+            glow: isCalmTheme ? "rgba(47,182,126,0.09)" : "rgba(0,255,133,0.09)",
           },
           gap: {
-            accent: "#FFC24D",
-            bg: "linear-gradient(180deg, rgba(255,194,77,0.09), rgba(255,255,255,0.02) 60%)",
+            accent: isCalmTheme ? "#F0AA4E" : "#FFC24D",
+            border: isCalmTheme ? "rgba(240,170,78,0.30)" : "rgba(255,194,77,0.22)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(240,170,78,0.11), rgba(255,255,255,0.02) 60%)"
+              : "linear-gradient(180deg, rgba(255,194,77,0.09), rgba(255,255,255,0.02) 60%)",
+            glow: isCalmTheme ? "rgba(240,170,78,0.10)" : "rgba(255,194,77,0.10)",
           },
           risk: {
-            accent: "#FF4FD8",
-            bg: "linear-gradient(180deg, rgba(255,79,216,0.09), rgba(255,255,255,0.02) 60%)",
+            accent: isCalmTheme ? "#D6627A" : "#FF4FD8",
+            border: isCalmTheme ? "rgba(214,98,122,0.32)" : "rgba(255,79,216,0.22)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(214,98,122,0.11), rgba(255,255,255,0.02) 60%)"
+              : "linear-gradient(180deg, rgba(255,79,216,0.09), rgba(255,255,255,0.02) 60%)",
+            glow: isCalmTheme ? "rgba(214,98,122,0.10)" : "rgba(255,79,216,0.10)",
           },
         }[tone];
 
@@ -6581,9 +6746,9 @@ export default function Home() {
           padding: 14,
           borderRadius: 14,
           marginTop: 12,
-          border: `1px solid ${palette.accent}22`,
+          border: `1px solid ${palette.border}`,
           background: palette.bg,
-          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 22px ${palette.accent}10`,
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 22px ${palette.glow}`,
         } as CSSProperties;
       },
       analysisCardHead: (_tone: "strength" | "opportunity" | "gap" | "risk") => {
@@ -6599,10 +6764,10 @@ export default function Home() {
       },
       analysisAccentDot: (tone: "strength" | "opportunity" | "gap" | "risk") => {
         const palette = {
-          strength: "#00E5FF",
-          opportunity: "#00FF85",
-          gap: "#FFC24D",
-          risk: "#FF4FD8",
+          strength: isCalmTheme ? "#5FAEEB" : "#00E5FF",
+          opportunity: isCalmTheme ? "#2FB67E" : "#00FF85",
+          gap: isCalmTheme ? "#F0AA4E" : "#FFC24D",
+          risk: isCalmTheme ? "#D6627A" : "#FF4FD8",
         }[tone];
 
         return {
@@ -6621,8 +6786,8 @@ export default function Home() {
       analysisListItem: {
         padding: "8px 10px",
         borderRadius: 10,
-        border: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.02)",
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
         color: "rgba(255,255,255,0.88)",
         lineHeight: 1.6,
       } as CSSProperties,
@@ -6640,19 +6805,25 @@ export default function Home() {
       upgradeCard: (priorityIdx: number) => {
         const palette = [
           {
-            border: "rgba(0,229,255,0.28)",
-            bg: "linear-gradient(180deg, rgba(0,229,255,0.11), rgba(255,255,255,0.02) 65%)",
-            glow: "rgba(0,229,255,0.12)",
+            border: isCalmTheme ? "rgba(95,174,235,0.30)" : "rgba(0,229,255,0.28)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(95,174,235,0.12), rgba(255,255,255,0.02) 65%)"
+              : "linear-gradient(180deg, rgba(0,229,255,0.11), rgba(255,255,255,0.02) 65%)",
+            glow: isCalmTheme ? "rgba(95,174,235,0.10)" : "rgba(0,229,255,0.12)",
           },
           {
-            border: "rgba(0,255,133,0.28)",
-            bg: "linear-gradient(180deg, rgba(0,255,133,0.11), rgba(255,255,255,0.02) 65%)",
-            glow: "rgba(0,255,133,0.12)",
+            border: isCalmTheme ? "rgba(47,182,126,0.30)" : "rgba(0,255,133,0.28)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(47,182,126,0.12), rgba(255,255,255,0.02) 65%)"
+              : "linear-gradient(180deg, rgba(0,255,133,0.11), rgba(255,255,255,0.02) 65%)",
+            glow: isCalmTheme ? "rgba(47,182,126,0.10)" : "rgba(0,255,133,0.12)",
           },
           {
-            border: "rgba(255,194,77,0.30)",
-            bg: "linear-gradient(180deg, rgba(255,194,77,0.12), rgba(255,255,255,0.02) 65%)",
-            glow: "rgba(255,194,77,0.12)",
+            border: isCalmTheme ? "rgba(240,170,78,0.30)" : "rgba(255,194,77,0.30)",
+            bg: isCalmTheme
+              ? "linear-gradient(180deg, rgba(240,170,78,0.12), rgba(255,255,255,0.02) 65%)"
+              : "linear-gradient(180deg, rgba(255,194,77,0.12), rgba(255,255,255,0.02) 65%)",
+            glow: isCalmTheme ? "rgba(240,170,78,0.10)" : "rgba(255,194,77,0.12)",
           },
         ][Math.max(0, Math.min(2, priorityIdx))];
 
@@ -6673,16 +6844,16 @@ export default function Home() {
       upgradePriorityBadge: (priorityIdx: number) => {
         const palette = [
           {
-            border: "rgba(0,229,255,0.35)",
-            bg: "rgba(0,229,255,0.14)",
+            border: isCalmTheme ? "rgba(95,174,235,0.36)" : "rgba(0,229,255,0.35)",
+            bg: isCalmTheme ? "rgba(95,174,235,0.16)" : "rgba(0,229,255,0.14)",
           },
           {
-            border: "rgba(0,255,133,0.35)",
-            bg: "rgba(0,255,133,0.14)",
+            border: isCalmTheme ? "rgba(47,182,126,0.36)" : "rgba(0,255,133,0.35)",
+            bg: isCalmTheme ? "rgba(47,182,126,0.16)" : "rgba(0,255,133,0.14)",
           },
           {
-            border: "rgba(255,194,77,0.36)",
-            bg: "rgba(255,194,77,0.14)",
+            border: isCalmTheme ? "rgba(240,170,78,0.36)" : "rgba(255,194,77,0.36)",
+            bg: isCalmTheme ? "rgba(240,170,78,0.16)" : "rgba(255,194,77,0.14)",
           },
         ][Math.max(0, Math.min(2, priorityIdx))];
 
@@ -6712,7 +6883,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile]
+    [isMobile, isNarrowMobile, themeMode]
   );
 
   const renderSummarySection = (
@@ -6877,6 +7048,14 @@ export default function Home() {
                 >
                   🧪 تحميل نموذج تجريبي كامل
                 </button>
+                <button
+                  style={{ ...styles.ghostBtn, width: isMobile ? "100%" : 260 }}
+                  onClick={() =>
+                    setThemeMode((prev) => (prev === "glass" ? "calm" : "glass"))
+                  }
+                >
+                  🎨 النمط: {themeMode === "glass" ? "زجاجي" : "هادئ"}
+                </button>
               </div>
               <p style={styles.welcomeFootnote}>
                 {isMobile ? (
@@ -6928,8 +7107,20 @@ export default function Home() {
                 </select>
               </div>
 
-              {!isSelectionStep ? (
-                <div style={styles.sessionAdminActions}>
+              <div style={styles.sessionAdminActions}>
+                <button
+                  style={styles.themeSwitchBtn(themeMode === "glass")}
+                  onClick={() => setThemeMode("glass")}
+                >
+                  النمط الزجاجي
+                </button>
+                <button
+                  style={styles.themeSwitchBtn(themeMode === "calm")}
+                  onClick={() => setThemeMode("calm")}
+                >
+                  النمط الهادئ
+                </button>
+                {!isSelectionStep ? (
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
                     onClick={requestClearSession}
@@ -6942,8 +7133,8 @@ export default function Home() {
                   >
                     مسح الجلسة
                   </button>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
