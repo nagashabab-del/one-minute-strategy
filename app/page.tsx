@@ -1110,6 +1110,7 @@ export default function Home() {
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [showProjectManager, setShowProjectManager] = useState(false);
+  const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
     Record<MobileSummarySectionKey, boolean>
@@ -1136,6 +1137,7 @@ export default function Home() {
   const prevAdvancedScopeStepRef = useRef(advancedScopeStep);
   const prevAdvancedBoqStepRef = useRef(advancedBoqStep);
   const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
+  const lastProjectMetaTouchRef = useRef(0);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1786,6 +1788,42 @@ export default function Home() {
     location.reload();
   }
 
+  function requestDeleteActiveProject() {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("حذف المشروع", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    if (projectRegistry.length <= 1) {
+      showError("لا يمكن حذف آخر مشروع. أنشئ مشروعًا جديدًا أولًا.");
+      return;
+    }
+    setShowDeleteProjectConfirm(true);
+  }
+
+  function deleteActiveProject() {
+    if (!canEditSessionSetup) return;
+    if (projectRegistry.length <= 1) {
+      showError("لا يمكن حذف آخر مشروع.");
+      setShowDeleteProjectConfirm(false);
+      return;
+    }
+
+    const nextProjects = projectRegistry.filter((entry) => entry.id !== activeProjectId);
+    const nextActiveId = nextProjects[0]?.id;
+    if (!nextActiveId) {
+      showError("تعذر تحديد مشروع بديل بعد الحذف.");
+      setShowDeleteProjectConfirm(false);
+      return;
+    }
+
+    localStorage.removeItem(projectDataKey(activeProjectId));
+    persistRegistry(nextProjects, nextActiveId);
+    setShowDeleteProjectConfirm(false);
+    location.reload();
+  }
+
   // ============ Save (no save while loading) ============
   useEffect(() => {
     if (loading) return;
@@ -1840,6 +1878,17 @@ export default function Home() {
     localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(snapshot));
     // توافق خلفي حتى لا تتعطل النسخ السابقة.
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+
+    const nowMs = Date.now();
+    if (nowMs - lastProjectMetaTouchRef.current > 10000) {
+      const nowIso = new Date(nowMs).toISOString();
+      setProjectRegistry((prev) =>
+        prev.map((entry) =>
+          entry.id === activeProjectId ? { ...entry, updatedAt: nowIso } : entry
+        )
+      );
+      lastProjectMetaTouchRef.current = nowMs;
+    }
   }, [
     activeProjectId,
     loading,
@@ -1992,6 +2041,19 @@ export default function Home() {
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [showProjectManager]);
+
+  useEffect(() => {
+    if (!showDeleteProjectConfirm) return;
+
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowDeleteProjectConfirm(false);
+      }
+    }
+
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [showDeleteProjectConfirm]);
 
   useEffect(() => {
     if (!isMobile || isWelcome) {
@@ -11081,6 +11143,28 @@ export default function Home() {
               </button>
             </div>
 
+            <div style={styles.blockTop12}>
+              <button
+                type="button"
+                style={styles.dangerGhostBtn(!canEditSessionSetup || projectRegistry.length <= 1)}
+                onClick={requestDeleteActiveProject}
+                disabled={!canEditSessionSetup || projectRegistry.length <= 1}
+                title={
+                  projectRegistry.length <= 1
+                    ? "لا يمكن حذف آخر مشروع."
+                    : canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "حذف المشروع",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                }
+              >
+                حذف المشروع الحالي
+              </button>
+            </div>
+
             <div style={styles.confirmActions}>
               <button
                 type="button"
@@ -11126,6 +11210,44 @@ export default function Home() {
                 onClick={clearSession}
               >
                 نعم، مسح الجلسة
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showDeleteProjectConfirm ? (
+        <div
+          style={styles.confirmOverlay}
+          onClick={() => setShowDeleteProjectConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-project-title"
+        >
+          <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <h3 id="delete-project-title" style={styles.confirmTitle}>
+              تأكيد حذف المشروع
+            </h3>
+            <div style={styles.confirmDesc}>
+              سيتم حذف المشروع الحالي ({activeProjectName || "بدون اسم"}) نهائيًا من هذا المتصفح.
+            </div>
+            <div style={styles.confirmWarn}>
+              الحذف لا يمكن التراجع عنه. إذا احتجت نسخة، استخدم «نسخ المشروع» أولًا.
+            </div>
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                style={styles.secondaryBtn(false)}
+                onClick={() => setShowDeleteProjectConfirm(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                style={styles.dangerGhostBtn(false)}
+                onClick={deleteActiveProject}
+              >
+                نعم، حذف المشروع
               </button>
             </div>
           </div>
