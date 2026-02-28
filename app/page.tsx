@@ -4054,6 +4054,39 @@ export default function Home() {
     showSuccess("تم نسخ القرار التنفيذي بنجاح.");
   }
 
+  function splitUpgradeText(text: string) {
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (!cleaned) {
+      return { title: "ترقية بدون وصف", detail: "" };
+    }
+
+    const separatorIdx = cleaned.indexOf("،");
+    if (separatorIdx > 18 && separatorIdx < 90) {
+      return {
+        title: cleaned.slice(0, separatorIdx).trim(),
+        detail: cleaned.slice(separatorIdx + 1).trim(),
+      };
+    }
+
+    return { title: cleaned, detail: "" };
+  }
+
+  async function copyTopUpgrades() {
+    const upgrades = analysis?.strategic_analysis?.top_3_upgrades || [];
+    if (!upgrades.length) {
+      showError("لا توجد ترقيات لنسخها في النتيجة الحالية.");
+      return;
+    }
+
+    const text = [
+      "الترقيات التنفيذية المقترحة",
+      ...upgrades.map((item: string, idx: number) => `الأولوية ${toArabicDigits(idx + 1)}: ${item}`),
+    ].join("\n");
+
+    await navigator.clipboard.writeText(text);
+    showSuccess("تم نسخ الترقيات الثلاث.");
+  }
+
   // ============ Styles ============
   const styles = useMemo(
     () => {
@@ -5993,6 +6026,90 @@ export default function Home() {
         color: "rgba(255,255,255,0.88)",
         lineHeight: 1.6,
       } as CSSProperties,
+      upgradeSectionHint: {
+        marginTop: 2,
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+      } as CSSProperties,
+      upgradeGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gap: 10,
+      } as CSSProperties,
+      upgradeCard: (priorityIdx: number) => {
+        const palette = [
+          {
+            border: "rgba(0,229,255,0.28)",
+            bg: "linear-gradient(180deg, rgba(0,229,255,0.11), rgba(255,255,255,0.02) 65%)",
+            glow: "rgba(0,229,255,0.12)",
+          },
+          {
+            border: "rgba(0,255,133,0.28)",
+            bg: "linear-gradient(180deg, rgba(0,255,133,0.11), rgba(255,255,255,0.02) 65%)",
+            glow: "rgba(0,255,133,0.12)",
+          },
+          {
+            border: "rgba(255,194,77,0.30)",
+            bg: "linear-gradient(180deg, rgba(255,194,77,0.12), rgba(255,255,255,0.02) 65%)",
+            glow: "rgba(255,194,77,0.12)",
+          },
+        ][Math.max(0, Math.min(2, priorityIdx))];
+
+        return {
+          borderRadius: 12,
+          border: `1px solid ${palette.border}`,
+          background: palette.bg,
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${palette.glow}`,
+          padding: 11,
+          minHeight: 112,
+        } as CSSProperties;
+      },
+      upgradeCardHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      } as CSSProperties,
+      upgradePriorityBadge: (priorityIdx: number) => {
+        const palette = [
+          {
+            border: "rgba(0,229,255,0.35)",
+            bg: "rgba(0,229,255,0.14)",
+          },
+          {
+            border: "rgba(0,255,133,0.35)",
+            bg: "rgba(0,255,133,0.14)",
+          },
+          {
+            border: "rgba(255,194,77,0.36)",
+            bg: "rgba(255,194,77,0.14)",
+          },
+        ][Math.max(0, Math.min(2, priorityIdx))];
+
+        return {
+          borderRadius: 999,
+          border: `1px solid ${palette.border}`,
+          background: palette.bg,
+          padding: "4px 9px",
+          fontSize: 11.5,
+          fontWeight: 900,
+          color: "white",
+          width: "fit-content",
+        } as CSSProperties;
+      },
+      upgradeTitle: {
+        marginTop: 8,
+        fontSize: 13.5,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+        lineHeight: 1.6,
+      } as CSSProperties,
+      upgradeDetail: {
+        marginTop: 6,
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.76)",
+        lineHeight: 1.65,
+      } as CSSProperties,
     });
     },
     [isMobile, isNarrowMobile]
@@ -7006,16 +7123,42 @@ export default function Home() {
                 <div style={styles.finalSectionBlock}>
                   <div style={styles.qCard}>
                     <div style={styles.sectionHeaderRow}>
-                      <div style={styles.qTitle}>أفضل 3 ترقيات مقترحة</div>
+                      <div>
+                        <div style={styles.qTitle}>الترقيات التنفيذية المقترحة</div>
+                        <div style={styles.upgradeSectionHint}>
+                          مرتبة حسب الأولوية للتنفيذ ضمن خطة التحسين.
+                        </div>
+                      </div>
+                      {(analysis?.strategic_analysis?.top_3_upgrades || []).length > 0 ? (
+                        <button
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          onClick={copyTopUpgrades}
+                        >
+                          نسخ الترقيات الثلاث
+                        </button>
+                      ) : null}
                     </div>
                     {(analysis?.strategic_analysis?.top_3_upgrades || []).length ? (
-                      (analysis?.strategic_analysis?.top_3_upgrades || []).map(
-                        (x: string, i: number) => (
-                          <div key={i} style={styles.listItemGap6}>
-                            • {x}
-                          </div>
-                        )
-                      )
+                      <div style={styles.upgradeGrid}>
+                        {(analysis?.strategic_analysis?.top_3_upgrades || []).map(
+                          (x: string, i: number) => {
+                            const parsed = splitUpgradeText(x);
+                            return (
+                              <div key={i} style={styles.upgradeCard(i)}>
+                                <div style={styles.upgradeCardHead}>
+                                  <div style={styles.upgradePriorityBadge(i)}>
+                                    الأولوية {toArabicDigits(i + 1)}
+                                  </div>
+                                </div>
+                                <div style={styles.upgradeTitle}>{parsed.title}</div>
+                                {parsed.detail ? (
+                                  <div style={styles.upgradeDetail}>{parsed.detail}</div>
+                                ) : null}
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
                     ) : (
                       <div style={styles.emptyHintText}>
                         لا توجد ترقيات محددة في النتيجة الحالية.
