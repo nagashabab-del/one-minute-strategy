@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type StageUI =
   | "welcome"
@@ -233,6 +233,15 @@ type LoadingContext =
   | "submit_round1"
   | "build_dialogue"
   | "run_analysis";
+
+type MobileSummarySectionKey =
+  | "permissions"
+  | "session_state"
+  | "project_reading"
+  | "advanced_execution"
+  | "decision_quality"
+  | "basic_data"
+  | "alerts";
 
 type RolePermissionFlags = {
   canEditSessionSetup: boolean;
@@ -480,6 +489,16 @@ const ROLE_PERMISSION_EXPECTED: Record<UserRole, RolePermissionFlags> = {
     canResetSession: false,
     canLoadDemo: false,
   },
+};
+
+const MOBILE_SUMMARY_SECTION_DEFAULTS: Record<MobileSummarySectionKey, boolean> = {
+  permissions: true,
+  session_state: true,
+  project_reading: true,
+  advanced_execution: true,
+  decision_quality: true,
+  basic_data: false,
+  alerts: false,
 };
 
 function escapeHtml(text: string) {
@@ -955,6 +974,9 @@ export default function Home() {
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
+  const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
+    Record<MobileSummarySectionKey, boolean>
+  >(MOBILE_SUMMARY_SECTION_DEFAULTS);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
@@ -5438,6 +5460,53 @@ export default function Home() {
       mobileSummaryBody: {
         padding: "10px 12px 22px",
       } as CSSProperties,
+      mobileSummaryAccordionSection: {
+        marginTop: 10,
+      } as CSSProperties,
+      mobileSummaryAccordionBtn: (open: boolean) =>
+        ({
+          width: "100%",
+          minHeight: 40,
+          borderRadius: 12,
+          border: open
+            ? "1px solid rgba(0,229,255,0.30)"
+            : "1px solid rgba(255,255,255,0.14)",
+          background: open
+            ? "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))"
+            : "rgba(255,255,255,0.04)",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "8px 10px",
+          fontWeight: 900,
+          fontSize: 12.5,
+          cursor: "pointer",
+        } as CSSProperties),
+      mobileSummaryAccordionLabel: {
+        color: "rgba(255,255,255,0.96)",
+      } as CSSProperties,
+      mobileSummaryAccordionIcon: (open: boolean) =>
+        ({
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.20)",
+          background: open ? "rgba(0,229,255,0.16)" : "rgba(255,255,255,0.06)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          fontWeight: 900,
+          lineHeight: 1,
+          color: "white",
+          flexShrink: 0,
+        } as CSSProperties),
+      mobileSummaryAccordionBody: {
+        display: "grid",
+        gap: 0,
+      } as CSSProperties,
       mobileSummarySection: {
         marginTop: 10,
         borderRadius: 12,
@@ -6581,6 +6650,41 @@ export default function Home() {
     },
     [isMobile, isNarrowMobile]
   );
+
+  const renderSummarySection = (
+    key: MobileSummarySectionKey,
+    title: string,
+    content: ReactNode
+  ) => {
+    if (!isMobile) {
+      return (
+        <>
+          <div style={styles.sideSectionTitle}>{title}</div>
+          {content}
+        </>
+      );
+    }
+
+    const isOpen = mobileSummarySectionsOpen[key];
+    return (
+      <section style={styles.mobileSummaryAccordionSection}>
+        <button
+          type="button"
+          style={styles.mobileSummaryAccordionBtn(isOpen)}
+          onClick={() =>
+            setMobileSummarySectionsOpen((prev) => ({ ...prev, [key]: !prev[key] }))
+          }
+          aria-expanded={isOpen}
+        >
+          <span style={styles.mobileSummaryAccordionLabel}>{title}</span>
+          <span style={styles.mobileSummaryAccordionIcon(isOpen)}>
+            {isOpen ? "−" : "+"}
+          </span>
+        </button>
+        {isOpen ? <div style={styles.mobileSummaryAccordionBody}>{content}</div> : null}
+      </section>
+    );
+  };
 
   const answerQuality = analyzeAnswerQuality();
   const indicators = projectIndicators();
@@ -9684,416 +9788,441 @@ export default function Home() {
 	                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
 	                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
 
-            <div style={styles.sideSectionTitle}>التحكم والصلاحيات</div>
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>الصلاحية الحالية</div>
-              <div style={styles.sideSummaryPrimaryText}>{userRoleLabel(userRole)}</div>
-              <div style={styles.textTertiarySmall}>
-                {userRole === "viewer"
-                  ? "عرض فقط بدون تعديل."
-                  : userRole === "finance_manager"
-                    ? "يمكنك تعديل الميزانية وتسعير جدول الكميات والحوكمة."
-                    : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
-              </div>
-            </div>
-
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>دليل الصلاحيات</div>
-              <div style={styles.roleGuideGrid}>
-                {roleCapabilities.map((cap) => (
-                  <div key={cap.id} style={styles.roleGuideChip(cap.enabled)}>
-                    {cap.enabled ? "✓" : "—"} {cap.label}
-                  </div>
-                ))}
-              </div>
-              <div style={styles.blockTop8}>
-                <button style={styles.secondaryBtn(false)} onClick={runRolePermissionQACheck}>
-                  تشغيل فحص الصلاحيات (QA)
-                </button>
-              </div>
-              <div style={styles.blockTop8}>
-                <button
-                  style={styles.secondaryBtn(roleQaReport.status === "idle")}
-                  disabled={roleQaReport.status === "idle"}
-                  onClick={copyRoleQaReport}
-                >
-                  نسخ تقرير QA
-                </button>
-              </div>
-              <div style={styles.textMutedSmallTop8}>
-                غيّر الدور من أعلى الصفحة لمراجعة الصلاحيات المتاحة لكل شاشة.
-              </div>
-              {roleQaReport.status !== "idle" ? (
-                <div style={roleQaReport.status === "pass" ? styles.successBox : styles.warnBox}>
-                  <div style={styles.permissionHintTitle}>
-                    {roleQaReport.status === "pass"
-                      ? "نتيجة فحص QA: ناجح"
-                      : "نتيجة فحص QA: يوجد تعارض"}
-                  </div>
-                  <div style={styles.textMutedSmall}>{roleQaReport.summary}</div>
-                  <div style={styles.textMutedSmallTop8}>
-                    آخر تشغيل: {formatDateTimeLabel(roleQaReport.ranAt)}
-                  </div>
-                  <div style={styles.blockTop8}>
-                    {roleQaReport.lines.slice(0, 6).map((line, idx) => (
-                      <div key={idx} style={styles.listItemGap4}>
-                        • {line}
+                {renderSummarySection(
+                  "permissions",
+                  "التحكم والصلاحيات",
+                  <>
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>الصلاحية الحالية</div>
+                      <div style={styles.sideSummaryPrimaryText}>{userRoleLabel(userRole)}</div>
+                      <div style={styles.textTertiarySmall}>
+                        {userRole === "viewer"
+                          ? "عرض فقط بدون تعديل."
+                          : userRole === "finance_manager"
+                            ? "يمكنك تعديل الميزانية وتسعير جدول الكميات والحوكمة."
+                            : "يمكنك تعديل التدفق التنفيذي حسب دورك."}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div style={styles.sideSectionTitle}>حالة الجلسة</div>
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>حالة الجلسة</div>
-              <div style={styles.stageStatusChip(stageStatusTone())}>
-                {stageStatusText()}
-              </div>
-              <div style={styles.blockTop10}>
-                <div style={styles.progressBar}>
-                  <div
-                    style={{
-                      ...styles.progressFill,
-                      width: `${progressPercent()}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={styles.sideProgressRow}>
-                <div style={styles.textSecondarySmall}>{stageLabel()}</div>
-                <div style={styles.sideProgressBadge}>{progressPercent()}%</div>
-              </div>
-              {progressMetaText() ? (
-                <div style={styles.sideProgressMeta}>{progressMetaText()}</div>
-              ) : null}
-            </div>
-
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>المستشارون المشاركون</div>
-              <div style={styles.sideSummaryPrimaryText}>
-                {selectedAdvisorsSummary()}
-              </div>
-              <div style={styles.textTertiarySmall}>
-                العدد:
-                {" "}
-                {toArabicDigits(effectiveSelectedAdvisors.length)}
-              </div>
-            </div>
-
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>مؤشرات سريعة</div>
-              <div style={styles.miniStatsGrid}>
-                <div style={styles.miniStat}>
-                  <div style={styles.miniStatLabel}>الجولة الأولى</div>
-                  <div style={styles.miniStatValue}>
-                    {toArabicDigits(round1Questions.length)}
-                  </div>
-                </div>
-                <div style={styles.miniStat}>
-                  <div style={styles.miniStatLabel}>المتابعة</div>
-                  <div style={styles.miniStatValue}>
-                    {toArabicDigits(followupQuestions.length)}
-                  </div>
-                </div>
-                <div style={styles.miniStat}>
-                  <div style={styles.miniStatLabel}>الحوار</div>
-                  <div style={styles.miniStatValue}>
-                    {toArabicDigits(dialogue.length)}
-                  </div>
-                </div>
-                <div style={styles.miniStat}>
-                  <div style={styles.miniStatLabel}>النتائج</div>
-                  <div style={styles.miniStatValue}>
-                    {analysis ? "جاهزة" : "—"}
-                  </div>
-                </div>
-              </div>
-
-              {eventDurationSummary() ? (
-                <div style={styles.sideDurationText}>
-                  مدة الفعالية:{" "}
-                  <strong style={styles.strongText95}>
-                    {eventDurationSummary()?.label}
-                  </strong>
-                </div>
-              ) : null}
-            </div>
-
-            <div style={styles.sideSectionTitle}>قراءة المشروع</div>
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>مؤشرات المشروع</div>
-              <div style={styles.kpiGrid}>
-                {indicators.map((item) => {
-                  const tone = scoreTone(item.score);
-                  return (
-                    <div key={item.key} style={styles.kpiCard(tone)}>
-                      <div style={styles.kpiLabel}>{item.label}</div>
-                      <div style={styles.kpiValue}>
-                        {toArabicDigits(item.score)}%
-                      </div>
-                      <div style={styles.kpiBarTrack}>
-                        <div style={styles.kpiBarFill(item.score, tone)} />
-                      </div>
-                      <div style={styles.kpiHint}>{item.hint}</div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {deliveryTrack === "advanced" &&
-            (stage === "advanced_boq" || stage === "advanced_plan") ? (
-              <div style={styles.sideSectionTitle}>التنفيذ المتقدم</div>
-            ) : null}
-            {deliveryTrack === "advanced" &&
-            (stage === "advanced_boq" || stage === "advanced_plan") ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>مخاطر التنفيذ الحية</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  النشطة: <strong>{toArabicDigits(liveRiskStats.active)}</strong> • الحرجة:{" "}
-                  <strong>{toArabicDigits(liveRiskStats.critical)}</strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  مصعّدة: {toArabicDigits(liveRiskStats.escalated)} • متأخرة:{" "}
-                  {toArabicDigits(liveRiskStats.overdue)}
-                </div>
-              </div>
-            ) : null}
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>دليل الصلاحيات</div>
+                      <div style={styles.roleGuideGrid}>
+                        {roleCapabilities.map((cap) => (
+                          <div key={cap.id} style={styles.roleGuideChip(cap.enabled)}>
+                            {cap.enabled ? "✓" : "—"} {cap.label}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={styles.blockTop8}>
+                        <button style={styles.secondaryBtn(false)} onClick={runRolePermissionQACheck}>
+                          تشغيل فحص الصلاحيات (QA)
+                        </button>
+                      </div>
+                      <div style={styles.blockTop8}>
+                        <button
+                          style={styles.secondaryBtn(roleQaReport.status === "idle")}
+                          disabled={roleQaReport.status === "idle"}
+                          onClick={copyRoleQaReport}
+                        >
+                          نسخ تقرير QA
+                        </button>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        غيّر الدور من أعلى الصفحة لمراجعة الصلاحيات المتاحة لكل شاشة.
+                      </div>
+                      {roleQaReport.status !== "idle" ? (
+                        <div style={roleQaReport.status === "pass" ? styles.successBox : styles.warnBox}>
+                          <div style={styles.permissionHintTitle}>
+                            {roleQaReport.status === "pass"
+                              ? "نتيجة فحص QA: ناجح"
+                              : "نتيجة فحص QA: يوجد تعارض"}
+                          </div>
+                          <div style={styles.textMutedSmall}>{roleQaReport.summary}</div>
+                          <div style={styles.textMutedSmallTop8}>
+                            آخر تشغيل: {formatDateTimeLabel(roleQaReport.ranAt)}
+                          </div>
+                          <div style={styles.blockTop8}>
+                            {roleQaReport.lines.slice(0, 6).map((line, idx) => (
+                              <div key={idx} style={styles.listItemGap4}>
+                                • {line}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
 
-            {deliveryTrack === "advanced" &&
-            (stage === "advanced_boq" || stage === "advanced_plan") ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>الربحية الداخلية (جدول الكميات)</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  التكلفة: <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
-                </div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  البيع: <strong>{renderMoneyValue(boqFinancialSummary.totalSell)}</strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  صافي النتيجة:{" "}
-                  <strong
-                    style={{
-                      color:
-                        boqFinancialSummary.status === "رابح"
-                          ? "#00FF85"
-                          : boqFinancialSummary.status === "خاسر"
-                            ? "#FF7A45"
-                            : "rgba(255,255,255,0.95)",
-                    }}
-                  >
-                    {renderMoneyValue(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
-                  </strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  نقطة التعادل:{" "}
-                  <strong>
-                    {boqFinancialSummary.status === "تعادل"
-                      ? "محققة"
-                      : boqFinancialSummary.breakEvenGap >= 0
-                        ? "فوق التعادل"
-                        : "أقل من التعادل"}
-                  </strong>
-                </div>
-              </div>
-            ) : null}
+                {renderSummarySection(
+                  "session_state",
+                  "حالة الجلسة",
+                  <>
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>حالة الجلسة</div>
+                      <div style={styles.stageStatusChip(stageStatusTone())}>
+                        {stageStatusText()}
+                      </div>
+                      <div style={styles.blockTop10}>
+                        <div style={styles.progressBar}>
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${progressPercent()}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div style={styles.sideProgressRow}>
+                        <div style={styles.textSecondarySmall}>{stageLabel()}</div>
+                        <div style={styles.sideProgressBadge}>{progressPercent()}%</div>
+                      </div>
+                      {progressMetaText() ? (
+                        <div style={styles.sideProgressMeta}>{progressMetaText()}</div>
+                      ) : null}
+                    </div>
 
-            {stage === "advanced_plan" ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>متابعة التنفيذ</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  الإنجاز الحالي: <strong>{toArabicDigits(actionTrackerProgress)}%</strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
-                  {toArabicDigits(actionTrackerStats.blocked)}
-                </div>
-              </div>
-            ) : null}
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>المستشارون المشاركون</div>
+                      <div style={styles.sideSummaryPrimaryText}>
+                        {selectedAdvisorsSummary()}
+                      </div>
+                      <div style={styles.textTertiarySmall}>
+                        العدد:
+                        {" "}
+                        {toArabicDigits(effectiveSelectedAdvisors.length)}
+                      </div>
+                    </div>
 
-            {stage === "advanced_plan" ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>حوكمة التغيير</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  النسخة:{" "}
-                  <strong>
-                    {!hasFrozenBaseline
-                      ? "غير مجمّدة"
-                      : hasChangesAfterFreeze
-                        ? "مجمّدة مع تعديلات"
-                        : "مجمّدة"}
-                  </strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  طلبات مفتوحة: {toArabicDigits(openChangeRequests)} • معتمدة:{" "}
-                  {toArabicDigits(approvedChangeRequests)}
-                </div>
-              </div>
-            ) : null}
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>مؤشرات سريعة</div>
+                      <div style={styles.miniStatsGrid}>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>الجولة الأولى</div>
+                          <div style={styles.miniStatValue}>
+                            {toArabicDigits(round1Questions.length)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>المتابعة</div>
+                          <div style={styles.miniStatValue}>
+                            {toArabicDigits(followupQuestions.length)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>الحوار</div>
+                          <div style={styles.miniStatValue}>
+                            {toArabicDigits(dialogue.length)}
+                          </div>
+                        </div>
+                        <div style={styles.miniStat}>
+                          <div style={styles.miniStatLabel}>النتائج</div>
+                          <div style={styles.miniStatValue}>
+                            {analysis ? "جاهزة" : "—"}
+                          </div>
+                        </div>
+                      </div>
 
-            {stage === "advanced_plan" ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>مخرجات الطباعة</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  رقم النسخة: <strong>{documentRevisionLabel}</strong>
-                </div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  نسخة الإدارة:{" "}
-                  <strong>{managementBriefText.trim() ? "جاهزة" : "غير محدثة"}</strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  نسخة الميدان:{" "}
-                  <strong>{fieldChecklistText.trim() ? "جاهزة" : "غير محدثة"}</strong>
-                </div>
-              </div>
-            ) : null}
+                      {eventDurationSummary() ? (
+                        <div style={styles.sideDurationText}>
+                          مدة الفعالية:{" "}
+                          <strong style={styles.strongText95}>
+                            {eventDurationSummary()?.label}
+                          </strong>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
 
-            {stage === "addition" || stage === "done" ? (
-              <div style={styles.sideSectionTitle}>جودة القرار</div>
-            ) : null}
-            {(stage === "addition" || stage === "done") ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>جودة المدخلات</div>
-                <div style={styles.qualityBadge(answerQuality.level)}>{answerQuality.level}</div>
-                <div style={styles.sideQualityText}>
-                  جودة تقديرية {toArabicDigits(answerQuality.score)}٪ • إجابات تحتاج تفصيل:
-                  {" "}
-                  {toArabicDigits(answerQuality.weakCount)}
-                </div>
-                <div style={styles.qualityMeterTrack}>
-                  <div
-                    style={styles.qualityMeterFill(answerQuality.level, answerQuality.score)}
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {stage === "done" && analysis ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>ملخص القرار</div>
-                <div style={{ ...styles.qTitle, ...styles.qTitleGap4 }}>
-                  {analysis?.executive_decision?.decision ?? "—"}
-                </div>
-                <div style={styles.textNeutralSmall72}>
-                  الجاهزية:
-                  {" "}
-                  <span
-                    style={{
-                      color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
-                      fontWeight: 900,
-                    }}
-                  >
-                    {analysis?.strategic_analysis?.readiness_level ?? "—"}
-                  </span>
-                </div>
-                <div style={styles.miniStatsGrid}>
-                  <div style={styles.miniStat}>
-                    <div style={styles.miniStatLabel}>الفجوات</div>
-                    <div style={styles.miniStatValue}>
-                      {toArabicDigits((analysis?.strategic_analysis?.gaps || []).length)}
+                {renderSummarySection(
+                  "project_reading",
+                  "قراءة المشروع",
+                  <div style={styles.sideBlock}>
+                    <div style={styles.sideBlockTitle}>مؤشرات المشروع</div>
+                    <div style={styles.kpiGrid}>
+                      {indicators.map((item) => {
+                        const tone = scoreTone(item.score);
+                        return (
+                          <div key={item.key} style={styles.kpiCard(tone)}>
+                            <div style={styles.kpiLabel}>{item.label}</div>
+                            <div style={styles.kpiValue}>
+                              {toArabicDigits(item.score)}%
+                            </div>
+                            <div style={styles.kpiBarTrack}>
+                              <div style={styles.kpiBarFill(item.score, tone)} />
+                            </div>
+                            <div style={styles.kpiHint}>{item.hint}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div style={styles.miniStat}>
-                    <div style={styles.miniStatLabel}>المخاطر</div>
-                    <div style={styles.miniStatValue}>
-                      {toArabicDigits((analysis?.strategic_analysis?.risks || []).length)}
+                )}
+
+                {deliveryTrack === "advanced" &&
+                (stage === "advanced_boq" || stage === "advanced_plan")
+                  ? renderSummarySection(
+                      "advanced_execution",
+                      "التنفيذ المتقدم",
+                      <>
+                        <div style={styles.sideBlock}>
+                          <div style={styles.sideBlockTitle}>مخاطر التنفيذ الحية</div>
+                          <div style={styles.sideSummaryPrimaryText}>
+                            النشطة: <strong>{toArabicDigits(liveRiskStats.active)}</strong> • الحرجة:{" "}
+                            <strong>{toArabicDigits(liveRiskStats.critical)}</strong>
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>
+                            مصعّدة: {toArabicDigits(liveRiskStats.escalated)} • متأخرة:{" "}
+                            {toArabicDigits(liveRiskStats.overdue)}
+                          </div>
+                        </div>
+
+                        <div style={styles.sideBlock}>
+                          <div style={styles.sideBlockTitle}>الربحية الداخلية (جدول الكميات)</div>
+                          <div style={styles.sideSummaryPrimaryText}>
+                            التكلفة: <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
+                          </div>
+                          <div style={styles.sideSummaryPrimaryText}>
+                            البيع: <strong>{renderMoneyValue(boqFinancialSummary.totalSell)}</strong>
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>
+                            صافي النتيجة:{" "}
+                            <strong
+                              style={{
+                                color:
+                                  boqFinancialSummary.status === "رابح"
+                                    ? "#00FF85"
+                                    : boqFinancialSummary.status === "خاسر"
+                                      ? "#FF7A45"
+                                      : "rgba(255,255,255,0.95)",
+                              }}
+                            >
+                              {renderMoneyValue(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
+                            </strong>
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>
+                            نقطة التعادل:{" "}
+                            <strong>
+                              {boqFinancialSummary.status === "تعادل"
+                                ? "محققة"
+                                : boqFinancialSummary.breakEvenGap >= 0
+                                  ? "فوق التعادل"
+                                  : "أقل من التعادل"}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {stage === "advanced_plan" ? (
+                          <div style={styles.sideBlock}>
+                            <div style={styles.sideBlockTitle}>متابعة التنفيذ</div>
+                            <div style={styles.sideSummaryPrimaryText}>
+                              الإنجاز الحالي: <strong>{toArabicDigits(actionTrackerProgress)}%</strong>
+                            </div>
+                            <div style={styles.textMutedSmallTop8}>
+                              مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
+                              {toArabicDigits(actionTrackerStats.blocked)}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {stage === "advanced_plan" ? (
+                          <div style={styles.sideBlock}>
+                            <div style={styles.sideBlockTitle}>حوكمة التغيير</div>
+                            <div style={styles.sideSummaryPrimaryText}>
+                              النسخة:{" "}
+                              <strong>
+                                {!hasFrozenBaseline
+                                  ? "غير مجمّدة"
+                                  : hasChangesAfterFreeze
+                                    ? "مجمّدة مع تعديلات"
+                                    : "مجمّدة"}
+                              </strong>
+                            </div>
+                            <div style={styles.textMutedSmallTop8}>
+                              طلبات مفتوحة: {toArabicDigits(openChangeRequests)} • معتمدة:{" "}
+                              {toArabicDigits(approvedChangeRequests)}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {stage === "advanced_plan" ? (
+                          <div style={styles.sideBlock}>
+                            <div style={styles.sideBlockTitle}>مخرجات الطباعة</div>
+                            <div style={styles.sideSummaryPrimaryText}>
+                              رقم النسخة: <strong>{documentRevisionLabel}</strong>
+                            </div>
+                            <div style={styles.sideSummaryPrimaryText}>
+                              نسخة الإدارة:{" "}
+                              <strong>{managementBriefText.trim() ? "جاهزة" : "غير محدثة"}</strong>
+                            </div>
+                            <div style={styles.textMutedSmallTop8}>
+                              نسخة الميدان:{" "}
+                              <strong>{fieldChecklistText.trim() ? "جاهزة" : "غير محدثة"}</strong>
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    )
+                  : null}
+
+                {stage === "addition" || stage === "done"
+                  ? renderSummarySection(
+                      "decision_quality",
+                      "جودة القرار",
+                      <>
+                        <div style={styles.sideBlock}>
+                          <div style={styles.sideBlockTitle}>جودة المدخلات</div>
+                          <div style={styles.qualityBadge(answerQuality.level)}>{answerQuality.level}</div>
+                          <div style={styles.sideQualityText}>
+                            جودة تقديرية {toArabicDigits(answerQuality.score)}٪ • إجابات تحتاج تفصيل:
+                            {" "}
+                            {toArabicDigits(answerQuality.weakCount)}
+                          </div>
+                          <div style={styles.qualityMeterTrack}>
+                            <div
+                              style={styles.qualityMeterFill(answerQuality.level, answerQuality.score)}
+                            />
+                          </div>
+                        </div>
+
+                        {stage === "done" && analysis ? (
+                          <div style={styles.sideBlock}>
+                            <div style={styles.sideBlockTitle}>ملخص القرار</div>
+                            <div style={{ ...styles.qTitle, ...styles.qTitleGap4 }}>
+                              {analysis?.executive_decision?.decision ?? "—"}
+                            </div>
+                            <div style={styles.textNeutralSmall72}>
+                              الجاهزية:
+                              {" "}
+                              <span
+                                style={{
+                                  color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
+                                  fontWeight: 900,
+                                }}
+                              >
+                                {analysis?.strategic_analysis?.readiness_level ?? "—"}
+                              </span>
+                            </div>
+                            <div style={styles.miniStatsGrid}>
+                              <div style={styles.miniStat}>
+                                <div style={styles.miniStatLabel}>الفجوات</div>
+                                <div style={styles.miniStatValue}>
+                                  {toArabicDigits((analysis?.strategic_analysis?.gaps || []).length)}
+                                </div>
+                              </div>
+                              <div style={styles.miniStat}>
+                                <div style={styles.miniStatLabel}>المخاطر</div>
+                                <div style={styles.miniStatValue}>
+                                  {toArabicDigits((analysis?.strategic_analysis?.risks || []).length)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    )
+                  : null}
+
+                {renderSummarySection(
+                  "basic_data",
+                  "بيانات أساسية",
+                  <>
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>بيانات المشروع</div>
+                      <div style={styles.summaryMetaGrid}>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>نوع الفعالية</span>
+                          <span style={styles.v}>{eventType}</span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>وضع الجلسة</span>
+                          <span style={styles.v}>{mode}</span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>مسار التنفيذ</span>
+                          <span style={styles.v}>
+                            {deliveryTrack === "advanced" ? "متقدم" : "سريع"}
+                          </span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>الموقع</span>
+                          <span style={styles.v}>{venueType}</span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>البداية</span>
+                          <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>النهاية</span>
+                          <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>الميزانية</span>
+                          <span style={styles.v}>
+                            {budget?.trim()
+                              ? /[\d٠-٩]/.test(budget)
+                                ? renderMoneyValue(parseNumericInput(budget))
+                                : budget
+                              : "غير محدد"}
+                          </span>
+                        </div>
+                        <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
+                          <span style={styles.k}>مدة الفعالية</span>
+                          <span style={styles.v}>{eventDurationSummary()?.label ?? "غير مكتملة"}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
-            <div style={styles.sideSectionTitle}>بيانات أساسية</div>
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>بيانات المشروع</div>
-              <div style={styles.summaryMetaGrid}>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>نوع الفعالية</span>
-                  <span style={styles.v}>{eventType}</span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>وضع الجلسة</span>
-                  <span style={styles.v}>{mode}</span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>مسار التنفيذ</span>
-                  <span style={styles.v}>
-                    {deliveryTrack === "advanced" ? "متقدم" : "سريع"}
-                  </span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>الموقع</span>
-                  <span style={styles.v}>{venueType}</span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>البداية</span>
-                  <span style={styles.v}>{startAt ? "محدد" : "غير محدد"}</span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>النهاية</span>
-                  <span style={styles.v}>{endAt ? "محدد" : "غير محدد"}</span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>الميزانية</span>
-                  <span style={styles.v}>
-                    {budget?.trim()
-                      ? /[\d٠-٩]/.test(budget)
-                        ? renderMoneyValue(parseNumericInput(budget))
-                        : budget
-                      : "غير محدد"}
-                  </span>
-                </div>
-                <div style={{ ...styles.metaItem, ...styles.metaItemNoTop }}>
-                  <span style={styles.k}>مدة الفعالية</span>
-                  <span style={styles.v}>{eventDurationSummary()?.label ?? "غير مكتملة"}</span>
-                </div>
-              </div>
-            </div>
+                    {deliveryTrack === "advanced" ? (
+                      <div style={styles.sideBlock}>
+                        <div style={styles.sideBlockTitle}>الهيكل التشغيلي</div>
+                        <div style={styles.sideSummaryPrimaryText}>
+                          الأدوار المفعلة: <strong>{toArabicDigits(activeOrgRoles.length)}</strong>
+                        </div>
+                        <div style={styles.textMutedSmallTop8}>
+                          {activeOrgRoles.length > 0
+                            ? activeOrgRoles
+                                .map((role) =>
+                                  role.assignee.trim()
+                                    ? `${role.title} (${role.assignee.trim()})`
+                                    : role.title
+                                )
+                                .join("، ")
+                            : "لا توجد أدوار مفعلة حالياً."}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                )}
 
-            {deliveryTrack === "advanced" ? (
-              <div style={styles.sideBlock}>
-                <div style={styles.sideBlockTitle}>الهيكل التشغيلي</div>
-                <div style={styles.sideSummaryPrimaryText}>
-                  الأدوار المفعلة: <strong>{toArabicDigits(activeOrgRoles.length)}</strong>
-                </div>
-                <div style={styles.textMutedSmallTop8}>
-                  {activeOrgRoles.length > 0
-                    ? activeOrgRoles
-                        .map((role) =>
-                          role.assignee.trim()
-                            ? `${role.title} (${role.assignee.trim()})`
-                            : role.title
-                        )
-                        .join("، ")
-                    : "لا توجد أدوار مفعلة حالياً."}
-                </div>
-              </div>
-            ) : null}
+                {renderSummarySection(
+                  "alerts",
+                  "تنبيهات وتشغيل",
+                  <>
+                    <div style={styles.sideBlock}>
+                      <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
+                      {sessionAlerts().map((alert, idx) => (
+                        <div key={idx} style={styles.sideAlertItem(alert.tone)}>
+                          {alert.text}
+                        </div>
+                      ))}
+                    </div>
 
-            <div style={styles.sideSectionTitle}>تنبيهات وتشغيل</div>
-            <div style={styles.sideBlock}>
-              <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
-              {sessionAlerts().map((alert, idx) => (
-                <div key={idx} style={styles.sideAlertItem(alert.tone)}>
-                  {alert.text}
-                </div>
-              ))}
-            </div>
-
-            <div style={styles.sideBlock}>
-              <div style={{ ...styles.metaItem, ...styles.metaItemNoTopCenter }}>
-                <span style={styles.k}>الحفظ التلقائي</span>
-                <span style={styles.v}>مفعل ✓</span>
-              </div>
-              <div style={styles.textMutedSmall}>
-                يتم حفظ التغييرات تلقائيًا أثناء العمل.
-              </div>
-              <div style={styles.textMutedSmallTop8}>
-                تفعيل بعض الأزرار يعتمد على نسبة الإجابات (60%).
-              </div>
-            </div>
+                    <div style={styles.sideBlock}>
+                      <div style={{ ...styles.metaItem, ...styles.metaItemNoTopCenter }}>
+                        <span style={styles.k}>الحفظ التلقائي</span>
+                        <span style={styles.v}>مفعل ✓</span>
+                      </div>
+                      <div style={styles.textMutedSmall}>
+                        يتم حفظ التغييرات تلقائيًا أثناء العمل.
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        تفعيل بعض الأزرار يعتمد على نسبة الإجابات (60%).
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
             </div>
