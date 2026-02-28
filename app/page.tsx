@@ -143,6 +143,8 @@ type LocalProjectMeta = {
   name: string;
   createdAt: string;
   updatedAt: string;
+  isArchived?: boolean;
+  archivedAt?: string;
 };
 
 type ProjectsRegistry = {
@@ -725,7 +727,9 @@ function isValidLocalProjectMeta(item: unknown): item is LocalProjectMeta {
   return (
     typeof candidate.id === "string" &&
     candidate.id.trim().length > 0 &&
-    typeof candidate.name === "string"
+    typeof candidate.name === "string" &&
+    (candidate.isArchived === undefined || typeof candidate.isArchived === "boolean") &&
+    (candidate.archivedAt === undefined || typeof candidate.archivedAt === "string")
   );
 }
 
@@ -736,6 +740,8 @@ function loadProjectBootstrap(): ProjectBootstrap {
       name: "مشروع 1",
       createdAt: "",
       updatedAt: "",
+      isArchived: false,
+      archivedAt: "",
     },
   ];
 
@@ -751,15 +757,26 @@ function loadProjectBootstrap(): ProjectBootstrap {
     const registryRaw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
     if (registryRaw) {
       const parsed = JSON.parse(registryRaw) as Partial<ProjectsRegistry>;
-      const parsedProjects = Array.isArray(parsed.projects)
+      let parsedProjects = Array.isArray(parsed.projects)
         ? parsed.projects.filter(isValidLocalProjectMeta)
+            .map((item) => ({
+              ...item,
+              isArchived: Boolean(item.isArchived),
+              archivedAt: item.archivedAt ?? "",
+            }))
         : [];
       if (parsedProjects.length > 0) {
+        if (!parsedProjects.some((item) => !item.isArchived)) {
+          parsedProjects = parsedProjects.map((item, idx) =>
+            idx === 0 ? { ...item, isArchived: false, archivedAt: "" } : item
+          );
+        }
+        const activeCandidates = parsedProjects.filter((item) => !item.isArchived);
         const nextActiveId =
           typeof parsed.activeProjectId === "string" &&
-          parsedProjects.some((item) => item.id === parsed.activeProjectId)
+          activeCandidates.some((item) => item.id === parsed.activeProjectId)
             ? parsed.activeProjectId
-            : parsedProjects[0].id;
+            : activeCandidates[0].id;
         const activeRaw = localStorage.getItem(projectDataKey(nextActiveId));
         let saved: PersistedState = {};
         if (activeRaw) {
@@ -769,6 +786,10 @@ function loadProjectBootstrap(): ProjectBootstrap {
             saved = {};
           }
         }
+        localStorage.setItem(
+          PROJECTS_REGISTRY_KEY,
+          JSON.stringify({ activeProjectId: nextActiveId, projects: parsedProjects })
+        );
         return {
           saved,
           activeProjectId: nextActiveId,
@@ -795,6 +816,8 @@ function loadProjectBootstrap(): ProjectBootstrap {
         name: projectNameFromSnapshot(legacy, 1),
         createdAt: now,
         updatedAt: now,
+        isArchived: false,
+        archivedAt: "",
       },
     ];
 
@@ -1110,7 +1133,7 @@ export default function Home() {
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [showProjectManager, setShowProjectManager] = useState(false);
-  const [showDeleteProjectConfirm, setShowDeleteProjectConfirm] = useState(false);
+  const [showArchiveProjectConfirm, setShowArchiveProjectConfirm] = useState(false);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
     Record<MobileSummarySectionKey, boolean>
@@ -1170,8 +1193,10 @@ export default function Home() {
     { id: "governance", label: "الحوكمة", enabled: canEditGovernance },
     { id: "approval", label: "الاعتماد النهائي", enabled: canApproveAdvancedPlan },
   ] as const;
+  const activeProjects = projectRegistry.filter((entry) => !entry.isArchived);
+  const archivedProjects = projectRegistry.filter((entry) => entry.isArchived);
   const activeProjectMeta =
-    projectRegistry.find((entry) => entry.id === activeProjectId) ?? projectRegistry[0] ?? null;
+    activeProjects.find((entry) => entry.id === activeProjectId) ?? activeProjects[0] ?? null;
   const activeProjectName = activeProjectMeta?.name ?? "";
 
   const stagePermissionHints = useMemo(() => {
@@ -1707,6 +1732,7 @@ export default function Home() {
 
   function switchProject(nextProjectId: string) {
     if (!nextProjectId || nextProjectId === activeProjectId) return;
+    if (!activeProjects.some((entry) => entry.id === nextProjectId)) return;
     persistActiveProjectSnapshot();
     persistRegistry(projectRegistry, nextProjectId);
     location.reload();
@@ -1751,6 +1777,8 @@ export default function Home() {
         name: `مشروع ${toArabicDigits(projectRegistry.length + 1)}`,
         createdAt: now,
         updatedAt: now,
+        isArchived: false,
+        archivedAt: "",
       },
       ...projectRegistry,
     ];
@@ -1779,6 +1807,8 @@ export default function Home() {
         name: `${baseName} - نسخة`,
         createdAt: now,
         updatedAt: now,
+        isArchived: false,
+        archivedAt: "",
       },
       ...projectRegistry,
     ];
@@ -1788,40 +1818,64 @@ export default function Home() {
     location.reload();
   }
 
-  function requestDeleteActiveProject() {
+  function requestArchiveActiveProject() {
     if (!canEditSessionSetup) {
       showError(
-        permissionHintText("حذف المشروع", ["project_manager", "operations_manager"], userRole)
+        permissionHintText("أرشفة المشروع", ["project_manager", "operations_manager"], userRole)
       );
       return;
     }
-    if (projectRegistry.length <= 1) {
-      showError("لا يمكن حذف آخر مشروع. أنشئ مشروعًا جديدًا أولًا.");
+    if (activeProjects.length <= 1) {
+      showError("لا يمكن أرشفة آخر مشروع نشط. أنشئ مشروعًا جديدًا أولًا.");
       return;
     }
-    setShowDeleteProjectConfirm(true);
+    setShowArchiveProjectConfirm(true);
   }
 
-  function deleteActiveProject() {
+  function archiveActiveProject() {
     if (!canEditSessionSetup) return;
-    if (projectRegistry.length <= 1) {
-      showError("لا يمكن حذف آخر مشروع.");
-      setShowDeleteProjectConfirm(false);
+    if (activeProjects.length <= 1) {
+      showError("لا يمكن أرشفة آخر مشروع نشط.");
+      setShowArchiveProjectConfirm(false);
       return;
     }
 
-    const nextProjects = projectRegistry.filter((entry) => entry.id !== activeProjectId);
-    const nextActiveId = nextProjects[0]?.id;
+    const now = new Date().toISOString();
+    const nextProjects = projectRegistry.map((entry) =>
+      entry.id === activeProjectId
+        ? { ...entry, isArchived: true, archivedAt: now, updatedAt: now }
+        : entry
+    );
+    const nextActiveId = nextProjects.find(
+      (entry) => entry.id !== activeProjectId && !entry.isArchived
+    )?.id;
     if (!nextActiveId) {
-      showError("تعذر تحديد مشروع بديل بعد الحذف.");
-      setShowDeleteProjectConfirm(false);
+      showError("تعذر تحديد مشروع نشط بديل بعد الأرشفة.");
+      setShowArchiveProjectConfirm(false);
       return;
     }
 
-    localStorage.removeItem(projectDataKey(activeProjectId));
     persistRegistry(nextProjects, nextActiveId);
-    setShowDeleteProjectConfirm(false);
+    setShowArchiveProjectConfirm(false);
     location.reload();
+  }
+
+  function restoreArchivedProject(projectId: string) {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("استعادة المشروع", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    const now = new Date().toISOString();
+    setProjectRegistry((prev) =>
+      prev.map((entry) =>
+        entry.id === projectId
+          ? { ...entry, isArchived: false, archivedAt: "", updatedAt: now }
+          : entry
+      )
+    );
+    showSuccess("تمت استعادة المشروع من الأرشيف.");
   }
 
   // ============ Save (no save while loading) ============
@@ -2043,17 +2097,17 @@ export default function Home() {
   }, [showProjectManager]);
 
   useEffect(() => {
-    if (!showDeleteProjectConfirm) return;
+    if (!showArchiveProjectConfirm) return;
 
     function onEsc(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        setShowDeleteProjectConfirm(false);
+        setShowArchiveProjectConfirm(false);
       }
     }
 
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [showDeleteProjectConfirm]);
+  }, [showArchiveProjectConfirm]);
 
   useEffect(() => {
     if (!isMobile || isWelcome) {
@@ -5388,6 +5442,26 @@ export default function Home() {
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 8,
+      } as CSSProperties,
+      projectArchiveList: {
+        marginTop: 8,
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      projectArchiveItem: {
+        borderRadius: 12,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: "10px",
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      projectArchiveMeta: {
+        minWidth: 0,
+        flex: 1,
       } as CSSProperties,
       confirmTitle: {
         margin: 0,
@@ -11076,7 +11150,7 @@ export default function Home() {
                   onChange={(e) => switchProject(e.target.value)}
                   style={styles.input}
                 >
-                  {projectRegistry.map((entry) => (
+                  {activeProjects.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name || "مشروع بدون اسم"}
                     </option>
@@ -11146,24 +11220,64 @@ export default function Home() {
             <div style={styles.blockTop12}>
               <button
                 type="button"
-                style={styles.dangerGhostBtn(!canEditSessionSetup || projectRegistry.length <= 1)}
-                onClick={requestDeleteActiveProject}
-                disabled={!canEditSessionSetup || projectRegistry.length <= 1}
+                style={styles.dangerGhostBtn(!canEditSessionSetup || activeProjects.length <= 1)}
+                onClick={requestArchiveActiveProject}
+                disabled={!canEditSessionSetup || activeProjects.length <= 1}
                 title={
-                  projectRegistry.length <= 1
-                    ? "لا يمكن حذف آخر مشروع."
+                  activeProjects.length <= 1
+                    ? "لا يمكن أرشفة آخر مشروع نشط."
                     : canEditSessionSetup
                       ? undefined
                       : permissionHintText(
-                          "حذف المشروع",
+                          "أرشفة المشروع",
                           ["project_manager", "operations_manager"],
                           userRole
                         )
                 }
               >
-                حذف المشروع الحالي
+                أرشفة المشروع الحالي
               </button>
             </div>
+
+            {archivedProjects.length > 0 ? (
+              <div style={styles.blockTop12}>
+                <div style={styles.sideBlockTitle}>المشاريع المؤرشفة</div>
+                <div style={styles.projectArchiveList}>
+                  {archivedProjects.map((entry) => (
+                    <div key={entry.id} style={styles.projectArchiveItem}>
+                      <div style={styles.projectArchiveMeta}>
+                        <div style={styles.sideSummaryPrimaryText}>
+                          {entry.name || "مشروع بدون اسم"}
+                        </div>
+                        <div style={styles.textMutedSmallTop8}>
+                          أُرشف: {entry.archivedAt ? formatDateTimeLabel(entry.archivedAt) : "غير محدد"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.secondaryBtn(!canEditSessionSetup),
+                          width: isMobile ? "100%" : "auto",
+                        }}
+                        disabled={!canEditSessionSetup}
+                        onClick={() => restoreArchivedProject(entry.id)}
+                        title={
+                          canEditSessionSetup
+                            ? undefined
+                            : permissionHintText(
+                                "استعادة المشروع",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                        }
+                      >
+                        استعادة
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div style={styles.confirmActions}>
               <button
@@ -11216,38 +11330,38 @@ export default function Home() {
         </div>
       ) : null}
 
-      {showDeleteProjectConfirm ? (
+      {showArchiveProjectConfirm ? (
         <div
           style={styles.confirmOverlay}
-          onClick={() => setShowDeleteProjectConfirm(false)}
+          onClick={() => setShowArchiveProjectConfirm(false)}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="delete-project-title"
+          aria-labelledby="archive-project-title"
         >
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
-            <h3 id="delete-project-title" style={styles.confirmTitle}>
-              تأكيد حذف المشروع
+            <h3 id="archive-project-title" style={styles.confirmTitle}>
+              تأكيد أرشفة المشروع
             </h3>
             <div style={styles.confirmDesc}>
-              سيتم حذف المشروع الحالي ({activeProjectName || "بدون اسم"}) نهائيًا من هذا المتصفح.
+              سيتم نقل المشروع الحالي ({activeProjectName || "بدون اسم"}) إلى الأرشيف بدل حذفه.
             </div>
             <div style={styles.confirmWarn}>
-              الحذف لا يمكن التراجع عنه. إذا احتجت نسخة، استخدم «نسخ المشروع» أولًا.
+              يمكنك استعادة المشروع لاحقًا من قائمة «المشاريع المؤرشفة».
             </div>
             <div style={styles.confirmActions}>
               <button
                 type="button"
                 style={styles.secondaryBtn(false)}
-                onClick={() => setShowDeleteProjectConfirm(false)}
+                onClick={() => setShowArchiveProjectConfirm(false)}
               >
                 إلغاء
               </button>
               <button
                 type="button"
                 style={styles.dangerGhostBtn(false)}
-                onClick={deleteActiveProject}
+                onClick={archiveActiveProject}
               >
-                نعم، حذف المشروع
+                نعم، أرشفة المشروع
               </button>
             </div>
           </div>
