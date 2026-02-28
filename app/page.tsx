@@ -16,6 +16,7 @@ type StageUI =
   | "advanced_plan";
 
 type DeliveryTrack = "fast" | "advanced";
+type ThemeMode = "glass" | "calm";
 
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
@@ -136,6 +137,7 @@ type PersistedState = {
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
+  themeMode?: ThemeMode;
 };
 
 type BoqItem = {
@@ -923,6 +925,7 @@ export default function Home() {
     initialSaved.advancedApproved ?? false
   );
   const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialSaved.themeMode ?? "glass");
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>(() =>
@@ -1533,6 +1536,7 @@ export default function Home() {
       advancedPlanText,
       advancedApproved,
       demoMode,
+      themeMode,
       stage,
       round1Questions,
       followupQuestions,
@@ -1584,6 +1588,7 @@ export default function Home() {
     advancedPlanText,
     advancedApproved,
     demoMode,
+    themeMode,
     stage,
     round1Questions,
     followupQuestions,
@@ -4217,55 +4222,55 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
-      const isCalmTheme = false;
+      const isCalmTheme = themeMode === "calm";
       const palette = isCalmTheme
         ? {
-            pageBg: "#d8deea",
-            pageText: "rgba(34,48,72,0.98)",
+            pageBg: "#eeebe9",
+            pageText: "rgba(49,33,73,0.98)",
             glow:
-              "radial-gradient(circle, rgba(124,152,206,0.30) 0%, rgba(216,222,234,0) 62%)",
-            shellBorder: "1px solid rgba(158,176,206,0.38)",
+              "radial-gradient(circle, rgba(144,117,181,0.20) 0%, rgba(238,235,233,0) 62%)",
+            shellBorder: "1px solid rgba(144,117,181,0.30)",
             shellBg:
-              "linear-gradient(180deg, rgba(243,246,252,0.94), rgba(233,239,250,0.86) 70%)",
-            shellShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
+              "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(238,235,233,0.88) 70%)",
+            shellShadow: "inset 0 1px 0 rgba(255,255,255,0.92)",
             cardBg:
-              "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(245,248,253,0.82) 72%)",
-            cardBorder: "1px solid rgba(186,202,228,0.72)",
-            inputBg: "rgba(255,255,255,0.86)",
-            inputBorder: "1px solid rgba(165,182,211,0.66)",
-            primaryBg: "linear-gradient(90deg, #5d358e, #7a4bc1)",
-            primaryDisabledBg: "rgba(165,182,211,0.42)",
-            secondaryBg: "rgba(245,248,255,0.92)",
-            secondaryBorder: "1px solid rgba(165,182,211,0.58)",
-            ghostBorder: "1px solid rgba(165,182,211,0.58)",
-            progressTrack: "rgba(176,193,222,0.44)",
-            progressBorder: "1px solid rgba(165,182,211,0.58)",
-            progressFill: "linear-gradient(90deg, #7a4bc1, #6a43ab, #5d358e)",
-            progressGlow: "0 0 14px rgba(93,53,142,0.24)",
-            accentBorder: "1px solid rgba(93,53,142,0.46)",
-            accentBg: "rgba(93,53,142,0.18)",
-            successBorder: "1px solid rgba(74,158,125,0.48)",
-            successBg: "rgba(74,158,125,0.16)",
-            warnBorder: "1px solid rgba(208,152,77,0.48)",
-            warnBg: "rgba(208,152,77,0.16)",
-            dangerBorder: "1px solid rgba(196,112,104,0.48)",
-            dangerBg: "rgba(196,112,104,0.16)",
-            infoBorder: "1px solid rgba(93,53,142,0.46)",
-            infoBg: "rgba(93,53,142,0.18)",
+              "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,243,252,0.90) 72%)",
+            cardBorder: "1px solid rgba(207,196,225,0.92)",
+            inputBg: "rgba(255,255,255,0.94)",
+            inputBorder: "1px solid rgba(144,117,181,0.38)",
+            primaryBg: "linear-gradient(90deg, #552d80, #9075b5)",
+            primaryDisabledBg: "rgba(207,196,225,0.55)",
+            secondaryBg: "rgba(255,255,255,0.90)",
+            secondaryBorder: "1px solid rgba(144,117,181,0.34)",
+            ghostBorder: "1px solid rgba(144,117,181,0.34)",
+            progressTrack: "rgba(207,196,225,0.62)",
+            progressBorder: "1px solid rgba(144,117,181,0.34)",
+            progressFill: "linear-gradient(90deg, #9075b5, #6f4f98, #552d80)",
+            progressGlow: "0 0 14px rgba(85,45,128,0.20)",
+            accentBorder: "1px solid rgba(85,45,128,0.42)",
+            accentBg: "rgba(85,45,128,0.12)",
+            successBorder: "1px solid rgba(74,158,125,0.42)",
+            successBg: "rgba(74,158,125,0.12)",
+            warnBorder: "1px solid rgba(208,152,77,0.44)",
+            warnBg: "rgba(208,152,77,0.12)",
+            dangerBorder: "1px solid rgba(196,112,104,0.44)",
+            dangerBg: "rgba(196,112,104,0.12)",
+            infoBorder: "1px solid rgba(85,45,128,0.42)",
+            infoBg: "rgba(85,45,128,0.12)",
             criticalBorder: "1px solid rgba(183,94,123,0.50)",
-            criticalBg: "rgba(183,94,123,0.18)",
-            infoSolid: "#5D358E",
-            successSolid: "#2FB67E",
-            warnSolid: "#F0AA4E",
-            dangerSolid: "#E16E6E",
+            criticalBg: "rgba(183,94,123,0.14)",
+            infoSolid: "#552D80",
+            successSolid: "#3B8A67",
+            warnSolid: "#BC7F39",
+            dangerSolid: "#BB6759",
             criticalSolid: "#D6627A",
             sidePanelBg:
-              "linear-gradient(180deg, rgba(244,247,253,0.97), rgba(235,241,250,0.95) 55%, rgba(228,236,248,0.97))",
-            sidePanelBorder: "1px solid rgba(158,176,206,0.45)",
+              "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,239,247,0.94) 55%, rgba(238,234,242,0.96))",
+            sidePanelBorder: "1px solid rgba(144,117,181,0.30)",
             sideBlockBg:
-              "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(247,250,255,0.88))",
-            sideBlockBorder: "1px solid rgba(182,198,224,0.72)",
-            sideBlockAccent: "3px solid rgba(93,53,142,0.54)",
+              "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,243,252,0.90))",
+            sideBlockBorder: "1px solid rgba(207,196,225,0.95)",
+            sideBlockAccent: "3px solid rgba(85,45,128,0.45)",
           }
         : {
             pageBg: "#05070d",
@@ -4315,7 +4320,7 @@ export default function Home() {
           };
       const textTone = (alpha: number) =>
         isCalmTheme
-          ? `rgba(36,52,78,${Math.min(0.98, Math.max(0.64, alpha + 0.16)).toFixed(2)})`
+          ? `rgba(49,33,73,${Math.min(0.98, Math.max(0.58, alpha + 0.18)).toFixed(2)})`
           : `rgba(255,255,255,${alpha})`;
 
       return ({
@@ -4422,12 +4427,14 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(93,53,142,0.42)"
-            : "1px solid rgba(255,255,255,0.18)",
+            ? palette.infoBorder
+            : palette.secondaryBorder,
           background: active
-            ? "linear-gradient(180deg, rgba(93,53,142,0.24), rgba(122,75,193,0.12))"
-            : "rgba(255,255,255,0.04)",
-          color: "white",
+            ? (isCalmTheme
+                ? "linear-gradient(180deg, rgba(85,45,128,0.22), rgba(144,117,181,0.14))"
+                : "linear-gradient(180deg, rgba(93,53,142,0.24), rgba(122,75,193,0.12))")
+            : palette.secondaryBg,
+          color: active ? "white" : isCalmTheme ? textTone(0.95) : "white",
           fontSize: 13,
           fontWeight: active ? 900 : 700,
           padding: "10px 12px",
@@ -4444,7 +4451,7 @@ export default function Home() {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 12,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           cursor: disabled ? "not-allowed" : "pointer",
           fontSize: 14,
           lineHeight: 1.2,
@@ -4460,7 +4467,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 12,
-        color: "white",
+        color: isCalmTheme ? textTone(0.95) : "white",
         cursor: "pointer",
         fontSize: 14,
         lineHeight: 1.2,
@@ -4494,7 +4501,7 @@ export default function Home() {
           borderRadius: 14,
           border: palette.secondaryBorder,
           background: palette.secondaryBg,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           fontWeight: 800,
           lineHeight: 1.2,
           cursor: disabled ? "not-allowed" : "pointer",
@@ -4591,7 +4598,7 @@ export default function Home() {
         borderRadius: 12,
         background: palette.inputBg,
         border: palette.inputBorder,
-        color: "white",
+        color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         fontSize: isMobile ? 16 : 14,
       },
@@ -4639,7 +4646,7 @@ export default function Home() {
         borderRadius: 14,
         background: palette.inputBg,
         border: palette.inputBorder,
-        color: "white",
+        color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         resize: "none" as const,
         lineHeight: 1.7,
@@ -4832,7 +4839,7 @@ export default function Home() {
           borderRadius: 999,
           border: hasExtra ? palette.successBorder : palette.infoBorder,
           background: hasExtra ? palette.successBg : palette.infoBg,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           padding: "5px 10px",
           fontSize: 12,
           fontWeight: 800,
@@ -4857,7 +4864,7 @@ export default function Home() {
                 : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
             : "rgba(255,255,255,0.025)",
           padding: "10px 11px",
-          color: "white",
+          color: isCalmTheme ? textTone(0.95) : "white",
           cursor: "pointer",
           display: "grid",
           gap: 4,
@@ -5137,7 +5144,7 @@ export default function Home() {
                 : tone === "info"
                   ? palette.infoBg
                   : palette.secondaryBg,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           fontSize: 11.5,
           fontWeight: 800,
           padding: "4px 8px",
@@ -5384,7 +5391,7 @@ export default function Home() {
           borderRadius: 999,
           border: `1px solid ${decisionAccent(decision)}50`,
           background: `${decisionAccent(decision)}14`,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           fontSize: 12,
           fontWeight: 800,
         } as CSSProperties),
@@ -5490,7 +5497,7 @@ export default function Home() {
               : level === "متوسط"
                 ? "rgba(255,184,107,0.12)"
                 : "rgba(255,111,120,0.12)",
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
         } as CSSProperties),
       sectionHeaderRow: {
         display: "flex",
@@ -5543,7 +5550,7 @@ export default function Home() {
         borderRadius: 999,
         border: "1px solid rgba(255,122,69,0.34)",
         background: "rgba(255,122,69,0.14)",
-        color: "white",
+        color: isCalmTheme ? textTone(0.96) : "white",
         minWidth: 28,
         height: 28,
         display: "inline-flex",
@@ -5579,7 +5586,9 @@ export default function Home() {
         backdropFilter: "blur(16px)",
         border: palette.sidePanelBorder,
         borderRadius: 18,
-        boxShadow: "0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.04)",
+        boxShadow: isCalmTheme
+          ? "0 10px 24px rgba(85,45,128,0.10), inset 0 1px 0 rgba(255,255,255,0.55)"
+          : "0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: isMobile ? 14 : 16,
         position: "sticky" as const,
         top: 12,
@@ -5595,10 +5604,10 @@ export default function Home() {
         border: palette.infoBorder,
         background:
           isCalmTheme
-            ? "linear-gradient(180deg, rgba(18,27,43,0.95), rgba(20,31,49,0.94))"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,243,252,0.92))"
             : "linear-gradient(180deg, rgba(5,12,24,0.95), rgba(10,20,36,0.94))",
-        boxShadow: "0 10px 24px rgba(0,0,0,0.32)",
-        color: "white",
+        boxShadow: isCalmTheme ? "0 8px 18px rgba(85,45,128,0.10)" : "0 10px 24px rgba(0,0,0,0.32)",
+        color: isCalmTheme ? textTone(0.96) : "white",
         fontSize: 13.5,
         fontWeight: 900,
         padding: "10px 12px",
@@ -5607,18 +5616,20 @@ export default function Home() {
       mobileSummaryOverlay: {
         position: "fixed" as const,
         inset: 0,
-        background: isCalmTheme ? "rgba(9,14,24,0.56)" : "rgba(0,0,0,0.55)",
+        background: isCalmTheme ? "rgba(85,45,128,0.20)" : "rgba(0,0,0,0.55)",
         zIndex: 40,
       } as CSSProperties,
       mobileSummaryInline: {
         marginTop: 12,
         background:
           isCalmTheme
-            ? "linear-gradient(180deg, rgba(18,27,43,0.94), rgba(15,23,38,0.90) 45%, rgba(13,20,33,0.94))"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(244,239,247,0.94) 45%, rgba(238,234,242,0.95))"
             : "linear-gradient(180deg, rgba(5,12,24,0.94), rgba(8,16,30,0.90) 45%, rgba(4,8,18,0.94))",
         border: palette.sidePanelBorder,
         borderRadius: 16,
-        boxShadow: "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)",
+        boxShadow: isCalmTheme
+          ? "0 12px 28px rgba(85,45,128,0.10), inset 0 1px 0 rgba(255,255,255,0.60)"
+          : "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: 12,
         maxHeight: "78vh",
         overflowY: "auto" as const,
@@ -5633,7 +5644,7 @@ export default function Home() {
         borderRadius: 0,
         border: "none",
         background: isCalmTheme
-          ? "linear-gradient(180deg, rgba(18,27,43,0.98), rgba(15,23,38,0.96) 48%, rgba(13,20,33,0.98))"
+          ? "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,239,247,0.97) 48%, rgba(238,234,242,0.98))"
           : "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96) 48%, rgba(4,8,18,0.98))",
         boxShadow: "none",
         display: "block",
@@ -5653,21 +5664,21 @@ export default function Home() {
         padding: "12px 14px",
         borderBottom: palette.sideBlockBorder,
         background: isCalmTheme
-          ? "linear-gradient(180deg, rgba(18,27,43,0.98), rgba(15,23,38,0.96))"
+          ? "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,239,247,0.96))"
           : "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96))",
       } as CSSProperties,
       mobileSummaryHeadTitle: {
         margin: 0,
         fontSize: 14,
         fontWeight: 900,
-        color: "white",
+        color: isCalmTheme ? textTone(0.96) : "white",
       } as CSSProperties,
       mobileSummaryCloseBtn: {
         minHeight: 32,
         borderRadius: 999,
         border: palette.secondaryBorder,
         background: palette.secondaryBg,
-        color: "white",
+        color: isCalmTheme ? textTone(0.95) : "white",
         fontSize: 12.5,
         fontWeight: 800,
         padding: "6px 10px",
@@ -5692,7 +5703,7 @@ export default function Home() {
                 ? "linear-gradient(180deg, rgba(93,53,142,0.14), rgba(255,255,255,0.03))"
                 : "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))")
             : palette.secondaryBg,
-          color: "white",
+          color: isCalmTheme ? textTone(0.95) : "white",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -5718,7 +5729,7 @@ export default function Home() {
           fontSize: 13,
           fontWeight: 900,
           lineHeight: 1,
-          color: "white",
+          color: isCalmTheme ? textTone(0.95) : "white",
           flexShrink: 0,
         } as CSSProperties),
       mobileSummaryAccordionBody: {
@@ -5784,7 +5795,7 @@ export default function Home() {
         borderRadius: 999,
         border: palette.infoBorder,
         background: palette.infoBg,
-        color: isCalmTheme ? "rgba(236,244,255,0.96)" : "rgba(255,255,255,0.94)",
+        color: isCalmTheme ? textTone(0.96) : "rgba(255,255,255,0.94)",
         fontSize: 11.5,
         fontWeight: 900,
         padding: "3px 7px",
@@ -5805,7 +5816,7 @@ export default function Home() {
           borderRadius: 999,
           fontSize: 12,
           fontWeight: 800,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           border:
             tone === "ready"
               ? palette.successBorder
@@ -5998,7 +6009,7 @@ export default function Home() {
           background: active
             ? palette.successBg
             : palette.warnBg,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           fontSize: 11.5,
           fontWeight: 800,
           padding: "5px 10px",
@@ -6034,7 +6045,7 @@ export default function Home() {
         borderRadius: 999,
         border: palette.infoBorder,
         background: palette.infoBg,
-        color: "white",
+        color: isCalmTheme ? textTone(0.96) : "white",
         fontSize: 11,
         fontWeight: 900,
         lineHeight: 1,
@@ -6088,7 +6099,7 @@ export default function Home() {
         padding: "6px 10px",
         fontSize: 12,
         fontWeight: 800,
-        color: "white",
+        color: isCalmTheme ? textTone(0.96) : "white",
       } as CSSProperties,
       actionTrackerStatsGrid: {
         marginTop: 10,
@@ -6201,7 +6212,7 @@ export default function Home() {
         padding: "6px 10px",
         fontSize: 12,
         fontWeight: 800,
-        color: "white",
+        color: isCalmTheme ? textTone(0.96) : "white",
       } as CSSProperties,
       riskBoardStatsGrid: {
         marginTop: 10,
@@ -6335,7 +6346,7 @@ export default function Home() {
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           width: "fit-content",
         } as CSSProperties),
       riskStatusBadge: (status: RiskStatus) =>
@@ -6360,7 +6371,7 @@ export default function Home() {
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           width: "fit-content",
         } as CSSProperties),
       riskCardMeta: {
@@ -6420,7 +6431,7 @@ export default function Home() {
           padding: "6px 10px",
           fontSize: 12,
           fontWeight: 800,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           width: "fit-content",
         } as CSSProperties),
       governanceGrid: {
@@ -6529,8 +6540,10 @@ export default function Home() {
         lineHeight: 1.9,
         fontSize: isMobile ? 14 : 15,
         fontFamily: "Tahoma, Arial, sans-serif",
-        border: "1px solid rgba(0, 229, 255, 0.14)",
-        background: "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
+        border: isCalmTheme ? "1px solid rgba(144,117,181,0.30)" : "1px solid rgba(0, 229, 255, 0.14)",
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,243,252,0.90))"
+          : "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.46))",
       } as CSSProperties,
       sideSummaryPrimaryText: {
         fontSize: 13.5,
@@ -6544,8 +6557,8 @@ export default function Home() {
         borderRadius: 999,
         fontSize: 12,
         lineHeight: 1.2,
-        border: "1px solid rgba(255,255,255,0.14)",
-        background: "rgba(255,255,255,0.03)",
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
       } as CSSProperties,
       sideDurationText: {
         marginTop: 10,
@@ -6873,7 +6886,7 @@ export default function Home() {
           padding: "4px 9px",
           fontSize: 11.5,
           fontWeight: 900,
-          color: "white",
+          color: isCalmTheme ? textTone(0.96) : "white",
           width: "fit-content",
         } as CSSProperties;
       },
@@ -6892,7 +6905,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile]
+    [isMobile, isNarrowMobile, themeMode]
   );
 
   const renderSummarySection = (
@@ -6951,9 +6964,13 @@ export default function Home() {
         input:focus-visible,
         select:focus-visible,
         textarea:focus-visible {
-          outline: 2px solid rgba(0, 229, 255, 0.95);
+          outline: 2px solid ${
+            themeMode === "calm" ? "rgba(85, 45, 128, 0.95)" : "rgba(0, 229, 255, 0.95)"
+          };
           outline-offset: 2px;
-          box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.16);
+          box-shadow: 0 0 0 4px ${
+            themeMode === "calm" ? "rgba(85, 45, 128, 0.16)" : "rgba(0, 229, 255, 0.16)"
+          };
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -6966,7 +6983,7 @@ export default function Home() {
         @media (max-width: 768px) {
           input[type="date"],
           input[type="datetime-local"] {
-            color-scheme: dark;
+            color-scheme: ${themeMode === "calm" ? "light" : "dark"};
             -webkit-appearance: none;
             appearance: none;
             background-clip: padding-box;
@@ -6987,7 +7004,9 @@ export default function Home() {
           input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
           input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
           input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
-            color: rgba(255, 255, 255, 0.95);
+            color: ${
+              themeMode === "calm" ? "rgba(49, 33, 73, 0.96)" : "rgba(255, 255, 255, 0.95)"
+            };
             background: transparent;
           }
 
@@ -6996,7 +7015,9 @@ export default function Home() {
           input[type="date"]::-webkit-date-and-time-value,
           input[type="datetime-local"]::-webkit-date-and-time-value {
             background: transparent;
-            color: rgba(255, 255, 255, 0.95);
+            color: ${
+              themeMode === "calm" ? "rgba(49, 33, 73, 0.96)" : "rgba(255, 255, 255, 0.95)"
+            };
             display: flex;
             align-items: center;
             min-height: 1.35em;
@@ -7006,8 +7027,11 @@ export default function Home() {
 
           input[type="date"]::-webkit-calendar-picker-indicator,
           input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-            filter: brightness(0) invert(1);
-            opacity: 0.92;
+            ${
+              themeMode === "calm"
+                ? "opacity: 0.78;"
+                : "filter: brightness(0) invert(1); opacity: 0.92;"
+            }
           }
         }
       `}</style>
@@ -7056,6 +7080,14 @@ export default function Home() {
                   onClick={fillFullTestModel}
                 >
                   🧪 تحميل نموذج تجريبي كامل
+                </button>
+                <button
+                  style={{ ...styles.ghostBtn, width: isMobile ? "100%" : 260 }}
+                  onClick={() =>
+                    setThemeMode((prev) => (prev === "glass" ? "calm" : "glass"))
+                  }
+                >
+                  🎨 النمط: {themeMode === "glass" ? "زجاجي" : "هادئ"}
                 </button>
               </div>
               <p style={styles.welcomeFootnote}>
@@ -7109,6 +7141,18 @@ export default function Home() {
               </div>
 
               <div style={styles.sessionAdminActions}>
+                <button
+                  style={styles.themeSwitchBtn(themeMode === "glass")}
+                  onClick={() => setThemeMode("glass")}
+                >
+                  النمط الزجاجي
+                </button>
+                <button
+                  style={styles.themeSwitchBtn(themeMode === "calm")}
+                  onClick={() => setThemeMode("calm")}
+                >
+                  النمط الهادئ
+                </button>
                 {!isSelectionStep ? (
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
