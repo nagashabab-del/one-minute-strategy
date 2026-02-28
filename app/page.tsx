@@ -1109,6 +1109,7 @@ export default function Home() {
   const [loadingContext, setLoadingContext] = useState<LoadingContext>("");
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
+  const [showProjectManager, setShowProjectManager] = useState(false);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
     Record<MobileSummarySectionKey, boolean>
@@ -1978,6 +1979,19 @@ export default function Home() {
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [showClearSessionConfirm]);
+
+  useEffect(() => {
+    if (!showProjectManager) return;
+
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowProjectManager(false);
+      }
+    }
+
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [showProjectManager]);
 
   useEffect(() => {
     if (!isMobile || isWelcome) {
@@ -4703,6 +4717,23 @@ export default function Home() {
         minWidth: isMobile ? "100%" : 170,
         maxWidth: isMobile ? "100%" : 220,
       } as CSSProperties,
+      sessionAdminProjectContext: {
+        minWidth: isMobile ? "100%" : 260,
+        flex: isMobile ? "none" : 1,
+      } as CSSProperties,
+      sessionAdminProjectName: {
+        minHeight: touchTarget,
+        borderRadius: 12,
+        border: palette.inputBorder,
+        background: palette.inputBg,
+        color: textTone(0.94),
+        display: "flex",
+        alignItems: "center",
+        padding: "0 12px",
+        fontSize: 14,
+        fontWeight: 800,
+        lineHeight: 1.2,
+      } as CSSProperties,
       sessionAdminProjectField: {
         minWidth: isMobile ? "100%" : 220,
         maxWidth: isMobile ? "100%" : 280,
@@ -5280,6 +5311,21 @@ export default function Home() {
             : "linear-gradient(180deg, rgba(255,122,69,0.14), rgba(15,20,34,0.95) 42%, rgba(10,14,24,0.97))",
         boxShadow: isCalmTheme ? "none" : "0 16px 40px rgba(0,0,0,0.38)",
         padding: isMobile ? 14 : 16,
+      } as CSSProperties,
+      projectManagerCard: {
+        width: "min(640px, 100%)",
+        borderRadius: 16,
+        border: palette.cardBorder,
+        background: palette.cardBg,
+        backdropFilter: isCalmTheme ? "none" : "blur(14px)",
+        boxShadow: isCalmTheme ? "none" : "0 16px 40px rgba(0,0,0,0.38)",
+        padding: isMobile ? 14 : 16,
+      } as CSSProperties,
+      projectManagerActionGrid: {
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
       } as CSSProperties,
       confirmTitle: {
         margin: 0,
@@ -6221,6 +6267,37 @@ export default function Home() {
         fontSize: isMobile ? 12 : 15,
         fontWeight: 800,
         letterSpacing: 0.2,
+      } as CSSProperties,
+      welcomeProjectCard: {
+        marginTop: 16,
+        width: "100%",
+        maxWidth: isMobile ? "100%" : 700,
+        borderRadius: 16,
+        border: palette.cardBorder,
+        background: palette.cardBg,
+        backdropFilter: isCalmTheme ? "none" : "blur(12px)",
+        padding: isMobile ? "12px" : "14px 16px",
+        textAlign: "right",
+      } as CSSProperties,
+      welcomeProjectCardTitle: {
+        margin: 0,
+        fontSize: isMobile ? 15 : 16,
+        fontWeight: 900,
+        color: textTone(0.96),
+      } as CSSProperties,
+      welcomeProjectCardLine: {
+        marginTop: 7,
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: textTone(0.82),
+      } as CSSProperties,
+      welcomeProjectActions: {
+        marginTop: 12,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 10,
       } as CSSProperties,
       welcomeFootnote: {
         marginTop: 12,
@@ -7368,16 +7445,40 @@ export default function Home() {
                 Executive Decision Intelligence Platform
               </div>
 
+              <div style={styles.welcomeProjectCard}>
+                <div style={styles.welcomeProjectCardTitle}>إدارة المشاريع</div>
+                <div style={styles.welcomeProjectCardLine}>
+                  المشروع الحالي: <strong>{activeProjectName || "مشروع بدون اسم"}</strong>
+                </div>
+                <div style={styles.welcomeProjectCardLine}>
+                  آخر تحديث:{" "}
+                  <strong>
+                    {activeProjectMeta?.updatedAt
+                      ? formatDateTimeLabel(activeProjectMeta.updatedAt)
+                      : "غير محدد"}
+                  </strong>
+                </div>
+                <div style={styles.welcomeProjectCardLine}>الحفظ التلقائي: <strong>مفعل ✓</strong></div>
+                <div style={styles.welcomeProjectActions}>
+                  <button
+                    style={{ ...styles.primaryBtn(false), width: isMobile ? "100%" : 260 }}
+                    onClick={() => {
+                      setInitStep("session");
+                      setStage("init");
+                    }}
+                  >
+                    متابعة هذا المشروع
+                  </button>
+                  <button
+                    style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : 260 }}
+                    onClick={() => setShowProjectManager(true)}
+                  >
+                    إدارة المشاريع
+                  </button>
+                </div>
+              </div>
+
               <div style={styles.welcomeActions}>
-                <button
-                  style={{ ...styles.primaryBtn(false), width: isMobile ? "100%" : 260 }}
-                  onClick={() => {
-                    setInitStep("session");
-                    setStage("init");
-                  }}
-                >
-                  🚀 انطلق الآن
-                </button>
                 <button
                   style={{ ...styles.secondaryBtn(!canLoadDemo), width: isMobile ? "100%" : 260 }}
                   disabled={!canLoadDemo}
@@ -7431,40 +7532,11 @@ export default function Home() {
 
           {!isWelcome ? (
             <div style={styles.sessionAdminBar}>
-              <div style={styles.sessionAdminProjectField}>
+              <div style={styles.sessionAdminProjectContext}>
                 <div style={styles.label}>المشروع الحالي</div>
-                <select
-                  value={activeProjectId}
-                  onChange={(e) => switchProject(e.target.value)}
-                  style={styles.input}
-                >
-                  {projectRegistry.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.name || "مشروع بدون اسم"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={styles.sessionAdminProjectNameField}>
-                <div style={styles.label}>اسم المشروع</div>
-                <input
-                  value={activeProjectName}
-                  onChange={(e) => renameActiveProject(e.target.value)}
-                  onBlur={normalizeActiveProjectName}
-                  disabled={!canEditSessionSetup}
-                  title={
-                    canEditSessionSetup
-                      ? undefined
-                      : permissionHintText(
-                          "تعديل اسم المشروع",
-                          ["project_manager", "operations_manager"],
-                          userRole
-                        )
-                  }
-                  style={styles.input}
-                  placeholder="اكتب اسم المشروع"
-                />
+                <div style={styles.sessionAdminProjectName}>
+                  {activeProjectName || "مشروع بدون اسم"}
+                </div>
               </div>
 
               <div style={styles.sessionAdminRoleField}>
@@ -7483,42 +7555,10 @@ export default function Home() {
 
               <div style={styles.sessionAdminActions}>
                 <button
-                  style={{
-                    ...styles.secondaryBtn(!canEditSessionSetup),
-                    width: isMobile ? "100%" : "auto",
-                  }}
-                  onClick={createNewProject}
-                  disabled={!canEditSessionSetup}
-                  title={
-                    canEditSessionSetup
-                      ? undefined
-                      : permissionHintText(
-                          "إنشاء مشروع جديد",
-                          ["project_manager", "operations_manager"],
-                          userRole
-                        )
-                  }
+                  style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
+                  onClick={() => setShowProjectManager(true)}
                 >
-                  مشروع جديد
-                </button>
-                <button
-                  style={{
-                    ...styles.secondaryBtn(!canEditSessionSetup),
-                    width: isMobile ? "100%" : "auto",
-                  }}
-                  onClick={duplicateCurrentProject}
-                  disabled={!canEditSessionSetup}
-                  title={
-                    canEditSessionSetup
-                      ? undefined
-                      : permissionHintText(
-                          "نسخ المشروع الحالي",
-                          ["project_manager", "operations_manager"],
-                          userRole
-                        )
-                  }
-                >
-                  نسخ المشروع
+                  إدارة المشاريع
                 </button>
                 {!isSelectionStep ? (
                   <button
@@ -10949,6 +10989,110 @@ export default function Home() {
         </div> : null}
 
       </div>
+
+      {showProjectManager ? (
+        <div
+          style={styles.confirmOverlay}
+          onClick={() => setShowProjectManager(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="project-manager-title"
+        >
+          <div style={styles.projectManagerCard} onClick={(e) => e.stopPropagation()}>
+            <h3 id="project-manager-title" style={styles.confirmTitle}>
+              إدارة المشاريع
+            </h3>
+            <div style={styles.confirmDesc}>
+              اختر المشروع الحالي أو أنشئ نسخة جديدة بدون التأثير على بيانات المشاريع الأخرى.
+            </div>
+
+            <div style={styles.stackAfterBlock}>
+              <div>
+                <div style={styles.label}>المشروع الحالي</div>
+                <select
+                  value={activeProjectId}
+                  onChange={(e) => switchProject(e.target.value)}
+                  style={styles.input}
+                >
+                  {projectRegistry.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name || "مشروع بدون اسم"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div style={styles.label}>اسم المشروع</div>
+                <input
+                  value={activeProjectName}
+                  onChange={(e) => renameActiveProject(e.target.value)}
+                  onBlur={normalizeActiveProjectName}
+                  disabled={!canEditSessionSetup}
+                  title={
+                    canEditSessionSetup
+                      ? undefined
+                      : permissionHintText(
+                          "تعديل اسم المشروع",
+                          ["project_manager", "operations_manager"],
+                          userRole
+                        )
+                  }
+                  style={styles.input}
+                  placeholder="اكتب اسم المشروع"
+                />
+              </div>
+            </div>
+
+            <div style={styles.projectManagerActionGrid}>
+              <button
+                type="button"
+                style={styles.secondaryBtn(!canEditSessionSetup)}
+                onClick={createNewProject}
+                disabled={!canEditSessionSetup}
+                title={
+                  canEditSessionSetup
+                    ? undefined
+                    : permissionHintText(
+                        "إنشاء مشروع جديد",
+                        ["project_manager", "operations_manager"],
+                        userRole
+                      )
+                }
+              >
+                مشروع جديد
+              </button>
+              <button
+                type="button"
+                style={styles.secondaryBtn(!canEditSessionSetup)}
+                onClick={duplicateCurrentProject}
+                disabled={!canEditSessionSetup}
+                title={
+                  canEditSessionSetup
+                    ? undefined
+                    : permissionHintText(
+                        "نسخ المشروع الحالي",
+                        ["project_manager", "operations_manager"],
+                        userRole
+                      )
+                }
+              >
+                نسخ المشروع
+              </button>
+            </div>
+
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                style={styles.primaryBtn(false)}
+                onClick={() => setShowProjectManager(false)}
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showClearSessionConfirm ? (
         <div
