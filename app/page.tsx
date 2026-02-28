@@ -4846,14 +4846,16 @@ export default function Home() {
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
-      finalHeroCard: {
-        borderRadius: 16,
-        padding: isMobile ? 14 : 16,
-        border: "1px solid rgba(179,0,255,0.22)",
-        background:
-          "linear-gradient(180deg, rgba(179,0,255,0.14), rgba(106,0,255,0.07) 55%, rgba(255,255,255,0.02))",
-        boxShadow: "0 10px 30px rgba(64, 0, 128, 0.18)",
-      } as CSSProperties,
+      finalHeroCard: (decision?: string) => {
+        const accent = decisionAccent(decision);
+        return {
+          borderRadius: 16,
+          padding: isMobile ? 14 : 16,
+          border: `1px solid ${accent}42`,
+          background: `linear-gradient(180deg, ${accent}20, ${accent}12 52%, rgba(255,255,255,0.02))`,
+          boxShadow: `0 10px 30px ${accent}26`,
+        } as CSSProperties;
+      },
       finalHeroHead: {
         display: "flex",
         alignItems: isMobile ? "flex-start" : "center",
@@ -4874,13 +4876,29 @@ export default function Home() {
           fontSize: 12,
           fontWeight: 800,
         } as CSSProperties),
-      decisionTitle: {
-        marginTop: 10,
-        fontSize: isMobile ? 18 : 22,
-        fontWeight: 900,
-        lineHeight: 1.4,
-        color: "rgba(255,255,255,0.98)",
+      decisionStateCard: (decision?: string) => {
+        const accent = decisionAccent(decision);
+        return {
+          marginTop: 10,
+          borderRadius: 12,
+          border: `1px solid ${accent}45`,
+          background: `linear-gradient(180deg, ${accent}18, rgba(255,255,255,0.02) 72%)`,
+          padding: isMobile ? "10px 11px" : "11px 12px",
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${accent}22`,
+        } as CSSProperties;
+      },
+      decisionStateLabel: {
+        fontSize: 11.5,
+        color: "rgba(255,255,255,0.78)",
       } as CSSProperties,
+      decisionStateValue: (decision?: string) =>
+        ({
+          marginTop: 5,
+          fontSize: isMobile ? 17 : 20,
+          fontWeight: 900,
+          lineHeight: 1.5,
+          color: decisionAccent(decision),
+        } as CSSProperties),
       decisionReasons: {
         marginTop: 10,
         display: "grid",
@@ -6975,7 +6993,7 @@ export default function Home() {
                 </h3>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.finalHeroCard}>
+                  <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
                     <div style={styles.finalHeroHead}>
                       <div style={styles.qTitle}>القرار التنفيذي</div>
                       <div style={styles.decisionActionRow}>
@@ -7007,8 +7025,11 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div style={styles.decisionTitle}>
-                      {analysis?.executive_decision?.decision ?? "—"}
+                    <div style={styles.decisionStateCard(analysis?.executive_decision?.decision)}>
+                      <div style={styles.decisionStateLabel}>حالة القرار</div>
+                      <div style={styles.decisionStateValue(analysis?.executive_decision?.decision)}>
+                        {analysis?.executive_decision?.decision ?? "—"}
+                      </div>
                     </div>
 
                     <div style={styles.decisionReasons}>
