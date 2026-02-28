@@ -4132,7 +4132,7 @@ export default function Home() {
         alignItems: isMobile ? "stretch" : "center",
         flexDirection: isMobile ? "column" : "row",
         gap: space.md,
-        marginBottom: space.lg,
+        marginBottom: 0,
       } as CSSProperties,
       headerBrand: {
         display: "flex",
@@ -4151,14 +4151,62 @@ export default function Home() {
         color: "rgba(255,255,255,0.72)",
         fontSize: textScale.small,
       },
-      headerActions: {
-        display: "flex",
-        gap: space.xs,
-        alignItems: "center",
-        flexDirection: "row",
-        flexWrap: isMobile ? "wrap" : "nowrap",
+      headerContext: {
+        display: "grid",
+        gap: 8,
+        justifyItems: isMobile ? "stretch" : "end",
         width: isMobile ? "100%" : "auto",
       } as CSSProperties,
+      headerStageChip: {
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.30)",
+        background: "rgba(0,229,255,0.10)",
+        color: "rgba(255,255,255,0.95)",
+        fontSize: 12.5,
+        fontWeight: 800,
+        padding: "6px 11px",
+        textAlign: isMobile ? "center" : "right",
+        lineHeight: 1.35,
+      } as CSSProperties,
+      sessionAdminBar: {
+        marginTop: 12,
+        borderRadius: 12,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        padding: isMobile ? "10px" : "10px 12px",
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      sessionAdminRoleField: {
+        minWidth: isMobile ? "100%" : 220,
+        maxWidth: isMobile ? "100%" : 280,
+      } as CSSProperties,
+      sessionAdminActions: {
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        width: isMobile ? "100%" : "auto",
+      } as CSSProperties,
+      dangerGhostBtn: (disabled: boolean) =>
+        ({
+          background: "rgba(255,122,69,0.08)",
+          border: "1px solid rgba(255,122,69,0.36)",
+          padding: "10px 14px",
+          minHeight: touchTarget,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 12,
+          color: "white",
+          cursor: disabled ? "not-allowed" : "pointer",
+          fontSize: 14,
+          lineHeight: 1.2,
+          width: isMobile ? "100%" : "auto",
+          opacity: disabled ? 0.65 : 1,
+        } as CSSProperties),
       ghostBtn: {
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.18)",
@@ -6224,24 +6272,33 @@ export default function Home() {
                 </div>
               </div>
 
-              <div style={styles.headerActions}>
-                <div style={{ minWidth: isMobile ? "100%" : 190 }}>
-                  <div style={styles.label}>الدور الحالي</div>
-                  <select
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value as UserRole)}
-                    style={styles.input}
-                  >
-                    <option value="project_manager">مدير مشروع</option>
-                    <option value="operations_manager">عمليات</option>
-                    <option value="finance_manager">مالي</option>
-                    <option value="viewer">مشاهد فقط</option>
-                  </select>
-                </div>
+              <div style={styles.headerContext}>
+                <div style={styles.headerStageChip}>{stageLabel()}</div>
+                <div style={styles.stageStatusChip(stageStatusTone())}>{stageStatusText()}</div>
+              </div>
+            </header>
+          )}
 
-                {!isSelectionStep ? (
+          {!isWelcome ? (
+            <div style={styles.sessionAdminBar}>
+              <div style={styles.sessionAdminRoleField}>
+                <div style={styles.label}>الدور الحالي</div>
+                <select
+                  value={userRole}
+                  onChange={(e) => setUserRole(e.target.value as UserRole)}
+                  style={styles.input}
+                >
+                  <option value="project_manager">مدير مشروع</option>
+                  <option value="operations_manager">عمليات</option>
+                  <option value="finance_manager">مالي</option>
+                  <option value="viewer">مشاهد فقط</option>
+                </select>
+              </div>
+
+              {!isSelectionStep ? (
+                <div style={styles.sessionAdminActions}>
                   <button
-                    style={styles.ghostBtn}
+                    style={styles.dangerGhostBtn(!canResetSession)}
                     onClick={clearSession}
                     disabled={!canResetSession}
                     title={
@@ -6252,10 +6309,10 @@ export default function Home() {
                   >
                     مسح الجلسة
                   </button>
-                ) : null}
-              </div>
-            </header>
-          )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {/* Progress */}
