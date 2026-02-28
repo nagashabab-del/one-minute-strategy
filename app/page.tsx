@@ -962,6 +962,15 @@ export default function Home() {
     "boq" | "quality_risk" | "operations"
   >("boq");
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
+  const initStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const round1StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const round2StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const dialogueStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const additionStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const doneStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const advancedScopeStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const advancedBoqStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const advancedPlanStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const advancedScopeNavRef = useRef<HTMLDivElement | null>(null);
   const advancedBoqNavRef = useRef<HTMLDivElement | null>(null);
   const prevAdvancedScopeStepRef = useRef(advancedScopeStep);
@@ -1576,10 +1585,27 @@ export default function Home() {
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({
-      top: 0,
-      behavior: prefersReducedMotion ? "auto" : "smooth",
-    });
+    let targetHeading: HTMLElement | null = null;
+
+    if (stage === "init") targetHeading = initStageHeadingRef.current;
+    if (stage === "round1") targetHeading = round1StageHeadingRef.current;
+    if (stage === "round2") targetHeading = round2StageHeadingRef.current;
+    if (stage === "dialogue") targetHeading = dialogueStageHeadingRef.current;
+    if (stage === "addition") targetHeading = additionStageHeadingRef.current;
+    if (stage === "done") targetHeading = doneStageHeadingRef.current;
+    if (stage === "advanced_scope") targetHeading = advancedScopeStageHeadingRef.current;
+    if (stage === "advanced_boq") targetHeading = advancedBoqStageHeadingRef.current;
+    if (stage === "advanced_plan") targetHeading = advancedPlanStageHeadingRef.current;
+
+    if (targetHeading) {
+      targetHeading.scrollIntoView({
+        block: "start",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
   }, [stage, initStep]);
 
   useEffect(() => {
@@ -6161,6 +6187,9 @@ export default function Home() {
         margin: 0,
         fontWeight: 900,
       } as CSSProperties,
+      stageScrollAnchor: {
+        scrollMarginTop: isMobile ? 10 : 14,
+      } as CSSProperties,
       listItemGap6: {
         marginBottom: 6,
       } as CSSProperties,
@@ -6591,7 +6620,9 @@ export default function Home() {
         {!isWelcome ? <div style={styles.grid}>
           {/* Main */}
           <section style={styles.card}>
-            <h2 style={styles.cardTitle}>الجلسة الإستشارية</h2>
+            <h2 ref={initStageHeadingRef} style={{ ...styles.cardTitle, ...styles.stageScrollAnchor }}>
+              الجلسة الإستشارية
+            </h2>
             <p style={styles.muted}>
               {initStep === "session"
                 ? "اختر نوع الجلسة وحدد المستشارين المشاركين. اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع."
@@ -6913,7 +6944,10 @@ export default function Home() {
             {/* ROUND 1 */}
             {stage === "round1" && (
               <>
-                <h3 style={styles.sectionHeading}>
+                <h3
+                  ref={round1StageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
                   المرحلة 1: أسئلة الجولة الأولى
                 </h3>
                 <div style={styles.stageFlowLead}>
@@ -6989,7 +7023,12 @@ export default function Home() {
             {/* ROUND 2 */}
             {stage === "round2" && (
               <>
-                <h3 style={styles.sectionHeading}>المرحلة 2: تدقيق إضافي</h3>
+                <h3
+                  ref={round2StageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
+                  المرحلة 2: تدقيق إضافي
+                </h3>
                 <div style={styles.stageFlowLead}>
                   عمّق الإجابات غير المكتملة ووضّح النقاط المؤثرة قبل الانتقال للحوار.
                 </div>
@@ -7063,7 +7102,12 @@ export default function Home() {
             {/* DIALOGUE */}
             {stage === "dialogue" && (
               <>
-                <h3 style={styles.sectionHeading}>المرحلة 3: حوار المستشارين</h3>
+                <h3
+                  ref={dialogueStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
+                  المرحلة 3: حوار المستشارين
+                </h3>
                 <div style={styles.stageFlowLead}>
                   راجع خلاصات الحوار بين المستشارين وحدد النقاط العالقة قبل بدء التحليل النهائي.
                 </div>
@@ -7139,7 +7183,10 @@ export default function Home() {
             {/* ADDITION */}
             {stage === "addition" && (
               <>
-                <h3 style={styles.sectionHeading}>
+                <h3
+                  ref={additionStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
                   المرحلة 4: مراجعة قبل التحليل
                 </h3>
                 <div style={styles.stageFlowLead}>
@@ -7301,7 +7348,10 @@ export default function Home() {
             {/* DONE */}
             {stage === "done" && analysis && (
               <>
-                <h3 style={styles.sectionHeading}>
+                <h3
+                  ref={doneStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
                   المرحلة 5: المخرجات النهائية
                 </h3>
                 <div style={styles.stageFlowLead}>
@@ -7603,7 +7653,12 @@ export default function Home() {
 
             {stage === "advanced_scope" && (
               <>
-                <h3 style={styles.sectionHeading}>المرحلة 6: النطاق والهيكل التشغيلي</h3>
+                <h3
+                  ref={advancedScopeStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
+                  المرحلة 6: النطاق والهيكل التشغيلي
+                </h3>
                 <div style={styles.stageFlowLead}>
                   حدّد نطاق التنفيذ ثم وزّع الأدوار قبل الانتقال لمرحلة التخطيط التشغيلي.
                 </div>
@@ -8021,7 +8076,12 @@ export default function Home() {
 
             {stage === "advanced_boq" && (
               <>
-                <h3 style={styles.sectionHeading}>المرحلة 7: التخطيط التشغيلي التفصيلي</h3>
+                <h3
+                  ref={advancedBoqStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
+                  المرحلة 7: التخطيط التشغيلي التفصيلي
+                </h3>
                 <div style={styles.stageFlowLead}>
                   أكمل جدول الكميات، ثم الجودة والمخاطر، ثم الجاهزية التشغيلية قبل توليد الخطة.
                 </div>
@@ -8923,7 +8983,12 @@ export default function Home() {
 
             {stage === "advanced_plan" && (
               <>
-                <h3 style={styles.sectionHeading}>المرحلة 8: خطة التنفيذ المتقدمة</h3>
+                <h3
+                  ref={advancedPlanStageHeadingRef}
+                  style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
+                >
+                  المرحلة 8: خطة التنفيذ المتقدمة
+                </h3>
                 <div style={styles.stageFlowLead}>
                   هذه النسخة التشغيلية النهائية للخطة: متابعة التنفيذ، الحوكمة، ومخرجات الطباعة.
                 </div>
