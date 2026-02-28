@@ -4034,26 +4034,6 @@ export default function Home() {
     showSuccess("تم نسخ التقرير بنجاح.");
   }
 
-  async function copyExecutiveDecision() {
-    if (!analysis?.executive_decision) return;
-
-    const decision = analysis.executive_decision.decision?.trim() || "—";
-    const reason1 = analysis.executive_decision.reason_1?.trim() || "—";
-    const reason2 = analysis.executive_decision.reason_2?.trim() || "—";
-    const readiness = analysis.strategic_analysis?.readiness_level?.trim() || "—";
-
-    const text = [
-      "القرار التنفيذي",
-      `القرار: ${decision}`,
-      `مستوى الجاهزية: ${readiness}`,
-      `- ${reason1}`,
-      `- ${reason2}`,
-    ].join("\n");
-
-    await navigator.clipboard.writeText(text);
-    showSuccess("تم نسخ القرار التنفيذي بنجاح.");
-  }
-
   function splitUpgradeText(text: string) {
     const cleaned = text.replace(/\s+/g, " ").trim();
     if (!cleaned) {
@@ -5767,14 +5747,6 @@ export default function Home() {
       inlineWarnBoxTop10: {
         marginTop: 10,
       } as CSSProperties,
-      decisionActionRow: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        flexDirection: "row",
-        flexWrap: "wrap",
-        width: "auto",
-      } as CSSProperties,
       advisorRecoEmptyText: {
         marginTop: 10,
         color: "rgba(255,255,255,0.65)",
@@ -6996,32 +6968,20 @@ export default function Home() {
                   <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
                     <div style={styles.finalHeroHead}>
                       <div style={styles.qTitle}>القرار التنفيذي</div>
-                      <div style={styles.decisionActionRow}>
-                        <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 999,
-                              background:
-                                readinessAccent(analysis?.strategic_analysis?.readiness_level),
-                              display: "inline-block",
-                            }}
-                          />
-                          {analysis?.strategic_analysis?.readiness_level
-                            ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
-                            : "الجاهزية: —"}
-                        </div>
-
-                        <button
+                      <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
+                        <span
                           style={{
-                            ...styles.ghostBtn,
-                            ...styles.compactGhostBtn,
+                            width: 8,
+                            height: 8,
+                            borderRadius: 999,
+                            background:
+                              readinessAccent(analysis?.strategic_analysis?.readiness_level),
+                            display: "inline-block",
                           }}
-                          onClick={copyExecutiveDecision}
-                        >
-                          نسخ القرار
-                        </button>
+                        />
+                        {analysis?.strategic_analysis?.readiness_level
+                          ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
+                          : "الجاهزية: —"}
                       </div>
                     </div>
 
