@@ -4157,6 +4157,13 @@ export default function Home() {
         letterSpacing: 0.18,
         lineHeight: 1.15,
       } as CSSProperties,
+      headerTagline: {
+        marginTop: 2,
+        color: "rgba(255,255,255,0.72)",
+        fontSize: isMobile ? 11.5 : 12.5,
+        fontWeight: 700,
+        lineHeight: 1.35,
+      } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
         borderRadius: 12,
@@ -4472,6 +4479,69 @@ export default function Home() {
         marginTop: 12,
         alignItems: "center",
         flexWrap: "wrap",
+      } as CSSProperties,
+      additionDecisionCard: {
+        marginTop: 12,
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        padding: isMobile ? 12 : 13,
+      } as CSSProperties,
+      additionStateBadge: (hasExtra: boolean) =>
+        ({
+          borderRadius: 999,
+          border: hasExtra
+            ? "1px solid rgba(0,255,133,0.30)"
+            : "1px solid rgba(0,229,255,0.30)",
+          background: hasExtra ? "rgba(0,255,133,0.12)" : "rgba(0,229,255,0.10)",
+          color: "white",
+          padding: "5px 10px",
+          fontSize: 12,
+          fontWeight: 800,
+          width: "fit-content",
+        } as CSSProperties),
+      additionChoiceGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      additionChoiceCard: (active: boolean) =>
+        ({
+          textAlign: "right",
+          borderRadius: 12,
+          border: active
+            ? "1px solid rgba(0,229,255,0.35)"
+            : "1px solid rgba(255,255,255,0.12)",
+          background: active
+            ? "linear-gradient(180deg, rgba(0,229,255,0.12), rgba(255,255,255,0.03))"
+            : "rgba(255,255,255,0.025)",
+          padding: "10px 11px",
+          color: "white",
+          cursor: "pointer",
+          display: "grid",
+          gap: 4,
+          boxShadow: active ? "0 8px 20px rgba(0,229,255,0.10)" : "none",
+          minHeight: 76,
+        } as CSSProperties),
+      additionChoiceTitle: {
+        fontSize: 13.5,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.96)",
+        lineHeight: 1.45,
+      } as CSSProperties,
+      additionChoiceDesc: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.72)",
+        lineHeight: 1.55,
+      } as CSSProperties,
+      additionInputCard: {
+        marginTop: 10,
+        borderRadius: 13,
+        border: "1px solid rgba(0,255,133,0.24)",
+        background: "linear-gradient(180deg, rgba(0,255,133,0.08), rgba(255,255,255,0.02))",
+        padding: isMobile ? 11 : 12,
       } as CSSProperties,
       warnBox: {
         padding: 12,
@@ -6253,6 +6323,9 @@ export default function Home() {
 
                 <div style={styles.headerBrandText}>
                   <h1 style={styles.logo}>One Minute Strategy</h1>
+                  <div style={styles.headerTagline}>
+                    Executive Decision Intelligence Platform
+                  </div>
                 </div>
               </div>
 
@@ -6858,30 +6931,52 @@ export default function Home() {
                   المرحلة 4: مراجعة قبل التحليل
                 </h3>
 
-                <div style={styles.radioRow}>
-                  <label style={styles.radioLabel}>
-                    <input
-                      type="radio"
-                      checked={hasAddition === "no"}
-                      disabled={!canEditAnswers}
-                      onChange={() => setHasAddition("no")}
-                    />
-                    لا يوجد
-                  </label>
+                <div style={styles.additionDecisionCard}>
+                  <div style={styles.sectionHeaderRow}>
+                    <div style={styles.qTitle}>هل تحتاج إضافة قبل التحليل؟</div>
+                    <div style={styles.additionStateBadge(hasAddition === "yes")}>
+                      {hasAddition === "yes" ? "يوجد إضافة" : "بدون إضافة"}
+                    </div>
+                  </div>
+                  <div style={styles.qHint}>
+                    اختر وضع المراجعة المناسب قبل تشغيل التحليل النهائي.
+                  </div>
 
-                  <label style={styles.radioLabel}>
-                    <input
-                      type="radio"
-                      checked={hasAddition === "yes"}
+                  <div style={styles.additionChoiceGrid}>
+                    <button
+                      type="button"
+                      style={styles.additionChoiceCard(hasAddition === "no")}
                       disabled={!canEditAnswers}
-                      onChange={() => setHasAddition("yes")}
-                    />
-                    يوجد إضافة
-                  </label>
+                      onClick={() => setHasAddition("no")}
+                      aria-pressed={hasAddition === "no"}
+                    >
+                      <div style={styles.additionChoiceTitle}>بدون إضافة</div>
+                      <div style={styles.additionChoiceDesc}>
+                        تشغيل التحليل اعتمادًا على الإجابات الحالية فقط.
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      style={styles.additionChoiceCard(hasAddition === "yes")}
+                      disabled={!canEditAnswers}
+                      onClick={() => setHasAddition("yes")}
+                      aria-pressed={hasAddition === "yes"}
+                    >
+                      <div style={styles.additionChoiceTitle}>إضافة معلومات</div>
+                      <div style={styles.additionChoiceDesc}>
+                        إدخال ملاحظات إضافية لتحسين دقة التحليل.
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 {hasAddition === "yes" && (
-                  <div style={styles.blockTop10}>
+                  <div style={styles.additionInputCard}>
+                    <div style={styles.qTitle}>المعلومة الإضافية</div>
+                    <div style={styles.qHint}>
+                      أضف النقاط التي تغيّر القرار مثل الميزانية، الموقع، المدة أو القيود.
+                    </div>
                     <textarea
                       value={userAddition}
                       onChange={(e) => setUserAddition(e.target.value)}
