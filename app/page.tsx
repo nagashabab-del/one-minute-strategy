@@ -5225,7 +5225,7 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
-      const isCalmTheme = false;
+      const isCalmTheme = isLocalHost && experimentalHubEnabled;
       const palette = isCalmTheme
         ? {
             pageBg: "#eeebe9",
@@ -8574,7 +8574,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, isTablet, isProjectsHub]
+    [isMobile, isNarrowMobile, isTablet, isProjectsHub, isLocalHost, experimentalHubEnabled]
   );
 
   const renderSummarySection = (
@@ -8943,7 +8943,7 @@ export default function Home() {
                     }}
                   >
                     <div style={{ fontSize: 12.5, color: "#4F46A5", lineHeight: 1.55 }}>
-                      نسخة تجريبية داخلية: يمكنك التبديل بين الواجهة الحالية والتوجه الجديد بدون أي تأثير على المراحل الأخرى.
+                      نسخة تجريبية داخلية: عند التفعيل يتطبق النمط التجريبي على جميع المراحل بدون تغيير منطق النظام.
                     </div>
                     <button
                       type="button"
