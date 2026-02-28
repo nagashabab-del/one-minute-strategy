@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 
 type StageUI =
   | "welcome"
@@ -962,6 +962,10 @@ export default function Home() {
     "boq" | "quality_risk" | "operations"
   >("boq");
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
+  const advancedScopeNavRef = useRef<HTMLDivElement | null>(null);
+  const advancedBoqNavRef = useRef<HTMLDivElement | null>(null);
+  const prevAdvancedScopeStepRef = useRef(advancedScopeStep);
+  const prevAdvancedBoqStepRef = useRef(advancedBoqStep);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1576,7 +1580,31 @@ export default function Home() {
       top: 0,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
-  }, [stage, initStep, advancedScopeStep, advancedBoqStep]);
+  }, [stage, initStep]);
+
+  useEffect(() => {
+    const scopeStepChanged = prevAdvancedScopeStepRef.current !== advancedScopeStep;
+    prevAdvancedScopeStepRef.current = advancedScopeStep;
+    if (!scopeStepChanged || stage !== "advanced_scope") return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    advancedScopeNavRef.current?.scrollIntoView({
+      block: "start",
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  }, [advancedScopeStep, stage]);
+
+  useEffect(() => {
+    const boqStepChanged = prevAdvancedBoqStepRef.current !== advancedBoqStep;
+    prevAdvancedBoqStepRef.current = advancedBoqStep;
+    if (!boqStepChanged || stage !== "advanced_boq") return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    advancedBoqNavRef.current?.scrollIntoView({
+      block: "start",
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  }, [advancedBoqStep, stage]);
 
   // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
   useEffect(() => {
@@ -7581,7 +7609,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.advancedScopeNavCard}>
+                  <div ref={advancedScopeNavRef} style={styles.advancedScopeNavCard}>
                     <div style={styles.selectorRow}>
                       <button
                         type="button"
@@ -7999,7 +8027,7 @@ export default function Home() {
                 </div>
 
                 <div style={styles.blockTop12}>
-                  <div style={styles.advancedScopeNavCard}>
+                  <div ref={advancedBoqNavRef} style={styles.advancedScopeNavCard}>
                     <div style={styles.advancedBoqNavGrid}>
                       <button
                         type="button"
