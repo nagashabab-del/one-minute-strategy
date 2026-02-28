@@ -16,7 +16,6 @@ type StageUI =
   | "advanced_plan";
 
 type DeliveryTrack = "fast" | "advanced";
-type ThemeMode = "glass" | "calm";
 
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
@@ -137,7 +136,6 @@ type PersistedState = {
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
-  themeMode?: ThemeMode;
 };
 
 type BoqItem = {
@@ -925,7 +923,6 @@ export default function Home() {
     initialSaved.advancedApproved ?? false
   );
   const [demoMode, setDemoMode] = useState(initialSaved.demoMode ?? false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(initialSaved.themeMode ?? "glass");
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>(() =>
@@ -1536,7 +1533,6 @@ export default function Home() {
       advancedPlanText,
       advancedApproved,
       demoMode,
-      themeMode,
       stage,
       round1Questions,
       followupQuestions,
@@ -1588,7 +1584,6 @@ export default function Home() {
     advancedPlanText,
     advancedApproved,
     demoMode,
-    themeMode,
     stage,
     round1Questions,
     followupQuestions,
@@ -4222,7 +4217,7 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
-      const isCalmTheme = themeMode === "calm";
+      const isCalmTheme = false;
       const palette = isCalmTheme
         ? {
             pageBg: "#eeebe9",
@@ -6926,7 +6921,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, themeMode]
+    [isMobile, isNarrowMobile]
   );
 
   const renderSummarySection = (
@@ -6985,13 +6980,9 @@ export default function Home() {
         input:focus-visible,
         select:focus-visible,
         textarea:focus-visible {
-          outline: 2px solid ${
-            themeMode === "calm" ? "rgba(85, 45, 128, 0.95)" : "rgba(0, 229, 255, 0.95)"
-          };
+          outline: 2px solid rgba(0, 229, 255, 0.95);
           outline-offset: 2px;
-          box-shadow: 0 0 0 4px ${
-            themeMode === "calm" ? "rgba(85, 45, 128, 0.16)" : "rgba(0, 229, 255, 0.16)"
-          };
+          box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.16);
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -7004,7 +6995,7 @@ export default function Home() {
         @media (max-width: 768px) {
           input[type="date"],
           input[type="datetime-local"] {
-            color-scheme: ${themeMode === "calm" ? "light" : "dark"};
+            color-scheme: dark;
             -webkit-appearance: none;
             appearance: none;
             background-clip: padding-box;
@@ -7025,9 +7016,7 @@ export default function Home() {
           input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
           input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
           input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
-            color: ${
-              themeMode === "calm" ? "rgba(49, 33, 73, 0.96)" : "rgba(255, 255, 255, 0.95)"
-            };
+            color: rgba(255, 255, 255, 0.95);
             background: transparent;
           }
 
@@ -7036,9 +7025,7 @@ export default function Home() {
           input[type="date"]::-webkit-date-and-time-value,
           input[type="datetime-local"]::-webkit-date-and-time-value {
             background: transparent;
-            color: ${
-              themeMode === "calm" ? "rgba(49, 33, 73, 0.96)" : "rgba(255, 255, 255, 0.95)"
-            };
+            color: rgba(255, 255, 255, 0.95);
             display: flex;
             align-items: center;
             min-height: 1.35em;
@@ -7048,11 +7035,8 @@ export default function Home() {
 
           input[type="date"]::-webkit-calendar-picker-indicator,
           input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-            ${
-              themeMode === "calm"
-                ? "opacity: 0.78;"
-                : "filter: brightness(0) invert(1); opacity: 0.92;"
-            }
+            filter: brightness(0) invert(1);
+            opacity: 0.92;
           }
         }
       `}</style>
@@ -7101,14 +7085,6 @@ export default function Home() {
                   onClick={fillFullTestModel}
                 >
                   🧪 تحميل نموذج تجريبي كامل
-                </button>
-                <button
-                  style={{ ...styles.ghostBtn, width: isMobile ? "100%" : 260 }}
-                  onClick={() =>
-                    setThemeMode((prev) => (prev === "glass" ? "calm" : "glass"))
-                  }
-                >
-                  🎨 النمط: {themeMode === "glass" ? "زجاجي" : "هادئ"}
                 </button>
               </div>
               <p style={styles.welcomeFootnote}>
@@ -7162,18 +7138,6 @@ export default function Home() {
               </div>
 
               <div style={styles.sessionAdminActions}>
-                <button
-                  style={styles.themeSwitchBtn(themeMode === "glass")}
-                  onClick={() => setThemeMode("glass")}
-                >
-                  النمط الزجاجي
-                </button>
-                <button
-                  style={styles.themeSwitchBtn(themeMode === "calm")}
-                  onClick={() => setThemeMode("calm")}
-                >
-                  النمط الهادئ
-                </button>
                 {!isSelectionStep ? (
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
@@ -10648,14 +10612,9 @@ export default function Home() {
             style={{
               ...styles.toastBox,
               background:
-                themeMode === "calm"
-                  ? "rgba(85,45,128,0.12)"
-                  : "linear-gradient(180deg, rgba(179, 0, 255, 0.18), rgba(106, 0, 255, 0.12))",
-              border:
-                themeMode === "calm"
-                  ? "1px solid rgba(85,45,128,0.32)"
-                  : "1px solid rgba(179, 0, 255, 0.35)",
-              color: themeMode === "calm" ? "rgba(49,33,73,0.96)" : "white",
+                "linear-gradient(180deg, rgba(179, 0, 255, 0.18), rgba(106, 0, 255, 0.12))",
+              border: "1px solid rgba(179, 0, 255, 0.35)",
+              color: "white",
             }}
             role="alert"
             aria-live="assertive"
@@ -10671,14 +10630,9 @@ export default function Home() {
             style={{
               ...styles.toastBox,
               background:
-                themeMode === "calm"
-                  ? "rgba(74,158,125,0.12)"
-                  : "linear-gradient(180deg, rgba(0, 229, 255, 0.16), rgba(106, 0, 255, 0.10))",
-              border:
-                themeMode === "calm"
-                  ? "1px solid rgba(74,158,125,0.34)"
-                  : "1px solid rgba(0, 229, 255, 0.28)",
-              color: themeMode === "calm" ? "rgba(49,33,73,0.96)" : "white",
+                "linear-gradient(180deg, rgba(0, 229, 255, 0.16), rgba(106, 0, 255, 0.10))",
+              border: "1px solid rgba(0, 229, 255, 0.28)",
+              color: "white",
             }}
             role="status"
             aria-live="polite"
