@@ -4550,6 +4550,57 @@ export default function Home() {
         border: "1px solid rgba(255,255,255,0.08)",
         marginTop: 12,
       } as CSSProperties,
+      advancedScopeCard: {
+        marginTop: 0,
+        padding: isMobile ? 13 : 15,
+        borderRadius: 15,
+        border: "1px solid rgba(0,229,255,0.20)",
+        background:
+          "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 24px rgba(0,0,0,0.20)",
+      } as CSSProperties,
+      advancedSectionHeader: {
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 9,
+      } as CSSProperties,
+      advancedSectionTitleWrap: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+      } as CSSProperties,
+      advancedSectionIndexChip: {
+        borderRadius: 999,
+        border: "1px solid rgba(0,229,255,0.32)",
+        background: "rgba(0,229,255,0.14)",
+        color: "rgba(255,255,255,0.96)",
+        fontSize: 11.5,
+        fontWeight: 900,
+        letterSpacing: 0.2,
+        padding: "4px 8px",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+      } as CSSProperties,
+      advancedSectionTitle: {
+        margin: 0,
+        fontSize: isMobile ? 19 : 18,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.97)",
+        lineHeight: 1.5,
+      } as CSSProperties,
+      advancedSectionHint: {
+        marginTop: 7,
+        marginBottom: 0,
+        fontSize: isMobile ? 12.5 : 12.8,
+        lineHeight: 1.6,
+        color: "rgba(255,255,255,0.74)",
+      } as CSSProperties,
+      advancedSectionContent: {
+        marginTop: 11,
+      } as CSSProperties,
       stageFlowLead: {
         marginTop: 4,
         fontSize: 12.5,
@@ -6736,6 +6787,9 @@ export default function Home() {
           input[type="date"],
           input[type="datetime-local"] {
             color-scheme: dark;
+            -webkit-appearance: none;
+            appearance: none;
+            background-clip: padding-box;
           }
 
           input[type="date"]::-webkit-datetime-edit,
@@ -6755,6 +6809,19 @@ export default function Home() {
           input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
             color: rgba(255, 255, 255, 0.95);
             background: transparent;
+          }
+
+          input[type="date"]::-webkit-textfield-decoration-container,
+          input[type="datetime-local"]::-webkit-textfield-decoration-container,
+          input[type="date"]::-webkit-date-and-time-value,
+          input[type="datetime-local"]::-webkit-date-and-time-value {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            min-height: 1.35em;
+            padding: 0;
+            margin: 0;
           }
 
           input[type="date"]::-webkit-calendar-picker-indicator,
@@ -8027,15 +8094,21 @@ export default function Home() {
                 {advancedScopeStep === "scope" ? (
                   <>
                     <div style={styles.blockTop12}>
-                      <div style={styles.qCard}>
-                        <div style={styles.sectionHeaderRow}>
-                          <div style={styles.qTitle}>الإطار الزمني للمشروع</div>
+                      <div style={styles.advancedScopeCard}>
+                        <div style={styles.advancedSectionHeader}>
+                          <div style={styles.advancedSectionTitleWrap}>
+                            <span style={styles.advancedSectionIndexChip}>6.1</span>
+                            <h4 style={styles.advancedSectionTitle}>الإطار الزمني للمشروع</h4>
+                          </div>
                           <div style={styles.stageStatusChip(advancedTimelineStatus.tone)}>
                             {advancedTimelineStatus.label}
                           </div>
                         </div>
+                        <p style={styles.advancedSectionHint}>
+                          راجع تواريخ المشروع والفعالية للتأكد من صحة مدة التجهيز والتنفيذ.
+                        </p>
 
-                        <div style={styles.timelineGrid}>
+                        <div style={{ ...styles.timelineGrid, ...styles.advancedSectionContent }}>
                           <div style={styles.timelineFieldCard}>
                             <div style={styles.timelineFieldHead}>
                               <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
@@ -8150,13 +8223,18 @@ export default function Home() {
                     </div>
 
                     <div style={styles.blockTop12}>
-                      <div style={styles.qCard}>
-                        <div style={styles.scopeSectionTitle}>2.1 نطاق العمل</div>
-                        <div style={styles.scopeSectionHint}>
+                      <div style={styles.advancedScopeCard}>
+                        <div style={styles.advancedSectionHeader}>
+                          <div style={styles.advancedSectionTitleWrap}>
+                            <span style={styles.advancedSectionIndexChip}>2.1</span>
+                            <h4 style={styles.advancedSectionTitle}>نطاق العمل</h4>
+                          </div>
+                        </div>
+                        <div style={styles.advancedSectionHint}>
                           حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى جدول الكميات.
                         </div>
 
-                        <div style={styles.scopeFieldsGrid}>
+                        <div style={{ ...styles.scopeFieldsGrid, ...styles.advancedSectionContent }}>
                           <div style={styles.scopeFieldCard}>
                             <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
                             <textarea
@@ -8205,13 +8283,18 @@ export default function Home() {
                     </div>
 
                     <div style={styles.blockTop12}>
-                      <div style={styles.qCard}>
-                        <div style={styles.scopeSectionTitle}>2.2 استراتيجية التنفيذ</div>
-                        <div style={styles.scopeSectionHint}>
+                      <div style={styles.advancedScopeCard}>
+                        <div style={styles.advancedSectionHeader}>
+                          <div style={styles.advancedSectionTitleWrap}>
+                            <span style={styles.advancedSectionIndexChip}>2.2</span>
+                            <h4 style={styles.advancedSectionTitle}>استراتيجية التنفيذ</h4>
+                          </div>
+                        </div>
+                        <div style={styles.advancedSectionHint}>
                           اكتب منهجية التنفيذ والتنسيق والتشغيل الميداني بشكل مباشر.
                         </div>
 
-                        <div style={styles.scopeStrategyCard}>
+                        <div style={{ ...styles.scopeStrategyCard, ...styles.advancedSectionContent }}>
                           <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
                           <textarea
                             value={executionStrategy}
