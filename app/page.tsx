@@ -5375,6 +5375,7 @@ export default function Home() {
         left: 0,
         bottom: 0,
         zIndex: 41,
+        height: "80vh",
         maxHeight: "80vh",
         borderTopLeftRadius: 18,
         borderTopRightRadius: 18,
@@ -5382,8 +5383,8 @@ export default function Home() {
         background:
           "linear-gradient(180deg, rgba(5,12,24,0.98), rgba(8,16,30,0.96) 48%, rgba(4,8,18,0.98))",
         boxShadow: "0 -14px 34px rgba(0,0,0,0.35)",
-        display: "grid",
-        gridTemplateRows: "auto 1fr",
+        display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
         touchAction: "pan-y",
       } as CSSProperties,
@@ -5413,6 +5414,7 @@ export default function Home() {
         cursor: "pointer",
       } as CSSProperties,
       mobileSummaryBody: {
+        flex: 1,
         overflowY: "auto" as const,
         minHeight: 0,
         padding: "10px 12px 18px",
