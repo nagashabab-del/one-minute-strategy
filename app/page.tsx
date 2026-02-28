@@ -4963,6 +4963,11 @@ export default function Home() {
         lineHeight: 1.5,
         color: "rgba(255,255,255,0.68)",
       } as CSSProperties,
+      timelineDateInput: {
+        background: "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(255,255,255,0.02))",
+        border: "1px solid rgba(255,255,255,0.16)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+      } as CSSProperties,
       timelineSummaryGrid: {
         marginTop: 10,
         display: "grid",
@@ -6726,6 +6731,38 @@ export default function Home() {
             animation-iteration-count: 1 !important;
           }
         }
+
+        @media (max-width: 768px) {
+          input[type="date"],
+          input[type="datetime-local"] {
+            color-scheme: dark;
+          }
+
+          input[type="date"]::-webkit-datetime-edit,
+          input[type="datetime-local"]::-webkit-datetime-edit,
+          input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+          input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper,
+          input[type="date"]::-webkit-datetime-edit-text,
+          input[type="datetime-local"]::-webkit-datetime-edit-text,
+          input[type="date"]::-webkit-datetime-edit-year-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+          input[type="date"]::-webkit-datetime-edit-month-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+          input[type="date"]::-webkit-datetime-edit-day-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+          input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
+            color: rgba(255, 255, 255, 0.95);
+            background: transparent;
+          }
+
+          input[type="date"]::-webkit-calendar-picker-indicator,
+          input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: brightness(0) invert(1);
+            opacity: 0.92;
+          }
+        }
       `}</style>
       <div style={styles.glow} />
       <div style={styles.container}>
@@ -8011,7 +8048,7 @@ export default function Home() {
                               value={commissioningDate}
                               onChange={(e) => setCommissioningDate(e.target.value)}
                               disabled={!canEditAdvancedExecution}
-                              style={styles.input}
+                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
                             />
                             <div style={styles.timelineFieldHint}>
                               نقطة بداية التجهيز الرسمية للمشروع.
@@ -8030,7 +8067,7 @@ export default function Home() {
                               value={projectStartDate}
                               onChange={(e) => setProjectStartDate(e.target.value)}
                               disabled={!canEditAdvancedExecution}
-                              style={styles.input}
+                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
                             />
                             <div style={styles.timelineFieldHint}>
                               اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
@@ -8049,7 +8086,7 @@ export default function Home() {
                               value={startAt}
                               onChange={(e) => setStartAt(e.target.value)}
                               disabled={!canEditProjectCore}
-                              style={styles.input}
+                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
                             />
                             <div style={styles.timelineFieldHint}>
                               يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
@@ -8068,7 +8105,7 @@ export default function Home() {
                               value={endAt}
                               onChange={(e) => setEndAt(e.target.value)}
                               disabled={!canEditProjectCore}
-                              style={styles.input}
+                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
                             />
                             <div style={styles.timelineFieldHint}>
                               يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
