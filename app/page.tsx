@@ -953,6 +953,7 @@ export default function Home() {
   }>({ status: "idle", summary: "", lines: [], ranAt: "" });
   const [loadingContext, setLoadingContext] = useState<LoadingContext>("");
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
+  const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1200 : window.innerWidth
   );
@@ -1590,9 +1591,27 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [uiError, uiSuccess]);
 
+  useEffect(() => {
+    if (!showClearSessionConfirm) return;
+
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowClearSessionConfirm(false);
+      }
+    }
+
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [showClearSessionConfirm]);
+
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
     location.reload();
+  }
+
+  function requestClearSession() {
+    if (!canResetSession) return;
+    setShowClearSessionConfirm(true);
   }
 
   async function callAPI<T>(payload: unknown): Promise<APIResponse<T>> {
@@ -4637,6 +4656,55 @@ export default function Home() {
         willChange: "transform, opacity",
         lineHeight: 1.5,
       },
+      confirmOverlay: {
+        position: "fixed" as const,
+        inset: 0,
+        background: "rgba(3, 7, 14, 0.68)",
+        backdropFilter: "blur(4px)",
+        zIndex: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: isMobile ? 12 : 20,
+      } as CSSProperties,
+      confirmCard: {
+        width: "min(560px, 100%)",
+        borderRadius: 16,
+        border: "1px solid rgba(255,122,69,0.34)",
+        background:
+          "linear-gradient(180deg, rgba(255,122,69,0.14), rgba(15,20,34,0.95) 42%, rgba(10,14,24,0.97))",
+        boxShadow: "0 16px 40px rgba(0,0,0,0.38)",
+        padding: isMobile ? 14 : 16,
+      } as CSSProperties,
+      confirmTitle: {
+        margin: 0,
+        fontSize: isMobile ? 17 : 18,
+        fontWeight: 900,
+        color: "rgba(255,255,255,0.97)",
+        lineHeight: 1.45,
+      } as CSSProperties,
+      confirmDesc: {
+        marginTop: 8,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.82)",
+        lineHeight: 1.7,
+      } as CSSProperties,
+      confirmWarn: {
+        marginTop: 10,
+        borderRadius: 11,
+        border: "1px solid rgba(255,122,69,0.30)",
+        background: "rgba(255,122,69,0.12)",
+        padding: "8px 10px",
+        fontSize: 12.5,
+        color: "rgba(255,255,255,0.9)",
+        lineHeight: 1.6,
+      } as CSSProperties,
+      confirmActions: {
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
 
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
@@ -6432,7 +6500,7 @@ export default function Home() {
                 <div style={styles.sessionAdminActions}>
                   <button
                     style={styles.dangerGhostBtn(!canResetSession)}
-                    onClick={clearSession}
+                    onClick={requestClearSession}
                     disabled={!canResetSession}
                     title={
                       canResetSession
@@ -9723,6 +9791,44 @@ export default function Home() {
           </aside>
         </div> : null}
       </div>
+
+      {showClearSessionConfirm ? (
+        <div
+          style={styles.confirmOverlay}
+          onClick={() => setShowClearSessionConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-session-title"
+        >
+          <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <h3 id="clear-session-title" style={styles.confirmTitle}>
+              تأكيد مسح الجلسة
+            </h3>
+            <div style={styles.confirmDesc}>
+              سيتم حذف جميع المدخلات الحالية في كل المراحل، ولن يمكنك التراجع بعد المسح.
+            </div>
+            <div style={styles.confirmWarn}>
+              إذا كنت تحتاج البيانات لاحقًا، احفظ نسخة قبل المتابعة.
+            </div>
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                style={styles.secondaryBtn(false)}
+                onClick={() => setShowClearSessionConfirm(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                style={styles.dangerGhostBtn(false)}
+                onClick={clearSession}
+              >
+                نعم، مسح الجلسة
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {uiError ? (
         <div style={styles.toastWrap}>
