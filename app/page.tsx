@@ -4419,7 +4419,7 @@ export default function Home() {
         marginTop: 4,
         fontSize: 12,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
       } as CSSProperties,
       progressBar: {
         marginTop: 9,
@@ -4431,8 +4431,8 @@ export default function Home() {
       } as CSSProperties,
       progressFill: {
         height: "100%",
-        background: "linear-gradient(90deg, #00e5ff, #6a00ff, #b300ff)",
-        boxShadow: "0 0 16px rgba(0,229,255,0.22)",
+        background: "linear-gradient(90deg, #00d4ee, #4f6fe6, #7f5fd1)",
+        boxShadow: "0 0 14px rgba(0,212,238,0.18)",
         transition: "width 260ms ease",
       } as CSSProperties,
       progressFooterText: {
@@ -4454,13 +4454,13 @@ export default function Home() {
       },
       cardTitle: { fontSize: textScale.sectionTitle, fontWeight: 900, margin: 0 },
       muted: {
-        color: "rgba(255,255,255,0.68)",
+        color: "rgba(255,255,255,0.76)",
         fontSize: textScale.small,
         marginTop: space.xs,
       },
       label: {
         fontSize: textScale.small,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
         marginBottom: space.xs,
       },
       input: {
@@ -4605,7 +4605,7 @@ export default function Home() {
         marginTop: 4,
         fontSize: 12.5,
         lineHeight: 1.6,
-        color: "rgba(255,255,255,0.74)",
+        color: "rgba(255,255,255,0.80)",
       } as CSSProperties,
       stageFlowList: {
         marginTop: 10,
@@ -4615,19 +4615,19 @@ export default function Home() {
       advisorFlowCard: (tone: "round1" | "round2" | "dialogue") => {
         const palette = {
           round1: {
-            border: "rgba(0,229,255,0.24)",
-            bg: "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.02) 68%)",
-            glow: "rgba(0,229,255,0.10)",
+            border: "rgba(0,212,238,0.22)",
+            bg: "linear-gradient(180deg, rgba(0,212,238,0.07), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(0,212,238,0.08)",
           },
           round2: {
-            border: "rgba(255,194,77,0.26)",
-            bg: "linear-gradient(180deg, rgba(255,194,77,0.08), rgba(255,255,255,0.02) 68%)",
-            glow: "rgba(255,194,77,0.10)",
+            border: "rgba(255,176,92,0.24)",
+            bg: "linear-gradient(180deg, rgba(255,176,92,0.08), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(255,176,92,0.09)",
           },
           dialogue: {
-            border: "rgba(179,107,255,0.28)",
-            bg: "linear-gradient(180deg, rgba(179,107,255,0.10), rgba(255,255,255,0.02) 68%)",
-            glow: "rgba(179,107,255,0.11)",
+            border: "rgba(120,138,255,0.24)",
+            bg: "linear-gradient(180deg, rgba(120,138,255,0.09), rgba(255,255,255,0.02) 68%)",
+            glow: "rgba(120,138,255,0.09)",
           },
         }[tone];
 
@@ -4986,19 +4986,19 @@ export default function Home() {
           borderRadius: 999,
           border:
             tone === "ok"
-              ? "1px solid rgba(0,255,133,0.30)"
+              ? "1px solid rgba(0,216,130,0.30)"
               : tone === "warn"
-                ? "1px solid rgba(255,122,69,0.32)"
+                ? "1px solid rgba(255,166,77,0.32)"
                 : tone === "info"
-                  ? "1px solid rgba(0,229,255,0.28)"
+                  ? "1px solid rgba(0,198,228,0.30)"
                   : "1px solid rgba(255,255,255,0.20)",
           background:
             tone === "ok"
-              ? "rgba(0,255,133,0.10)"
+              ? "rgba(0,216,130,0.11)"
               : tone === "warn"
-                ? "rgba(255,122,69,0.10)"
+                ? "rgba(255,166,77,0.11)"
                 : tone === "info"
-                  ? "rgba(0,229,255,0.10)"
+                  ? "rgba(0,198,228,0.11)"
                   : "rgba(255,255,255,0.06)",
           color: "white",
           fontSize: 11.5,
@@ -5118,12 +5118,12 @@ export default function Home() {
           borderRadius: 999,
           border:
             tone === "ok"
-              ? "1px solid rgba(0,255,133,0.28)"
-              : "1px solid rgba(0,229,255,0.28)",
+              ? "1px solid rgba(0,216,130,0.30)"
+              : "1px solid rgba(0,198,228,0.30)",
           background:
             tone === "ok"
-              ? "rgba(0,255,133,0.10)"
-              : "rgba(0,229,255,0.10)",
+              ? "rgba(0,216,130,0.11)"
+              : "rgba(0,198,228,0.11)",
           color: "rgba(255,255,255,0.95)",
           fontSize: 12,
           fontWeight: 800,
@@ -5154,10 +5154,10 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 12,
           border: active
-            ? "1px solid rgba(179,0,255,0.35)"
+            ? "1px solid rgba(88,116,233,0.34)"
             : "1px solid rgba(255,255,255,0.12)",
           background: active
-            ? "linear-gradient(180deg, rgba(179,0,255,0.16), rgba(106,0,255,0.10))"
+            ? "linear-gradient(180deg, rgba(88,116,233,0.18), rgba(0,198,228,0.08))"
             : "rgba(255,255,255,0.03)",
           color: "white",
           padding: "10px 12px",
@@ -5176,16 +5176,16 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 14,
           border: active
-            ? "1px solid rgba(0,229,255,0.28)"
+            ? "1px solid rgba(0,198,228,0.30)"
             : "1px solid rgba(255,255,255,0.10)",
           background: active
-            ? "linear-gradient(180deg, rgba(0,229,255,0.10), rgba(179,0,255,0.08))"
+            ? "linear-gradient(180deg, rgba(0,198,228,0.11), rgba(88,116,233,0.08))"
             : "rgba(255,255,255,0.025)",
           color: "white",
           padding: "11px 12px",
           textAlign: "right",
           cursor: "pointer",
-          boxShadow: active ? "0 8px 22px rgba(0,229,255,0.08)" : "none",
+          boxShadow: active ? "0 8px 22px rgba(0,198,228,0.07)" : "none",
         } as CSSProperties),
       sessionModeTitle: {
         fontWeight: 900,
@@ -5196,12 +5196,12 @@ export default function Home() {
         marginTop: 5,
         fontSize: 11.5,
         lineHeight: 1.5,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
       } as CSSProperties,
       smallMuted: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
         lineHeight: 1.5,
       } as CSSProperties,
       summaryMetaGrid: {
@@ -5316,10 +5316,10 @@ export default function Home() {
           width: `${score}%`,
           background:
             level === "جيد"
-              ? "linear-gradient(90deg, #00e5ff, #00ff85)"
+              ? "linear-gradient(90deg, #00c6e4, #1fd091)"
               : level === "متوسط"
-                ? "linear-gradient(90deg, #ffc24d, #ff9d4d)"
-                : "linear-gradient(90deg, #ff4fd8, #ff7a45)",
+                ? "linear-gradient(90deg, #ffb86b, #ff9b5c)"
+                : "linear-gradient(90deg, #ff8a5c, #ff6f78)",
         } as CSSProperties),
       qualityBadge: (level: "ضعيف" | "متوسط" | "جيد") =>
         ({
@@ -5331,16 +5331,16 @@ export default function Home() {
           fontWeight: 800,
           border:
             level === "جيد"
-              ? "1px solid rgba(0,255,133,0.30)"
+              ? "1px solid rgba(31,208,145,0.32)"
               : level === "متوسط"
-                ? "1px solid rgba(255,194,77,0.30)"
-                : "1px solid rgba(255,79,216,0.30)",
+                ? "1px solid rgba(255,184,107,0.32)"
+                : "1px solid rgba(255,111,120,0.32)",
           background:
             level === "جيد"
-              ? "rgba(0,255,133,0.10)"
+              ? "rgba(31,208,145,0.12)"
               : level === "متوسط"
-                ? "rgba(255,194,77,0.10)"
-                : "rgba(255,79,216,0.10)",
+                ? "rgba(255,184,107,0.12)"
+                : "rgba(255,111,120,0.12)",
           color: "white",
         } as CSSProperties),
       sectionHeaderRow: {
@@ -5652,20 +5652,20 @@ export default function Home() {
           color: "white",
           border:
             tone === "ready"
-              ? "1px solid rgba(0,255,133,0.28)"
+              ? "1px solid rgba(31,208,145,0.32)"
               : tone === "active"
-                ? "1px solid rgba(0,229,255,0.28)"
+                ? "1px solid rgba(0,198,228,0.32)"
                 : tone === "working"
-                  ? "1px solid rgba(255,194,77,0.28)"
-                  : "1px solid rgba(179,107,255,0.28)",
+                  ? "1px solid rgba(255,184,107,0.32)"
+                  : "1px solid rgba(255,255,255,0.20)",
           background:
             tone === "ready"
-              ? "rgba(0,255,133,0.10)"
+              ? "rgba(31,208,145,0.12)"
               : tone === "active"
-                ? "rgba(0,229,255,0.10)"
+                ? "rgba(0,198,228,0.12)"
                 : tone === "working"
-                  ? "rgba(255,194,77,0.10)"
-                  : "rgba(179,107,255,0.10)",
+                  ? "rgba(255,184,107,0.12)"
+                  : "rgba(255,255,255,0.08)",
         } as CSSProperties),
       miniStatsGrid: {
         display: "grid",
@@ -5771,22 +5771,22 @@ export default function Home() {
       textSecondarySmall: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.72)",
+        color: "rgba(255,255,255,0.78)",
       } as CSSProperties,
       textTertiarySmall: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.62)",
+        color: "rgba(255,255,255,0.74)",
       } as CSSProperties,
       textMutedSmall: {
         marginTop: 10,
         fontSize: 12,
-        color: "rgba(255,255,255,0.65)",
+        color: "rgba(255,255,255,0.74)",
       } as CSSProperties,
       textMutedSmallTop8: {
         marginTop: 8,
         fontSize: 12,
-        color: "rgba(255,255,255,0.65)",
+        color: "rgba(255,255,255,0.74)",
       } as CSSProperties,
       blockTop12: { marginTop: 12 } as CSSProperties,
       blockTop10: { marginTop: 10 } as CSSProperties,
@@ -6509,19 +6509,19 @@ export default function Home() {
           marginTop: 8,
           border:
             tone === "warn"
-              ? "1px solid rgba(255,122,69,0.30)"
+              ? "1px solid rgba(255,166,77,0.34)"
               : tone === "info"
-                ? "1px solid rgba(0,229,255,0.28)"
-                : "1px solid rgba(0,255,133,0.28)",
+                ? "1px solid rgba(0,198,228,0.32)"
+                : "1px solid rgba(31,208,145,0.32)",
           background:
             tone === "warn"
-              ? "rgba(255,122,69,0.10)"
+              ? "rgba(255,166,77,0.12)"
               : tone === "info"
-                ? "rgba(0,229,255,0.10)"
-                : "rgba(0,255,133,0.10)",
+                ? "rgba(0,198,228,0.12)"
+                : "rgba(31,208,145,0.12)",
           fontSize: 12,
           lineHeight: 1.5,
-          color: "rgba(255,255,255,0.9)",
+          color: "rgba(255,255,255,0.92)",
         } as CSSProperties),
       advisorRecoGrid: {
         display: "grid",
