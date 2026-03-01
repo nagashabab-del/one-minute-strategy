@@ -8592,15 +8592,15 @@ export default function Home() {
           borderRadius: 999,
           background:
             severity === "critical"
-              ? (isCalmTheme ? "#D6627A" : "#FF4F8B")
+              ? (isCalmTheme ? "#B84568" : "#FF4F8B")
               : severity === "high"
-                ? (isCalmTheme ? "#E16E6E" : "#FF7A45")
+                ? (isCalmTheme ? "#CC7A2E" : "#FF7A45")
                 : severity === "medium"
-                  ? (isCalmTheme ? "#F0AA4E" : "#FFC24D")
+                  ? (isCalmTheme ? "#D4A43E" : "#FFC24D")
                   : (isCalmTheme ? "#5D358E" : "#00E5FF"),
           boxShadow:
             severity === "critical"
-              ? (isCalmTheme ? "none" : "0 0 10px rgba(255,79,139,0.5)")
+              ? (isCalmTheme ? "0 0 0 2px rgba(184,69,104,0.24)" : "0 0 10px rgba(255,79,139,0.5)")
               : severity === "high"
                 ? (isCalmTheme ? "none" : "0 0 10px rgba(255,122,69,0.45)")
                 : severity === "medium"
@@ -8618,14 +8618,14 @@ export default function Home() {
                 ? "1px solid rgba(74,158,125,0.56)"
                 : status === "مصعّد"
                   ? "1px solid rgba(198,95,95,0.58)"
-                  : status === "قيد المعالجة"
+                : status === "قيد المعالجة"
                     ? "1px solid rgba(85,44,128,0.46)"
                     : severity === "critical"
-                      ? "1px solid rgba(183,94,123,0.50)"
+                      ? "1px solid rgba(184,69,104,0.54)"
                       : severity === "high"
-                        ? "1px solid rgba(196,112,104,0.48)"
+                        ? "1px solid rgba(204,122,46,0.56)"
                         : severity === "medium"
-                          ? "1px solid rgba(188,127,57,0.48)"
+                          ? "1px solid rgba(212,164,62,0.54)"
                           : "1px solid rgba(126,110,168,0.44)"
               : status === "مغلق"
                 ? palette.successBorder
@@ -8642,8 +8642,14 @@ export default function Home() {
                 ? "rgba(74,158,125,0.11)"
                 : status === "مصعّد"
                   ? "rgba(198,95,95,0.12)"
-                  : status === "قيد المعالجة"
+                : status === "قيد المعالجة"
                     ? "rgba(85,44,128,0.10)"
+                    : severity === "critical"
+                      ? "rgba(184,69,104,0.10)"
+                      : severity === "high"
+                        ? "rgba(204,122,46,0.11)"
+                        : severity === "medium"
+                          ? "rgba(212,164,62,0.10)"
                     : "#FBFAFE"
               : status === "مغلق"
                 ? palette.successBg
@@ -8700,24 +8706,47 @@ export default function Home() {
           borderRadius: 999,
           border:
             severity === "critical"
-              ? palette.criticalBorder
+              ? isCalmTheme
+                ? "1px solid rgba(184,69,104,0.56)"
+                : palette.criticalBorder
               : severity === "high"
-                ? palette.dangerBorder
+                ? isCalmTheme
+                  ? "1px solid rgba(204,122,46,0.58)"
+                  : palette.dangerBorder
                 : severity === "medium"
-                  ? palette.warnBorder
-                  : palette.infoBorder,
+                  ? isCalmTheme
+                    ? "1px solid rgba(212,164,62,0.56)"
+                    : palette.warnBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(93,53,142,0.48)"
+                    : palette.infoBorder,
           background:
             severity === "critical"
-              ? palette.criticalBg
+              ? isCalmTheme
+                ? "rgba(184,69,104,0.16)"
+                : palette.criticalBg
               : severity === "high"
-                ? palette.dangerBg
+                ? isCalmTheme
+                  ? "rgba(204,122,46,0.16)"
+                  : palette.dangerBg
                 : severity === "medium"
-                  ? palette.warnBg
-                  : palette.infoBg,
+                  ? isCalmTheme
+                    ? "rgba(212,164,62,0.15)"
+                    : palette.warnBg
+                  : isCalmTheme
+                    ? "rgba(93,53,142,0.14)"
+                    : palette.infoBg,
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
-          color: isCalmTheme ? textTone(0.96) : "white",
+          color:
+            severity === "critical"
+              ? (isCalmTheme ? "#7A2743" : "white")
+              : severity === "high"
+                ? (isCalmTheme ? "#7D4A1A" : "white")
+                : severity === "medium"
+                  ? (isCalmTheme ? "#6F4C1A" : "white")
+                  : (isCalmTheme ? "#4A2A73" : "white"),
           width: "fit-content",
         } as CSSProperties),
       riskStatusBadge: (status: RiskStatus) =>
