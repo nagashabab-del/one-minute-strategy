@@ -6922,15 +6922,19 @@ export default function Home() {
           borderRadius: 14,
           position: "relative",
           overflow: "hidden",
-          background: isCalmTheme ? "#4A2A73" : "rgba(255,255,255,0.035)",
-          border: isCalmTheme ? "1px solid rgba(178,163,212,0.55)" : `1px solid ${advisorColor(key)}45`,
+          background: isCalmTheme
+            ? "#4A2A73"
+            : "linear-gradient(180deg, rgba(34,39,59,0.88), rgba(22,26,42,0.90))",
+          border: isCalmTheme ? "1px solid rgba(178,163,212,0.62)" : `1px solid ${advisorColor(key)}85`,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           textAlign: "center",
           padding: "18px 12px 12px",
-          boxShadow: isCalmTheme ? "none" : `0 0 18px ${advisorColor(key)}18`,
+          boxShadow: isCalmTheme
+            ? "none"
+            : `0 12px 26px rgba(0,0,0,0.28), 0 0 20px ${advisorColor(key)}24, inset 0 1px 0 rgba(255,255,255,0.09)`,
         } as CSSProperties),
       advisorTileSelectable: (key: string, active: boolean) =>
         ({
@@ -6949,23 +6953,23 @@ export default function Home() {
           background: active
             ? isCalmTheme
               ? "#4A2A73"
-              : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.03))`
+              : `linear-gradient(180deg, ${advisorColor(key)}2F, rgba(32,37,57,0.92))`
             : isCalmTheme
               ? "#4A2A73"
-              : "rgba(255,255,255,0.02)",
+              : "linear-gradient(180deg, rgba(34,39,59,0.88), rgba(22,26,42,0.90))",
           border: active
             ? isCalmTheme
               ? "1px solid rgba(178,163,212,0.70)"
-              : `1px solid ${advisorColor(key)}55`
+              : `1px solid ${advisorColor(key)}95`
             : isCalmTheme
-              ? "1px solid rgba(178,163,212,0.55)"
-              : "1px solid rgba(255,255,255,0.08)",
+              ? "1px solid rgba(178,163,212,0.62)"
+              : "1px solid rgba(255,255,255,0.26)",
           boxShadow: active
             ? isCalmTheme
               ? "none"
-              : `0 0 18px ${advisorColor(key)}14`
-            : "none",
-          opacity: isCalmTheme ? 1 : active ? 1 : 0.92,
+              : `0 14px 30px rgba(0,0,0,0.30), 0 0 24px ${advisorColor(key)}30, inset 0 1px 0 rgba(255,255,255,0.10)`
+            : "0 8px 20px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)",
+          opacity: 1,
           cursor: "pointer",
           transition: "all 120ms ease",
         } as CSSProperties),
@@ -7011,7 +7015,13 @@ export default function Home() {
         } as CSSProperties),
 
       advisorIconS: {
-        fontSize: 28,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
+        border: isCalmTheme ? "1px solid rgba(255,255,255,0.30)" : "1px solid rgba(255,255,255,0.22)",
+        background: isCalmTheme ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.10)",
+        display: "grid",
+        placeItems: "center",
         marginBottom: 8,
       } as CSSProperties,
       advisorIconSImage: {
@@ -7019,21 +7029,22 @@ export default function Home() {
         height: 34,
         objectFit: "contain",
         display: "block",
-        marginBottom: 8,
-        filter: isCalmTheme ? "brightness(0) invert(1)" : "none",
+        filter: "brightness(0) invert(1)",
       } as CSSProperties,
       advisorNameS: {
         fontSize: 16,
         fontWeight: 900,
         letterSpacing: 0.2,
         lineHeight: 1.25,
-        color: isCalmTheme ? "rgba(255,255,255,0.98)" : textTone(0.96),
+        color: isCalmTheme ? "rgba(255,255,255,0.98)" : "#FFFFFF",
+        textShadow: isCalmTheme ? "none" : "0 1px 0 rgba(0,0,0,0.35)",
       } as CSSProperties,
       advisorRoleS: {
         marginTop: 4,
         fontSize: 13,
         fontWeight: 800,
-        color: isCalmTheme ? "rgba(255,255,255,0.86)" : textTone(0.7),
+        color: isCalmTheme ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.93)",
+        textShadow: isCalmTheme ? "none" : "0 1px 0 rgba(0,0,0,0.28)",
       } as CSSProperties,
       initFormGrid: {
         display: "grid",
