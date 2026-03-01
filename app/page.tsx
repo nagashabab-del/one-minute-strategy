@@ -6791,12 +6791,12 @@ export default function Home() {
       } as CSSProperties,
       boqInputsGrid: {
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
         gap: 10,
       } as CSSProperties,
       boqDependencyGrid: {
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
       boqItemCard: {
@@ -7924,7 +7924,7 @@ export default function Home() {
       actionTrackerStatsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
         gap: 8,
       } as CSSProperties,
       actionTrackerStat: {
@@ -7982,7 +7982,7 @@ export default function Home() {
       actionTaskQuickGrid: {
         marginTop: 8,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       actionTaskQuickItem: {
@@ -8007,11 +8007,12 @@ export default function Home() {
       actionTaskGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       actionTaskNotes: {
-        height: isMobile ? 74 : 84,
+        minHeight: isMobile ? 92 : 84,
+        height: isMobile ? 92 : 84,
         marginTop: 8,
       } as CSSProperties,
       outputPackRow: {
@@ -8038,7 +8039,7 @@ export default function Home() {
         gap: 8,
       } as CSSProperties,
       outputPackTextarea: {
-        height: isMobile ? 220 : 260,
+        height: isMobile ? 190 : 260,
         marginTop: 8,
         fontSize: 13,
         lineHeight: 1.75,
@@ -8062,7 +8063,7 @@ export default function Home() {
       riskBoardStatsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
         gap: 8,
       } as CSSProperties,
       riskBoardStat: {
@@ -8084,7 +8085,7 @@ export default function Home() {
       riskLegendRow: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
         gap: 8,
       } as CSSProperties,
       riskLegendItem: {
@@ -8227,7 +8228,7 @@ export default function Home() {
       riskQuickGrid: {
         marginTop: 8,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       riskQuickItem: {
@@ -8307,7 +8308,7 @@ export default function Home() {
       governanceGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
         gap: 8,
       } as CSSProperties,
       advancedOpsMetaGrid: {
@@ -8404,7 +8405,7 @@ export default function Home() {
         marginTop: 2,
       } as CSSProperties,
       reportTextarea: {
-        height: isMobile ? 360 : 340,
+        height: isMobile ? 300 : 340,
         marginTop: 10,
         padding: 16,
         lineHeight: 1.9,
@@ -9074,7 +9075,7 @@ export default function Home() {
           <div style={styles.progressWrapper}>
             <div style={styles.progressHeadRow}>
               <div style={styles.progressTitle}>✨ مسار التقدم</div>
-              <div style={styles.progressPercentBadge}>{progressPercent()}%</div>
+              <div style={styles.progressPercentBadge}>%{progressPercent()}</div>
             </div>
             <div style={styles.progressCurrentStage}>
               <strong style={styles.strongText95}>{stageLabel()}</strong>
@@ -9101,7 +9102,7 @@ export default function Home() {
               style={styles.mobileSummaryBtn}
               onClick={() => setShowMobileSummary((prev) => !prev)}
             >
-              {showMobileSummary ? "إخفاء ملخص الجلسة" : `ملخص الجلسة • ${progressPercent()}%`}
+              {showMobileSummary ? "إخفاء ملخص الجلسة" : `ملخص الجلسة • %${progressPercent()}`}
             </button>
           </div>
         ) : null}
@@ -12166,7 +12167,7 @@ export default function Home() {
                     <div style={styles.actionTrackerHead}>
                       <div style={styles.qTitle}>متابعة التنفيذ (Action Tracker)</div>
                       <div style={styles.actionTrackerBadge}>
-                        نسبة الإنجاز: {toArabicDigits(actionTrackerProgress)}%
+                        نسبة الإنجاز: %{toArabicDigits(actionTrackerProgress)}
                       </div>
                     </div>
 
@@ -12793,7 +12794,7 @@ export default function Home() {
                       </div>
                       <div style={styles.sideProgressRow}>
                         <div style={styles.textSecondarySmall}>{stageLabel()}</div>
-                        <div style={styles.sideProgressBadge}>{progressPercent()}%</div>
+                        <div style={styles.sideProgressBadge}>%{progressPercent()}</div>
                       </div>
                       {progressMetaText() ? (
                         <div style={styles.sideProgressMeta}>{progressMetaText()}</div>
@@ -12865,7 +12866,7 @@ export default function Home() {
                           <div key={item.key} style={styles.kpiCard(tone)}>
                             <div style={styles.kpiLabel}>{item.label}</div>
                             <div style={styles.kpiValue}>
-                              {toArabicDigits(item.score)}%
+                              %{toArabicDigits(item.score)}
                             </div>
                             <div style={styles.kpiBarTrack}>
                               <div style={styles.kpiBarFill(item.score, tone)} />
@@ -12935,7 +12936,7 @@ export default function Home() {
                           <div style={styles.sideBlock}>
                             <div style={styles.sideBlockTitle}>متابعة التنفيذ</div>
                             <div style={styles.sideSummaryPrimaryText}>
-                              الإنجاز الحالي: <strong>{toArabicDigits(actionTrackerProgress)}%</strong>
+                              الإنجاز الحالي: <strong>%{toArabicDigits(actionTrackerProgress)}</strong>
                             </div>
                             <div style={styles.textMutedSmallTop8}>
                               مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
