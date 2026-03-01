@@ -5228,47 +5228,60 @@ export default function Home() {
       const isCalmTheme = isLocalHost && experimentalHubEnabled;
       const palette = isCalmTheme
         ? {
-            pageBg: "#eeebe9",
+            pageBg: "#F3F1F6",
             pageText: "rgba(49,33,73,0.98)",
             glow: "transparent",
-            shellBorder: "1px solid rgba(144,117,181,0.30)",
-            shellBg: "#f7f3f9",
+            shellBorder: "1px solid rgba(85,44,128,0.20)",
+            shellBg: "#F8F6FB",
             shellShadow: "none",
-            cardBg: "#faf7fc",
-            cardBorder: "1px solid rgba(207,196,225,0.92)",
-            inputBg: "rgba(255,255,255,0.94)",
-            inputBorder: "1px solid rgba(144,117,181,0.38)",
-            primaryBg: "#552d80",
-            primaryDisabledBg: "rgba(207,196,225,0.55)",
-            secondaryBg: "rgba(255,255,255,0.90)",
-            secondaryBorder: "1px solid rgba(144,117,181,0.34)",
-            ghostBorder: "1px solid rgba(144,117,181,0.34)",
-            progressTrack: "rgba(207,196,225,0.62)",
-            progressBorder: "1px solid rgba(144,117,181,0.34)",
-            progressFill: "#552d80",
+            cardBg: "#FFFFFF",
+            cardBorder: "1px solid rgba(85,44,128,0.16)",
+            inputBg: "#FFFFFF",
+            inputBorder: "1px solid rgba(85,44,128,0.24)",
+            primaryBg: "#552C80",
+            primaryDisabledBg: "rgba(85,44,128,0.38)",
+            secondaryBg: "#FFFFFF",
+            secondaryBorder: "1px solid rgba(85,44,128,0.20)",
+            ghostBorder: "1px solid rgba(85,44,128,0.20)",
+            progressTrack: "rgba(85,44,128,0.12)",
+            progressBorder: "1px solid rgba(85,44,128,0.20)",
+            progressFill: "#552C80",
             progressGlow: "none",
-            accentBorder: "1px solid rgba(85,45,128,0.42)",
-            accentBg: "rgba(85,45,128,0.12)",
+            accentBorder: "1px solid rgba(85,44,128,0.30)",
+            accentBg: "rgba(85,44,128,0.08)",
             successBorder: "1px solid rgba(74,158,125,0.42)",
             successBg: "rgba(74,158,125,0.12)",
             warnBorder: "1px solid rgba(208,152,77,0.44)",
             warnBg: "rgba(208,152,77,0.12)",
             dangerBorder: "1px solid rgba(196,112,104,0.44)",
             dangerBg: "rgba(196,112,104,0.12)",
-            infoBorder: "1px solid rgba(85,45,128,0.42)",
-            infoBg: "rgba(85,45,128,0.12)",
+            infoBorder: "1px solid rgba(85,44,128,0.30)",
+            infoBg: "rgba(85,44,128,0.08)",
             criticalBorder: "1px solid rgba(183,94,123,0.50)",
             criticalBg: "rgba(183,94,123,0.14)",
-            infoSolid: "#552D80",
+            infoSolid: "#552C80",
             successSolid: "#3B8A67",
             warnSolid: "#BC7F39",
             dangerSolid: "#BB6759",
             criticalSolid: "#D6627A",
-            sidePanelBg: "#f7f3f9",
-            sidePanelBorder: "1px solid rgba(144,117,181,0.30)",
-            sideBlockBg: "#faf7fc",
-            sideBlockBorder: "1px solid rgba(207,196,225,0.95)",
-            sideBlockAccent: "3px solid rgba(85,45,128,0.45)",
+            sidePanelBg: "#F8F6FB",
+            sidePanelBorder: "1px solid rgba(85,44,128,0.20)",
+            sideBlockBg: "#FFFFFF",
+            sideBlockBorder: "1px solid rgba(85,44,128,0.16)",
+            sideBlockAccent: "3px solid rgba(85,44,128,0.32)",
+            tabBg: "#FFFFFF",
+            tabBorder: "1px solid rgba(85,44,128,0.16)",
+            tabActiveBg: "rgba(85,44,128,0.08)",
+            tabActiveBorder: "1px solid rgba(85,44,128,0.28)",
+            tabActiveText: "#4A2A73",
+            tabText: "rgba(49,33,73,0.76)",
+            subtleBg: "#FAF8FD",
+            subtleBorder: "1px solid rgba(85,44,128,0.12)",
+            strongText: "rgba(49,33,73,0.98)",
+            mutedText: "rgba(85,44,128,0.66)",
+            successText: "#1E7A58",
+            dangerText: "#9C2F39",
+            warnText: "#9A6A2F",
           }
         : {
             pageBg: "#05070d",
@@ -5315,11 +5328,27 @@ export default function Home() {
               "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))",
             sideBlockBorder: "1px solid rgba(255,255,255,0.10)",
             sideBlockAccent: "3px solid rgba(0,229,255,0.38)",
+            tabBg: "rgba(255,255,255,0.03)",
+            tabBorder: "1px solid rgba(255,255,255,0.10)",
+            tabActiveBg: "linear-gradient(180deg, rgba(0,198,228,0.16), rgba(255,255,255,0.04))",
+            tabActiveBorder: "1px solid rgba(0,198,228,0.28)",
+            tabActiveText: "#EAFBFF",
+            tabText: "rgba(255,255,255,0.74)",
+            subtleBg: "rgba(255,255,255,0.03)",
+            subtleBorder: "1px solid rgba(255,255,255,0.10)",
+            strongText: "rgba(255,255,255,0.96)",
+            mutedText: "rgba(255,255,255,0.68)",
+            successText: "#A6F4D8",
+            dangerText: "#FFC5C5",
+            warnText: "#FFDAB0",
           };
       const textTone = (alpha: number) =>
         isCalmTheme
           ? `rgba(49,33,73,${Math.min(0.98, Math.max(0.58, alpha + 0.18)).toFixed(2)})`
           : `rgba(255,255,255,${alpha})`;
+      const compactMobile = isNarrowMobile;
+      const mobileContainerPad = compactMobile ? 12 : 14;
+      const mobileCardPad = compactMobile ? 10 : 12;
 
       return ({
       page: {
@@ -5343,18 +5372,18 @@ export default function Home() {
       container: {
         maxWidth: 1320,
         margin: "0 auto",
-        padding: isMobile ? space.md : space.xl,
+        padding: isMobile ? mobileContainerPad : space.xl,
         position: "relative" as const,
         zIndex: 1,
       },
       headerShell: {
-        borderRadius: 18,
+        borderRadius: isMobile ? 16 : 18,
         border: palette.shellBorder,
         background: palette.shellBg,
         boxShadow: palette.shellShadow,
         backdropFilter: "blur(14px)",
-        padding: isMobile ? space.sm : space.md,
-        marginBottom: space.sm,
+        padding: isMobile ? mobileCardPad : space.md,
+        marginBottom: isMobile ? 10 : space.sm,
       } as CSSProperties,
       header: {
         display: "flex",
@@ -5401,11 +5430,11 @@ export default function Home() {
         borderRadius: 12,
         border: palette.cardBorder,
         background: palette.cardBg,
-        padding: isMobile ? "10px" : "10px 12px",
+        padding: isMobile ? "9px" : "10px 12px",
         display: "flex",
         alignItems: isMobile ? "stretch" : "center",
         justifyContent: "space-between",
-        gap: 10,
+        gap: isMobile ? 8 : 10,
         flexDirection: isMobile ? "column" : "row",
       } as CSSProperties,
       sessionAdminRoleField: {
@@ -5532,12 +5561,12 @@ export default function Home() {
           width: "100%",
         } as CSSProperties),
       progressWrapper: {
-        marginBottom: 18,
-        borderRadius: 14,
+        marginBottom: isMobile ? 14 : 18,
+        borderRadius: isMobile ? 12 : 14,
         border: palette.cardBorder,
         background: palette.cardBg,
         boxShadow: isCalmTheme ? "none" : "inset 0 1px 0 rgba(255,255,255,0.03)",
-        padding: isMobile ? "10px 11px" : "11px 12px",
+        padding: isMobile ? "9px 10px" : "11px 12px",
       } as CSSProperties,
       progressHeadRow: {
         display: "flex",
@@ -5617,7 +5646,7 @@ export default function Home() {
       },
       input: {
         width: "100%",
-        padding: space.xs,
+        padding: isMobile ? "10px 11px" : `${space.xs}px`,
         minHeight: touchTarget,
         borderRadius: 12,
         background: palette.inputBg,
@@ -5625,6 +5654,7 @@ export default function Home() {
         color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         fontSize: isMobile ? 16 : 14,
+        lineHeight: 1.35,
       },
       inputSuffixWrap: {
         position: "relative",
@@ -5632,7 +5662,7 @@ export default function Home() {
       } as CSSProperties,
       inputSuffix: {
         position: "absolute",
-        left: 12,
+        left: isNarrowMobile ? 10 : 12,
         top: "50%",
         transform: "translateY(-50%)",
         display: "inline-flex",
@@ -5666,14 +5696,14 @@ export default function Home() {
       } as CSSProperties,
       textarea: {
         width: "100%",
-        padding: space.sm,
-        borderRadius: 14,
+        padding: isMobile ? "11px 12px" : `${space.sm}px`,
+        borderRadius: isMobile ? 12 : 14,
         background: palette.inputBg,
         border: palette.inputBorder,
         color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         resize: "none" as const,
-        lineHeight: 1.7,
+        lineHeight: isMobile ? 1.75 : 1.7,
         fontSize: textScale.body,
       },
       hr: {
@@ -5696,16 +5726,16 @@ export default function Home() {
       k: { color: textTone(0.7) },
       v: { fontWeight: 900 },
       qCard: {
-        padding: isMobile ? 12 : 14,
+        padding: isMobile ? 11 : 14,
         borderRadius: 14,
         background: palette.cardBg,
         border: palette.cardBorder,
-        marginTop: 12,
+        marginTop: isMobile ? 10 : 12,
       } as CSSProperties,
       advancedScopeCard: {
         marginTop: 0,
-        padding: isMobile ? 13 : 15,
-        borderRadius: 15,
+        padding: isMobile ? 12 : 15,
+        borderRadius: isMobile ? 14 : 15,
         border: palette.infoBorder,
         background:
           isCalmTheme
@@ -5742,7 +5772,7 @@ export default function Home() {
       } as CSSProperties,
       advancedSectionTitle: {
         margin: 0,
-        fontSize: isMobile ? 19 : 18,
+        fontSize: isMobile ? 17 : 18,
         fontWeight: 900,
         color: textTone(0.97),
         lineHeight: 1.5,
@@ -5750,17 +5780,17 @@ export default function Home() {
       advancedSectionHint: {
         marginTop: 7,
         marginBottom: 0,
-        fontSize: isMobile ? 12.5 : 12.8,
+        fontSize: isMobile ? 12 : 12.8,
         lineHeight: 1.6,
         color: textTone(0.74),
       } as CSSProperties,
       advancedSectionContent: {
-        marginTop: 11,
+        marginTop: isMobile ? 9 : 11,
       } as CSSProperties,
       stageFlowLead: {
-        marginTop: 4,
-        fontSize: 12.5,
-        lineHeight: 1.6,
+        marginTop: isMobile ? 6 : 4,
+        fontSize: isMobile ? 12 : 12.5,
+        lineHeight: isMobile ? 1.65 : 1.6,
         color: textTone(0.80),
       } as CSSProperties,
       stageFlowList: {
@@ -6057,16 +6087,16 @@ export default function Home() {
       projectHubExperimentShell: {
         marginTop: 8,
         borderRadius: 18,
-        border: "1px solid #EAE5DE",
-        background: "#F6F4F1",
+        border: palette.sidePanelBorder,
+        background: palette.sidePanelBg,
         padding: isMobile ? 8 : 10,
         maxWidth: isMobile ? "100%" : 1240,
         marginInline: "auto",
       } as CSSProperties,
       projectHubExperimentTopBar: {
         borderRadius: 14,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: isMobile ? "8px 10px" : "8px 10px",
         display: "flex",
         alignItems: isMobile ? "stretch" : "center",
@@ -6083,13 +6113,13 @@ export default function Home() {
         margin: 0,
         fontSize: isMobile ? 17 : 19,
         fontWeight: 900,
-        color: "#1B2430",
+        color: palette.strongText,
         lineHeight: 1.3,
       } as CSSProperties,
       projectHubExperimentSub: {
         margin: 0,
         fontSize: 12,
-        color: "#5B6472",
+        color: palette.mutedText,
         lineHeight: 1.5,
       } as CSSProperties,
       projectHubExperimentActions: {
@@ -6105,17 +6135,34 @@ export default function Home() {
         fontSize: 12.5,
         fontWeight: 700,
         borderRadius: 10,
-        border: "1px solid #E5E0D8",
-        background: "#FFFFFF",
-        color: "#6B7280",
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
+        color: palette.tabText,
         textDecoration: "none",
         cursor: "pointer",
+      } as CSSProperties,
+      projectHubExperimentNotice: {
+        marginTop: 8,
+        borderRadius: 12,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        padding: "10px 12px",
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 8,
+      } as CSSProperties,
+      projectHubExperimentNoticeText: {
+        fontSize: 12.5,
+        color: palette.tabActiveText,
+        lineHeight: 1.55,
       } as CSSProperties,
       projectHubViewTabs: {
         marginTop: 8,
         borderRadius: 12,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.tabBorder,
+        background: palette.tabBg,
         padding: 6,
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
@@ -6125,12 +6172,12 @@ export default function Home() {
         ({
           minHeight: 40,
           borderRadius: 10,
-          border: active ? "1px solid #D8D2EE" : "1px solid #EAE5DE",
-          background: active ? "#F3EFFD" : "#FFFFFF",
-          color: active ? "#4B3FA1" : "#6B7280",
+          border: active ? palette.tabActiveBorder : palette.tabBorder,
+          background: active ? palette.tabActiveBg : palette.tabBg,
+          color: active ? palette.tabActiveText : palette.tabText,
           fontSize: 13,
           fontWeight: active ? 800 : 700,
-          boxShadow: active ? "inset 0 -1px 0 #6A5CC5" : "none",
+          boxShadow: "none",
           transition: "all 120ms ease",
           cursor: "pointer",
         } as CSSProperties),
@@ -6142,8 +6189,8 @@ export default function Home() {
       } as CSSProperties,
       projectHubSideCard: {
         borderRadius: 14,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: 10,
         display: "grid",
         gap: 16,
@@ -6152,7 +6199,7 @@ export default function Home() {
       projectHubSideTitle: {
         margin: 0,
         fontSize: 13.5,
-        color: "#1B2430",
+        color: palette.strongText,
         fontWeight: 900,
       } as CSSProperties,
       projectHubKpiGrid: {
@@ -6167,39 +6214,39 @@ export default function Home() {
           borderRadius: 12,
           border:
             tone === "primary"
-              ? "1px solid #D8CFF2"
+              ? palette.infoBorder
               : tone === "warning"
-                ? "1px solid #FCD5AE"
+                ? palette.warnBorder
                 : tone === "danger"
-                  ? "1px solid #FBCACA"
-                  : "1px solid #EDE8E2",
+                  ? palette.dangerBorder
+                  : palette.subtleBorder,
           background:
             tone === "primary"
-              ? "#F7F3FF"
+              ? palette.infoBg
               : tone === "warning"
-                ? "#FFF8F1"
+                ? palette.warnBg
                 : tone === "danger"
-                  ? "#FFF7F7"
-                  : "#FFFFFF",
+                  ? palette.dangerBg
+                  : palette.cardBg,
           padding: "10px 11px",
         } as CSSProperties),
       projectHubKpiValue: {
         fontSize: 30,
-        color: "#1B2430",
+        color: palette.strongText,
         fontWeight: 900,
         lineHeight: 1.05,
       } as CSSProperties,
       projectHubKpiLabel: {
         marginTop: 4,
         fontSize: 13,
-        color: "#4B5563",
+        color: palette.mutedText,
         fontWeight: 700,
       } as CSSProperties,
       projectHubKpiProgressTrack: {
         marginTop: 8,
         height: 6,
         borderRadius: 999,
-        background: "#ECE7E0",
+        background: palette.progressTrack,
         overflow: "hidden",
       } as CSSProperties,
       projectHubKpiProgressFill: (pct: number) =>
@@ -6207,20 +6254,20 @@ export default function Home() {
           width: `${Math.max(0, Math.min(100, pct))}%`,
           height: "100%",
           borderRadius: 999,
-          background: "#4F46A5",
+          background: palette.progressFill,
         } as CSSProperties),
       projectHubMainPanel: {
         borderRadius: 14,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: isMobile ? 10 : 14,
       } as CSSProperties,
       projectHubExpInput: {
         width: "100%",
         borderRadius: 10,
-        border: "1px solid #E4DFD8",
-        background: "#FCFBF9",
-        color: "#1B2430",
+        border: palette.inputBorder,
+        background: palette.inputBg,
+        color: palette.strongText,
         padding: "10px 12px",
         fontSize: 13,
         outline: "none",
@@ -6228,11 +6275,11 @@ export default function Home() {
       projectHubExpEmpty: {
         marginTop: 12,
         borderRadius: 12,
-        border: "1px solid #ECE7E0",
-        background: "#FBFAF8",
+        border: palette.subtleBorder,
+        background: palette.subtleBg,
         padding: "14px 12px",
         fontSize: 13,
-        color: "#5B6472",
+        color: palette.mutedText,
       } as CSSProperties,
       projectHubExpProjectsGrid: {
         marginTop: 12,
@@ -6244,8 +6291,8 @@ export default function Home() {
       projectHubExpProjectCard: (isCurrent: boolean) =>
         ({
           borderRadius: 18,
-          border: isCurrent ? "1px solid #C7BDE8" : "1px solid #ECE7E0",
-          background: "#FFFFFF",
+          border: isCurrent ? palette.infoBorder : palette.cardBorder,
+          background: palette.cardBg,
           padding: isMobile ? "12px" : "14px",
           display: "grid",
           gap: 10,
@@ -6254,8 +6301,8 @@ export default function Home() {
       projectHubExpHero: (isCurrent: boolean) =>
         ({
           borderRadius: 14,
-          border: isCurrent ? "1px solid #D8CFF2" : "1px solid #EEE9E3",
-          background: isCurrent ? "#F6F2FF" : "#FAF9F7",
+          border: isCurrent ? palette.infoBorder : palette.subtleBorder,
+          background: isCurrent ? palette.infoBg : palette.subtleBg,
           padding: "10px",
           display: "grid",
           gap: 10,
@@ -6275,7 +6322,7 @@ export default function Home() {
       projectHubExpProjectTitle: {
         fontSize: 15,
         fontWeight: 900,
-        color: "#1B2430",
+        color: palette.strongText,
         overflow: "hidden",
         display: "-webkit-box",
         WebkitLineClamp: 2,
@@ -6285,9 +6332,9 @@ export default function Home() {
       } as CSSProperties,
       projectHubExpCurrentChip: {
         borderRadius: 999,
-        border: "1px solid #C7BDE8",
-        background: "#F4F0FF",
-        color: "#4F46A5",
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        color: palette.tabActiveText,
         fontSize: 11.5,
         fontWeight: 800,
         padding: "4px 8px",
@@ -6297,8 +6344,8 @@ export default function Home() {
         ({
           borderRadius: 999,
           border: archived ? "1px solid #FECACA" : "1px solid #BBF7D0",
-          background: archived ? "#FEF2F2" : "#F0FDF4",
-          color: archived ? "#991B1B" : "#166534",
+          background: archived ? palette.dangerBg : palette.successBg,
+          color: archived ? palette.dangerText : palette.successText,
           fontSize: 11.5,
           fontWeight: 800,
           padding: "4px 8px",
@@ -6311,22 +6358,34 @@ export default function Home() {
       } as CSSProperties,
       projectHubExpMetaItem: {
         borderRadius: 10,
-        border: "1px solid #EEE9E3",
-        background: "#FFFFFF",
+        border: palette.subtleBorder,
+        background: palette.cardBg,
         padding: "8px 9px",
         display: "grid",
         gap: 3,
       } as CSSProperties,
       projectHubExpMetaLabel: {
         fontSize: 11,
-        color: "#5B6472",
+        color: palette.mutedText,
         fontWeight: 600,
       } as CSSProperties,
       projectHubExpMetaValue: {
         fontSize: 12.5,
-        color: "#1B2430",
+        color: palette.strongText,
         fontWeight: 700,
       } as CSSProperties,
+      projectHubExpReadinessValue: (readiness: string) =>
+        ({
+          ...{
+            fontSize: 12.5,
+            fontWeight: 700,
+          },
+          color: readiness.includes("جاهز")
+            ? palette.successText
+            : readiness.includes("تحسين")
+              ? palette.warnText
+              : palette.mutedText,
+        } as CSSProperties),
       projectHubExpActions: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1.3fr 0.85fr 0.85fr",
@@ -6336,8 +6395,8 @@ export default function Home() {
         ({
           minHeight: touchTarget,
           borderRadius: 12,
-          border: "1px solid #4F46A5",
-          background: disabled ? "#D1CBDD" : "#4F46A5",
+          border: "1px solid transparent",
+          background: disabled ? palette.primaryDisabledBg : palette.primaryBg,
           color: "#FFFFFF",
           fontSize: 14,
           fontWeight: 800,
@@ -6351,9 +6410,9 @@ export default function Home() {
         ({
           minHeight: touchTarget - 4,
           borderRadius: 12,
-          border: "1px solid #E6E0D9",
-          background: "#FAF9F7",
-          color: disabled ? "#A8A29E" : "#4B5563",
+          border: palette.secondaryBorder,
+          background: palette.secondaryBg,
+          color: disabled ? textTone(0.5) : palette.tabText,
           fontSize: 12.5,
           fontWeight: 600,
           cursor: disabled ? "not-allowed" : "pointer",
@@ -6363,9 +6422,9 @@ export default function Home() {
         ({
           minHeight: touchTarget - 4,
           borderRadius: 12,
-          border: "1px solid #F9B5B5",
-          background: "#FFF7F7",
-          color: disabled ? "#BCA9A9" : "#991B1B",
+          border: palette.dangerBorder,
+          background: palette.dangerBg,
+          color: disabled ? textTone(0.5) : palette.dangerText,
           fontSize: 12.5,
           fontWeight: 600,
           cursor: disabled ? "not-allowed" : "pointer",
@@ -6373,8 +6432,8 @@ export default function Home() {
         } as CSSProperties),
       projectHubExpCreateCard: {
         borderRadius: 18,
-        border: "1px dashed #CFC7BD",
-        background: "#FBFAF8",
+        border: "1px dashed rgba(85,44,128,0.24)",
+        background: palette.subtleBg,
         padding: isMobile ? "12px" : "14px",
         display: "grid",
         gap: 10,
@@ -6387,9 +6446,9 @@ export default function Home() {
         width: 44,
         height: 44,
         borderRadius: 999,
-        border: "1px solid #DCD6CE",
-        background: "#FFFFFF",
-        color: "#4F46A5",
+        border: palette.secondaryBorder,
+        background: palette.cardBg,
+        color: palette.infoSolid,
         display: "grid",
         placeItems: "center",
         fontSize: 24,
@@ -6399,14 +6458,14 @@ export default function Home() {
         margin: 0,
         fontSize: 18,
         fontWeight: 900,
-        color: "#1B2430",
+        color: palette.strongText,
         lineHeight: 1.35,
       } as CSSProperties,
       projectHubExpCreateDesc: {
         margin: 0,
         maxWidth: 280,
         fontSize: 12.5,
-        color: "#5B6472",
+        color: palette.mutedText,
         lineHeight: 1.65,
       } as CSSProperties,
       projectHubExpCreateBtn: {
@@ -6427,8 +6486,8 @@ export default function Home() {
       } as CSSProperties,
       projectHubBoardColumn: {
         borderRadius: 12,
-        border: "1px solid #ECE7E0",
-        background: "#FCFBF9",
+        border: palette.subtleBorder,
+        background: palette.subtleBg,
         padding: 8,
         minHeight: 150,
       } as CSSProperties,
@@ -6441,21 +6500,21 @@ export default function Home() {
       projectHubBoardColumnTitle: {
         fontSize: 13,
         fontWeight: 900,
-        color: "#1B2430",
+        color: palette.strongText,
       } as CSSProperties,
       projectHubBoardColumnCount: {
         borderRadius: 999,
-        border: "1px solid #E6E0D9",
-        background: "#FFFFFF",
+        border: palette.secondaryBorder,
+        background: palette.cardBg,
         fontSize: 11.5,
-        color: "#6B7280",
+        color: palette.tabText,
         fontWeight: 800,
         padding: "3px 7px",
       } as CSSProperties,
       projectHubTaskCard: {
         borderRadius: 12,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: 9,
         display: "grid",
         gap: 6,
@@ -6463,12 +6522,12 @@ export default function Home() {
       projectHubTaskTitle: {
         fontSize: 13.5,
         lineHeight: 1.5,
-        color: "#1B2430",
+        color: palette.strongText,
         fontWeight: 800,
       } as CSSProperties,
       projectHubTaskMeta: {
         fontSize: 12,
-        color: "#6B7280",
+        color: palette.mutedText,
         lineHeight: 1.5,
       } as CSSProperties,
       projectHubStatusPill: (group: ProjectHubTaskStatusGroup) =>
@@ -6476,28 +6535,28 @@ export default function Home() {
           borderRadius: 999,
           border:
             group === "done"
-              ? "1px solid #16A34A33"
+              ? palette.successBorder
               : group === "blocked"
-                ? "1px solid #DC262633"
+                ? palette.dangerBorder
                 : group === "in_progress"
-                  ? "1px solid #4F46A533"
-                  : "1px solid #E3DED7",
+                  ? palette.infoBorder
+                  : palette.subtleBorder,
           background:
             group === "done"
-              ? "#DCFCE7"
+              ? palette.successBg
               : group === "blocked"
-                ? "#FEE2E2"
+                ? palette.dangerBg
                 : group === "in_progress"
-                  ? "#ECE9FF"
-                  : "#F5F2EE",
+                  ? palette.infoBg
+                  : palette.subtleBg,
           color:
             group === "done"
-              ? "#166534"
+              ? palette.successText
               : group === "blocked"
-                ? "#991B1B"
+                ? palette.dangerText
                 : group === "in_progress"
-                  ? "#4338CA"
-                  : "#44403C",
+                  ? palette.tabActiveText
+                  : palette.tabText,
           fontSize: 11.5,
           fontWeight: 800,
           padding: "4px 8px",
@@ -6510,8 +6569,8 @@ export default function Home() {
       } as CSSProperties,
       projectHubListRow: {
         borderRadius: 12,
-        border: "1px solid #ECE7E0",
-        background: "#FFFFFF",
+        border: palette.cardBorder,
+        background: palette.cardBg,
         padding: "9px 10px",
         display: "grid",
         gap: 6,
@@ -6730,6 +6789,52 @@ export default function Home() {
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 12,
       } as CSSProperties,
+      boqInputsGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gap: 10,
+      } as CSSProperties,
+      boqDependencyGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      boqItemCard: {
+        borderRadius: 14,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: isMobile ? 11 : 12,
+      } as CSSProperties,
+      boqItemHead: {
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 8,
+        marginBottom: 8,
+      } as CSSProperties,
+      boqItemTitleWrap: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+      } as CSSProperties,
+      boqItemIndexBadge: {
+        borderRadius: 999,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        color: textTone(0.94),
+        fontSize: 11.5,
+        fontWeight: 900,
+        padding: "4px 8px",
+        whiteSpace: "nowrap",
+      } as CSSProperties,
+      boqItemHeadTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: textTone(0.94),
+        lineHeight: 1.45,
+      } as CSSProperties,
       timelineGrid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
@@ -6915,6 +7020,37 @@ export default function Home() {
         color: textTone(0.78),
         lineHeight: 1.5,
       } as CSSProperties,
+      advancedStagePulseGrid: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      advancedStagePulseCard: {
+        borderRadius: 12,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: "9px 10px",
+        display: "grid",
+        gap: 4,
+      } as CSSProperties,
+      advancedStagePulseLabel: {
+        fontSize: 11.5,
+        color: textTone(0.68),
+        fontWeight: 700,
+        lineHeight: 1.45,
+      } as CSSProperties,
+      advancedStagePulseValue: {
+        fontSize: 14,
+        color: textTone(0.95),
+        fontWeight: 900,
+        lineHeight: 1.35,
+      } as CSSProperties,
+      advancedStagePulseHint: {
+        fontSize: 11.5,
+        color: textTone(0.74),
+        lineHeight: 1.45,
+      } as CSSProperties,
       advancedBoqNavGrid: {
         display: "grid",
         gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
@@ -6932,14 +7068,14 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 12,
           border: active
-            ? palette.infoBorder
-            : palette.secondaryBorder,
+            ? palette.tabActiveBorder
+            : palette.tabBorder,
           background: active
             ? (isCalmTheme
-                ? palette.infoBg
+                ? palette.tabActiveBg
                 : "linear-gradient(180deg, rgba(88,116,233,0.18), rgba(0,198,228,0.08))")
-            : palette.secondaryBg,
-          color: active ? "white" : textTone(0.9),
+            : palette.tabBg,
+          color: active ? palette.tabActiveText : palette.tabText,
           padding: "10px 12px",
           textAlign: "right",
           cursor: "pointer",
@@ -6956,14 +7092,14 @@ export default function Home() {
           minHeight: touchTarget,
           borderRadius: 14,
           border: active
-            ? palette.infoBorder
-            : palette.secondaryBorder,
+            ? palette.tabActiveBorder
+            : palette.tabBorder,
           background: active
             ? (isCalmTheme
-                ? palette.infoBg
+                ? palette.tabActiveBg
                 : "linear-gradient(180deg, rgba(0,198,228,0.11), rgba(88,116,233,0.08))")
-            : palette.secondaryBg,
-          color: active ? "white" : textTone(0.92),
+            : palette.tabBg,
+          color: active ? palette.tabActiveText : palette.tabText,
           padding: "11px 12px",
           textAlign: "right",
           cursor: "pointer",
@@ -7225,18 +7361,18 @@ export default function Home() {
         boxShadow: isCalmTheme
           ? "none"
           : "0 14px 34px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.04)",
-        padding: isMobile ? 14 : 16,
+        padding: isMobile ? 12 : 16,
         position: "sticky" as const,
         top: 12,
         alignSelf: "start",
       } as CSSProperties,
       mobileSummaryTrigger: {
-        marginBottom: 12,
+        marginBottom: 10,
       } as CSSProperties,
       mobileSummaryBtn: {
         width: "100%",
         minHeight: touchTarget,
-        borderRadius: 14,
+        borderRadius: 12,
         border: palette.infoBorder,
         background:
           isCalmTheme
@@ -7244,9 +7380,9 @@ export default function Home() {
             : "linear-gradient(180deg, rgba(5,12,24,0.95), rgba(10,20,36,0.94))",
         boxShadow: isCalmTheme ? "none" : "0 10px 24px rgba(0,0,0,0.32)",
         color: isCalmTheme ? textTone(0.96) : "white",
-        fontSize: 13.5,
+        fontSize: 13,
         fontWeight: 900,
-        padding: "10px 12px",
+        padding: "9px 11px",
         cursor: "pointer",
       } as CSSProperties,
       mobileSummaryOverlay: {
@@ -7256,15 +7392,15 @@ export default function Home() {
         zIndex: 40,
       } as CSSProperties,
       mobileSummaryInline: {
-        marginTop: 12,
+        marginTop: 10,
         background:
           isCalmTheme
             ? palette.sidePanelBg
             : "linear-gradient(180deg, rgba(5,12,24,0.94), rgba(8,16,30,0.90) 45%, rgba(4,8,18,0.94))",
         border: palette.sidePanelBorder,
-        borderRadius: 16,
+        borderRadius: 14,
         boxShadow: isCalmTheme ? "none" : "0 12px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)",
-        padding: 12,
+        padding: 10,
         maxHeight: "78vh",
         overflowY: "auto" as const,
         WebkitOverflowScrolling: "touch",
@@ -7294,8 +7430,8 @@ export default function Home() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 10,
-        padding: "12px 14px",
+        gap: 8,
+        padding: "10px 12px",
         borderBottom: palette.sideBlockBorder,
         background: isCalmTheme
           ? palette.sidePanelBg
@@ -7303,7 +7439,7 @@ export default function Home() {
       } as CSSProperties,
       mobileSummaryHeadTitle: {
         margin: 0,
-        fontSize: 14,
+        fontSize: 13.5,
         fontWeight: 900,
         color: isCalmTheme ? textTone(0.96) : "white",
       } as CSSProperties,
@@ -7319,15 +7455,15 @@ export default function Home() {
         cursor: "pointer",
       } as CSSProperties,
       mobileSummaryBody: {
-        padding: "10px 12px 22px",
+        padding: "8px 10px 20px",
       } as CSSProperties,
       mobileSummaryAccordionSection: {
-        marginTop: 10,
+        marginTop: 8,
       } as CSSProperties,
       mobileSummaryAccordionBtn: (open: boolean) =>
         ({
           width: "100%",
-          minHeight: 40,
+          minHeight: 42,
           borderRadius: 12,
           border: open
             ? palette.infoBorder
@@ -7342,7 +7478,7 @@ export default function Home() {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          padding: "8px 10px",
+          padding: "9px 10px",
           fontWeight: 900,
           fontSize: 12.5,
           cursor: "pointer",
@@ -7368,14 +7504,14 @@ export default function Home() {
         } as CSSProperties),
       mobileSummaryAccordionBody: {
         display: "grid",
-        gap: 0,
+        gap: 2,
       } as CSSProperties,
       mobileSummarySection: {
-        marginTop: 10,
-        borderRadius: 12,
+        marginTop: 8,
+        borderRadius: 11,
         border: palette.sideBlockBorder,
         background: palette.sideBlockBg,
-        padding: "8px 10px",
+        padding: "8px 9px",
       } as CSSProperties,
       mobileSummarySectionLabel: {
         fontSize: 12.5,
@@ -7395,21 +7531,40 @@ export default function Home() {
         gap: 6,
       } as CSSProperties,
       sideSectionTitle: {
-        marginTop: 14,
-        marginBottom: 8,
-        fontSize: 11.5,
+        margin: 0,
+        fontSize: 12,
         letterSpacing: 0.3,
         color: isCalmTheme ? "rgba(108,72,164,0.92)" : "rgba(0,229,255,0.82)",
-        fontWeight: 800,
+        fontWeight: 900,
+        lineHeight: 1.4,
       } as CSSProperties,
-      sideBlock: {
-        marginTop: 12,
+      sideSectionGroup: {
+        marginTop: isMobile ? 10 : 12,
         borderRadius: 14,
         border: palette.sideBlockBorder,
-        borderRight: palette.sideBlockAccent,
+        background: palette.sideBlockBg,
+        padding: isMobile ? 9 : 10,
+      } as CSSProperties,
+      sideSectionGroupHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        paddingBottom: 6,
+        borderBottom: palette.subtleBorder,
+      } as CSSProperties,
+      sideSectionGroupBody: {
+        display: "grid",
+        gap: isMobile ? 7 : 8,
+      } as CSSProperties,
+      sideBlock: {
+        marginTop: isMobile ? 7 : 8,
+        borderRadius: 14,
+        border: palette.sideBlockBorder,
+        borderRight: isCalmTheme ? "2px solid rgba(85,44,128,0.24)" : palette.sideBlockAccent,
         background: palette.sideBlockBg,
         boxShadow: isCalmTheme ? "none" : "inset 0 1px 0 rgba(255,255,255,0.04)",
-        padding: isMobile ? 11 : 12,
+        padding: isMobile ? 9 : 11,
       } as CSSProperties,
       sideBlockTitle: {
         fontWeight: 900,
@@ -7808,7 +7963,7 @@ export default function Home() {
                 : status === "جاري"
                   ? palette.infoBg
                   : palette.sideBlockBg,
-          padding: 10,
+          padding: isMobile ? 9 : 10,
         } as CSSProperties),
       actionTaskHead: {
         display: "grid",
@@ -7824,14 +7979,39 @@ export default function Home() {
         fontSize: 11.5,
         color: textTone(0.72),
       } as CSSProperties,
+      actionTaskQuickGrid: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      actionTaskQuickItem: {
+        borderRadius: 10,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: "6px 8px",
+        display: "grid",
+        gap: 2,
+      } as CSSProperties,
+      actionTaskQuickLabel: {
+        fontSize: 10.5,
+        color: textTone(0.68),
+        lineHeight: 1.35,
+      } as CSSProperties,
+      actionTaskQuickValue: {
+        fontSize: 12.5,
+        color: textTone(0.94),
+        fontWeight: 800,
+        lineHeight: 1.45,
+      } as CSSProperties,
       actionTaskGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       actionTaskNotes: {
-        height: 84,
+        height: isMobile ? 74 : 84,
         marginTop: 8,
       } as CSSProperties,
       outputPackRow: {
@@ -8043,6 +8223,31 @@ export default function Home() {
         marginTop: 4,
         fontSize: 11.5,
         color: textTone(0.72),
+      } as CSSProperties,
+      riskQuickGrid: {
+        marginTop: 8,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      riskQuickItem: {
+        borderRadius: 10,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: "6px 8px",
+        display: "grid",
+        gap: 2,
+      } as CSSProperties,
+      riskQuickLabel: {
+        fontSize: 10.5,
+        color: textTone(0.68),
+        lineHeight: 1.35,
+      } as CSSProperties,
+      riskQuickValue: {
+        fontSize: 12.5,
+        color: textTone(0.94),
+        fontWeight: 800,
+        lineHeight: 1.45,
       } as CSSProperties,
       riskLevelSelect: (level: RiskLevel) =>
         ({
@@ -8295,7 +8500,10 @@ export default function Home() {
         } as CSSProperties),
       sectionHeading: {
         margin: 0,
+        fontSize: isMobile ? 16 : 18,
         fontWeight: 900,
+        lineHeight: 1.45,
+        color: textTone(0.96),
       } as CSSProperties,
       stageScrollAnchor: {
         scrollMarginTop: isMobile ? 10 : 14,
@@ -8584,10 +8792,12 @@ export default function Home() {
   ) => {
     if (!isMobile) {
       return (
-        <>
-          <div style={styles.sideSectionTitle}>{title}</div>
-          {content}
-        </>
+        <section style={styles.sideSectionGroup}>
+          <div style={styles.sideSectionGroupHead}>
+            <div style={styles.sideSectionTitle}>{title}</div>
+          </div>
+          <div style={styles.sideSectionGroupBody}>{content}</div>
+        </section>
       );
     }
 
@@ -8928,21 +9138,8 @@ export default function Home() {
             {stage === "projects_hub" && (
               <>
                 {isLocalHost ? (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      borderRadius: 12,
-                      border: "1px solid #C7BDE8",
-                      background: "#F4F0FF",
-                      padding: "10px 12px",
-                      display: "flex",
-                      alignItems: isMobile ? "stretch" : "center",
-                      justifyContent: "space-between",
-                      flexDirection: isMobile ? "column" : "row",
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ fontSize: 12.5, color: "#4F46A5", lineHeight: 1.55 }}>
+                  <div style={styles.projectHubExperimentNotice}>
+                    <div style={styles.projectHubExperimentNoticeText}>
                       نسخة تجريبية داخلية: عند التفعيل يتطبق النمط التجريبي على جميع المراحل بدون تغيير منطق النظام.
                     </div>
                     <button
@@ -9019,7 +9216,7 @@ export default function Home() {
                           </div>
                           <div style={styles.projectHubKpiCard("primary")}>
                             <div style={styles.projectHubKpiValue}>
-                              ٪{toArabicDigits(projectHubOverview.progressPct)}
+                              %{toArabicDigits(projectHubOverview.progressPct)}
                             </div>
                             <div style={styles.projectHubKpiLabel}>نسبة الإنجاز</div>
                             <div style={styles.projectHubKpiProgressTrack}>
@@ -9172,16 +9369,7 @@ export default function Home() {
                                         </div>
                                         <div style={styles.projectHubExpMetaItem}>
                                           <span style={styles.projectHubExpMetaLabel}>الجاهزية</span>
-                                          <span
-                                            style={{
-                                              ...styles.projectHubExpMetaValue,
-                                              color: item.readinessLevel.includes("جاهز")
-                                                ? "#166534"
-                                                : item.readinessLevel.includes("تحسين")
-                                                  ? "#B45309"
-                                                  : "#5B6472",
-                                            }}
-                                          >
+                                          <span style={styles.projectHubExpReadinessValue(item.readinessLevel)}>
                                             {item.readinessLevel}
                                           </span>
                                         </div>
@@ -10124,7 +10312,7 @@ export default function Home() {
                   </div>
 
                   <div style={styles.qualitySummaryText}>
-                    جودة تقديرية: {toArabicDigits(answerQuality.score)}٪
+                    جودة تقديرية: %{toArabicDigits(answerQuality.score)}
                     {" • "}
                     إجابات قوية: {toArabicDigits(answerQuality.strongCount)}
                     {" • "}
@@ -10529,6 +10717,28 @@ export default function Home() {
                   حدّد نطاق التنفيذ ثم وزّع الأدوار قبل الانتقال لمرحلة التخطيط التشغيلي.
                 </div>
 
+                <div style={styles.advancedStagePulseGrid}>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>اكتمال النطاق</div>
+                    <div style={styles.advancedStagePulseValue}>
+                      {toArabicDigits(advancedScopeCompletedCount)}/{toArabicDigits(advancedScopeTotalCount)}
+                    </div>
+                    <div style={styles.advancedStagePulseHint}>حقول النطاق والاستراتيجية المكتملة</div>
+                  </div>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>الأدوار المفعّلة</div>
+                    <div style={styles.advancedStagePulseValue}>
+                      {toArabicDigits(activeOrgRoles.length)}/{toArabicDigits(orgRoles.length)}
+                    </div>
+                    <div style={styles.advancedStagePulseHint}>الأدوار الجاهزة للإسناد التشغيلي</div>
+                  </div>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>حالة الإطار الزمني</div>
+                    <div style={styles.advancedStagePulseValue}>{advancedTimelineStatus.label}</div>
+                    <div style={styles.advancedStagePulseHint}>جودة مواءمة التواريخ والمدة</div>
+                  </div>
+                </div>
+
                 <div style={styles.blockTop12}>
                   <div ref={advancedScopeNavRef} style={styles.advancedScopeNavCard}>
                     <div style={styles.selectorRow}>
@@ -10806,12 +11016,17 @@ export default function Home() {
                   </>
                 ) : (
                   <div style={styles.blockTop12}>
-                    <div style={styles.qCard}>
-                      <div style={styles.scopeSectionTitle}>2.8 الهيكل التشغيلي للكوادر</div>
-                      <div style={styles.scopeSectionHint}>
+                    <div style={styles.advancedScopeCard}>
+                      <div style={styles.advancedSectionHeader}>
+                        <div style={styles.advancedSectionTitleWrap}>
+                          <span style={styles.advancedSectionIndexChip}>2.8</span>
+                          <h4 style={styles.advancedSectionTitle}>الهيكل التشغيلي للكوادر</h4>
+                        </div>
+                      </div>
+                      <div style={styles.advancedSectionHint}>
                         فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
                       </div>
-                      <div style={styles.orgRolesGrid}>
+                      <div style={{ ...styles.orgRolesGrid, ...styles.advancedSectionContent }}>
                         {orgRoles.map((role) => (
                           <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
                             <div style={styles.orgRoleHead}>
@@ -10968,6 +11183,28 @@ export default function Home() {
                   أكمل جدول الكميات، ثم الجودة والمخاطر، ثم الجاهزية التشغيلية قبل توليد الخطة.
                 </div>
 
+                <div style={styles.advancedStagePulseGrid}>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>بنود جدول الكميات</div>
+                    <div style={styles.advancedStagePulseValue}>
+                      {toArabicDigits(advancedBoqFilledCount)}/{toArabicDigits(advancedBoqTotalCount)}
+                    </div>
+                    <div style={styles.advancedStagePulseHint}>البنود المكتملة مقابل الإجمالي</div>
+                  </div>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>تقدم الجودة والمخاطر</div>
+                    <div style={styles.advancedStagePulseValue}>
+                      {toArabicDigits(advancedQualityRiskCompletedCount)}/{toArabicDigits(advancedQualityRiskTotalCount)}
+                    </div>
+                    <div style={styles.advancedStagePulseHint}>استكمال محتوى الجودة والمخاطر</div>
+                  </div>
+                  <div style={styles.advancedStagePulseCard}>
+                    <div style={styles.advancedStagePulseLabel}>المخاطر النشطة</div>
+                    <div style={styles.advancedStagePulseValue}>{toArabicDigits(liveRiskStats.active)}</div>
+                    <div style={styles.advancedStagePulseHint}>عدد المخاطر المفتوحة وقيد المعالجة</div>
+                  </div>
+                </div>
+
                 <div style={styles.blockTop12}>
                   <div ref={advancedBoqNavRef} style={styles.advancedScopeNavCard}>
                     <div style={styles.advancedBoqNavGrid}>
@@ -11081,7 +11318,7 @@ export default function Home() {
                         </div>
                       </div>
                     ) : null}
-                    {boqItems.map((row) => {
+                    {boqItems.map((row, idx) => {
                       const assignedRole = row.ownerRoleId
                         ? orgRoles.find((role) => role.id === row.ownerRoleId)
                         : null;
@@ -11104,137 +11341,162 @@ export default function Home() {
                         hasSuggestedSell &&
                         (row.unitSellPrice.trim().length === 0 ||
                           Math.abs(financialRow.sellGapVsSuggested ?? 0) > 0.009);
+                      const boqStateTone: "ready" | "working" | "idle" =
+                        row.item.trim().length === 0
+                          ? "idle"
+                          : financialRow
+                            ? "ready"
+                            : "working";
+                      const boqStateLabel =
+                        boqStateTone === "ready"
+                          ? "جاهز ماليًا"
+                          : boqStateTone === "working"
+                            ? "مكتمل جزئيًا"
+                            : "غير مكتمل";
                       return (
                       <div key={row.id} style={styles.blockTop12}>
-                        <div style={styles.initFormGrid}>
-                          <input
-                            value={row.category}
-                            onChange={(e) => updateBoqItem(row.id, { category: e.target.value })}
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="التصنيف"
-                          />
-                          <input
-                            value={row.item}
-                            onChange={(e) => updateBoqItem(row.id, { item: e.target.value })}
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="اسم البند"
-                          />
-                        </div>
-                        <div style={styles.blockTop8}>
-                          <textarea
-                            value={row.spec}
-                            onChange={(e) => updateBoqItem(row.id, { spec: e.target.value })}
-                            style={styles.textarea}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="المواصفة الفنية المختصرة"
-                          />
-                        </div>
-                        <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
-                          <input
-                            value={row.unit}
-                            onChange={(e) => updateBoqItem(row.id, { unit: e.target.value })}
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="الوحدة"
-                          />
-                          <input
-                            value={row.qty}
-                            onChange={(e) => updateBoqItem(row.id, { qty: e.target.value })}
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="الكمية"
-                          />
-                          <div style={styles.inputSuffixWrap}>
+                        <div style={styles.boqItemCard}>
+                          <div style={styles.boqItemHead}>
+                            <div style={styles.boqItemTitleWrap}>
+                              <span style={styles.boqItemIndexBadge}>
+                                بند {toArabicDigits(idx + 1)}
+                              </span>
+                              <div style={styles.boqItemHeadTitle}>
+                                {row.item.trim() || "بند بدون اسم"}
+                              </div>
+                            </div>
+                            <div style={styles.stageStatusChip(boqStateTone)}>{boqStateLabel}</div>
+                          </div>
+
+                          <div style={styles.initFormGrid}>
                             <input
-                              value={row.unitCost}
-                              onChange={(e) =>
-                                updateBoqItem(row.id, { unitCost: e.target.value })
-                              }
-                              onBlur={() => {
-                                if (row.unitSellPrice.trim().length > 0) {
-                                  syncBoqTargetMarginFromManualSell(row.id);
+                              value={row.category}
+                              onChange={(e) => updateBoqItem(row.id, { category: e.target.value })}
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="التصنيف"
+                            />
+                            <input
+                              value={row.item}
+                              onChange={(e) => updateBoqItem(row.id, { item: e.target.value })}
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="اسم البند"
+                            />
+                          </div>
+                          <div style={styles.blockTop8}>
+                            <textarea
+                              value={row.spec}
+                              onChange={(e) => updateBoqItem(row.id, { spec: e.target.value })}
+                              style={styles.textarea}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="المواصفة الفنية المختصرة"
+                            />
+                          </div>
+                          <div style={{ ...styles.boqInputsGrid, marginTop: 8 }}>
+                            <input
+                              value={row.unit}
+                              onChange={(e) => updateBoqItem(row.id, { unit: e.target.value })}
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="الوحدة"
+                            />
+                            <input
+                              value={row.qty}
+                              onChange={(e) => updateBoqItem(row.id, { qty: e.target.value })}
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="الكمية"
+                            />
+                            <div style={styles.inputSuffixWrap}>
+                              <input
+                                value={row.unitCost}
+                                onChange={(e) =>
+                                  updateBoqItem(row.id, { unitCost: e.target.value })
                                 }
-                              }}
-                              style={{ ...styles.input, paddingLeft: 44 }}
-                              disabled={!canEditBoqPricing}
-                              placeholder="سعر التكلفة للوحدة"
-                            />
-                            <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
-                          </div>
-                          <div style={styles.inputSuffixWrap}>
-                            <input
-                              value={row.targetMarginPct}
+                                onBlur={() => {
+                                  if (row.unitSellPrice.trim().length > 0) {
+                                    syncBoqTargetMarginFromManualSell(row.id);
+                                  }
+                                }}
+                                style={{ ...styles.input, paddingLeft: 44 }}
+                                disabled={!canEditBoqPricing}
+                                placeholder="سعر التكلفة للوحدة"
+                              />
+                              <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
+                            </div>
+                            <div style={styles.inputSuffixWrap}>
+                              <input
+                                value={row.targetMarginPct}
+                                onChange={(e) =>
+                                  updateBoqItem(row.id, { targetMarginPct: e.target.value })
+                                }
+                                style={{ ...styles.input, paddingLeft: 30 }}
+                                disabled={!canEditBoqPricing}
+                                placeholder="نسبة الربح المستهدفة ٪ (اختياري)"
+                              />
+                              <span style={styles.inputSuffix}>٪</span>
+                            </div>
+                            <div style={styles.inputSuffixWrap}>
+                              <input
+                                value={row.unitSellPrice}
+                                onChange={(e) =>
+                                  updateBoqItem(row.id, { unitSellPrice: e.target.value })
+                                }
+                                onBlur={() => syncBoqTargetMarginFromManualSell(row.id)}
+                                style={{ ...styles.input, paddingLeft: 44 }}
+                                disabled={!canEditBoqPricing}
+                                placeholder="سعر البيع للوحدة (يدوي)"
+                              />
+                              <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
+                            </div>
+                            <select
+                              value={row.source}
                               onChange={(e) =>
-                                updateBoqItem(row.id, { targetMarginPct: e.target.value })
+                                updateBoqItem(row.id, {
+                                  source:
+                                    e.target.value === "أصل داخلي" ? "أصل داخلي" : "مورد",
+                                })
                               }
-                              style={{ ...styles.input, paddingLeft: 30 }}
-                              disabled={!canEditBoqPricing}
-                              placeholder="نسبة الربح المستهدفة ٪ (اختياري)"
-                            />
-                            <span style={styles.inputSuffix}>٪</span>
-                          </div>
-                          <div style={styles.inputSuffixWrap}>
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                            >
+                              <option value="مورد">مورد</option>
+                              <option value="أصل داخلي">أصل داخلي</option>
+                            </select>
                             <input
-                              value={row.unitSellPrice}
+                              value={row.leadTimeDays}
                               onChange={(e) =>
-                                updateBoqItem(row.id, { unitSellPrice: e.target.value })
+                                updateBoqItem(row.id, { leadTimeDays: e.target.value })
                               }
-                              onBlur={() => syncBoqTargetMarginFromManualSell(row.id)}
-                              style={{ ...styles.input, paddingLeft: 44 }}
-                              disabled={!canEditBoqPricing}
-                              placeholder="سعر البيع للوحدة (يدوي)"
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                              placeholder="زمن التوريد (يوم)"
                             />
-                            <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
+                            <select
+                              value={row.ownerRoleId}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, {
+                                  ownerRoleId: e.target.value as OrgRoleId | "",
+                                })
+                              }
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                            >
+                              <option value="">المسؤول (اختياري)</option>
+                              {activeOrgRoles.map((role) => (
+                                <option key={role.id} value={role.id}>
+                                  {orgRoleDisplay(role)}
+                                </option>
+                              ))}
+                              {hasAssignedInactiveRole ? (
+                                <option value={assignedRole.id}>
+                                  {orgRoleDisplay(assignedRole)} (غير مفعّل)
+                                </option>
+                              ) : null}
+                            </select>
                           </div>
-                          <select
-                            value={row.source}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, {
-                                source:
-                                  e.target.value === "أصل داخلي" ? "أصل داخلي" : "مورد",
-                              })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                          >
-                            <option value="مورد">مورد</option>
-                            <option value="أصل داخلي">أصل داخلي</option>
-                          </select>
-                          <input
-                            value={row.leadTimeDays}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, { leadTimeDays: e.target.value })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                            placeholder="زمن التوريد (يوم)"
-                          />
-                          <select
-                            value={row.ownerRoleId}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, {
-                                ownerRoleId: e.target.value as OrgRoleId | "",
-                              })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                          >
-                            <option value="">المسؤول (اختياري)</option>
-                            {activeOrgRoles.map((role) => (
-                              <option key={role.id} value={role.id}>
-                                {orgRoleDisplay(role)}
-                              </option>
-                            ))}
-                            {hasAssignedInactiveRole ? (
-                              <option value={assignedRole.id}>
-                                {orgRoleDisplay(assignedRole)} (غير مفعّل)
-                              </option>
-                            ) : null}
-                          </select>
-                        </div>
-                        <div style={styles.textMutedSmallTop8}>
+                          <div style={styles.textMutedSmallTop8}>
                           {(() => {
                             if (!financialRow) {
                               return "أدخل الكمية والتكلفة وسعر البيع أو نسبة الربح لحساب الربحية.";
@@ -11269,89 +11531,90 @@ export default function Home() {
                               </>
                             );
                           })()}
-                        </div>
-                        {hasSuggestedSell ? (
-                          <div style={styles.blockTop8}>
-                            <button
-                              type="button"
-                              style={styles.compactGhostBtn}
-                              onClick={() =>
+                          </div>
+                          {hasSuggestedSell ? (
+                            <div style={styles.blockTop8}>
+                              <button
+                                type="button"
+                                style={styles.compactGhostBtn}
+                                onClick={() =>
+                                  updateBoqItem(row.id, {
+                                    unitSellPrice: formatNumericForInput(suggestedUnitSellPrice ?? 0),
+                                  })
+                                }
+                                disabled={!canEditBoqPricing || !canApplySuggestedSell}
+                              >
+                                {row.unitSellPrice.trim().length > 0
+                                  ? "اعتماد البيع المقترح"
+                                  : "تثبيت البيع المقترح يدويًا"}
+                              </button>
+                            </div>
+                          ) : null}
+                          <div style={{ ...styles.boqDependencyGrid, marginTop: 8 }}>
+                            <select
+                              value={row.dependsOnBoqId}
+                              onChange={(e) =>
                                 updateBoqItem(row.id, {
-                                  unitSellPrice: formatNumericForInput(suggestedUnitSellPrice ?? 0),
+                                  dependsOnBoqId: e.target.value,
+                                  dependencyType: "FS",
                                 })
                               }
-                              disabled={!canEditBoqPricing || !canApplySuggestedSell}
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
                             >
-                              {row.unitSellPrice.trim().length > 0
-                                ? "اعتماد البيع المقترح"
-                                : "تثبيت البيع المقترح يدويًا"}
+                              <option value="">يعتمد على بند (اختياري)</option>
+                              {boqItems
+                                .filter(
+                                  (candidate) =>
+                                    candidate.id !== row.id && candidate.item.trim().length > 0
+                                )
+                                .map((candidate) => {
+                                  const candidateRowIndex = boqItems.findIndex(
+                                    (lookup) => lookup.id === candidate.id
+                                  );
+                                  const safeCandidateIndex =
+                                    candidateRowIndex >= 0 ? candidateRowIndex : 0;
+                                  return (
+                                  <option key={candidate.id} value={candidate.id}>
+                                    {boqRowLabel(candidate, safeCandidateIndex)}
+                                  </option>
+                                  );
+                                })}
+                              {(hasInvalidDependency || hasIncompleteDependency || isSelfDependency) &&
+                              row.dependsOnBoqId ? (
+                                <option value={row.dependsOnBoqId}>
+                                  تبعية غير صالحة (راجع الاختيار)
+                                </option>
+                              ) : null}
+                            </select>
+                            <select
+                              value={row.dependencyType}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, {
+                                  dependencyType: e.target.value === "FS" ? "FS" : "FS",
+                                })
+                              }
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                            >
+                              <option value="FS">Finish-to-Start (FS)</option>
+                            </select>
+                          </div>
+                          {dependencyRow ? (
+                            <div style={styles.textMutedSmallTop8}>
+                              هذا البند يبدأ بعد اكتمال:{" "}
+                              <strong>{boqRowLabel(dependencyRow, Math.max(0, dependencyRowIndex))}</strong>
+                            </div>
+                          ) : null}
+                          <div style={styles.blockTop8}>
+                            <button
+                              style={styles.ghostBtn}
+                              onClick={() => removeBoqRow(row.id)}
+                              disabled={boqItems.length <= 1 || !canEditAdvancedExecution}
+                            >
+                              حذف البند
                             </button>
                           </div>
-                        ) : null}
-                        <div style={{ ...styles.initFormGrid, marginTop: 8 }}>
-                          <select
-                            value={row.dependsOnBoqId}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, {
-                                dependsOnBoqId: e.target.value,
-                                dependencyType: "FS",
-                              })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                          >
-                            <option value="">يعتمد على بند (اختياري)</option>
-                            {boqItems
-                              .filter(
-                                (candidate) =>
-                                  candidate.id !== row.id && candidate.item.trim().length > 0
-                              )
-                              .map((candidate) => {
-                                const candidateRowIndex = boqItems.findIndex(
-                                  (lookup) => lookup.id === candidate.id
-                                );
-                                const safeCandidateIndex =
-                                  candidateRowIndex >= 0 ? candidateRowIndex : 0;
-                                return (
-                                <option key={candidate.id} value={candidate.id}>
-                                  {boqRowLabel(candidate, safeCandidateIndex)}
-                                </option>
-                                );
-                              })}
-                            {(hasInvalidDependency || hasIncompleteDependency || isSelfDependency) &&
-                            row.dependsOnBoqId ? (
-                              <option value={row.dependsOnBoqId}>
-                                تبعية غير صالحة (راجع الاختيار)
-                              </option>
-                            ) : null}
-                          </select>
-                          <select
-                            value={row.dependencyType}
-                            onChange={(e) =>
-                              updateBoqItem(row.id, {
-                                dependencyType: e.target.value === "FS" ? "FS" : "FS",
-                              })
-                            }
-                            style={styles.input}
-                            disabled={!canEditAdvancedExecution}
-                          >
-                            <option value="FS">Finish-to-Start (FS)</option>
-                          </select>
-                        </div>
-                        {dependencyRow ? (
-                          <div style={styles.textMutedSmallTop8}>
-                            هذا البند يبدأ بعد اكتمال:{" "}
-                            <strong>{boqRowLabel(dependencyRow, Math.max(0, dependencyRowIndex))}</strong>
-                          </div>
-                        ) : null}
-                        <div style={styles.blockTop8}>
-                          <button
-                            style={styles.ghostBtn}
-                            onClick={() => removeBoqRow(row.id)}
-                            disabled={boqItems.length <= 1 || !canEditAdvancedExecution}
-                          >
-                            حذف البند
-                          </button>
                         </div>
                       </div>
                       );
@@ -11465,39 +11728,35 @@ export default function Home() {
                 ) : null}
 
                 {advancedBoqStep === "quality_risk" ? (
-                  <>
-                    <div style={styles.blockTop12}>
-                      <div style={styles.qCard}>
-                        <div style={styles.scopeSectionTitle}>2.5 معايير الجودة</div>
-                        <div style={styles.scopeSectionHint}>
-                          اكتب معايير الجودة وآلية التحقق الميداني والاعتماد قبل التنفيذ.
-                        </div>
-                        <textarea
-                          value={qualityStandards}
-                          onChange={(e) => setQualityStandards(e.target.value)}
-                          style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                          disabled={!canEditAdvancedExecution}
-                          placeholder="اكتب معايير الجودة وآلية التحقق..."
-                        />
+                  <div style={styles.advancedOpsMetaGrid}>
+                    <div style={{ ...styles.qCard, marginTop: 0 }}>
+                      <div style={styles.scopeSectionTitle}>2.5 معايير الجودة</div>
+                      <div style={styles.scopeSectionHint}>
+                        اكتب معايير الجودة وآلية التحقق الميداني والاعتماد قبل التنفيذ.
                       </div>
+                      <textarea
+                        value={qualityStandards}
+                        onChange={(e) => setQualityStandards(e.target.value)}
+                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                        disabled={!canEditAdvancedExecution}
+                        placeholder="اكتب معايير الجودة وآلية التحقق..."
+                      />
                     </div>
 
-                    <div style={styles.blockTop12}>
-                      <div style={styles.qCard}>
-                        <div style={styles.scopeSectionTitle}>2.6 إدارة المخاطر</div>
-                        <div style={styles.scopeSectionHint}>
-                          وثّق المخاطر الرئيسية وخطط الاستجابة قبل بناء لوحة المخاطر الحية.
-                        </div>
-                        <textarea
-                          value={riskManagement}
-                          onChange={(e) => setRiskManagement(e.target.value)}
-                          style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                          disabled={!canEditAdvancedExecution}
-                          placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
-                        />
+                    <div style={{ ...styles.qCard, marginTop: 0 }}>
+                      <div style={styles.scopeSectionTitle}>2.6 إدارة المخاطر</div>
+                      <div style={styles.scopeSectionHint}>
+                        وثّق المخاطر الرئيسية وخطط الاستجابة قبل بناء لوحة المخاطر الحية.
                       </div>
+                      <textarea
+                        value={riskManagement}
+                        onChange={(e) => setRiskManagement(e.target.value)}
+                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                        disabled={!canEditAdvancedExecution}
+                        placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
+                      />
                     </div>
-                  </>
+                  </div>
                 ) : null}
 
                 {advancedBoqStep === "operations" ? (
@@ -11603,6 +11862,21 @@ export default function Home() {
                               <span style={styles.riskStatusBadge(risk.status)}>
                                 الحالة: {risk.status}
                               </span>
+                            </div>
+
+                            <div style={styles.riskQuickGrid}>
+                              <div style={styles.riskQuickItem}>
+                                <div style={styles.riskQuickLabel}>الاحتمال</div>
+                                <div style={styles.riskQuickValue}>{risk.probability}</div>
+                              </div>
+                              <div style={styles.riskQuickItem}>
+                                <div style={styles.riskQuickLabel}>الأثر</div>
+                                <div style={styles.riskQuickValue}>{risk.impact}</div>
+                              </div>
+                              <div style={styles.riskQuickItem}>
+                                <div style={styles.riskQuickLabel}>مالك الخطر</div>
+                                <div style={styles.riskQuickValue}>{risk.owner || "غير محدد"}</div>
+                              </div>
                             </div>
 
                             <div style={styles.actionTaskGrid}>
@@ -11939,6 +12213,23 @@ export default function Home() {
                             </div>
                             <div style={styles.actionTaskMeta}>
                               {item.phase} • {item.stream}
+                            </div>
+                          </div>
+
+                          <div style={styles.actionTaskQuickGrid}>
+                            <div style={styles.actionTaskQuickItem}>
+                              <div style={styles.actionTaskQuickLabel}>الحالة الحالية</div>
+                              <div style={styles.actionTaskQuickValue}>{item.status}</div>
+                            </div>
+                            <div style={styles.actionTaskQuickItem}>
+                              <div style={styles.actionTaskQuickLabel}>المسؤول</div>
+                              <div style={styles.actionTaskQuickValue}>{item.owner || "غير محدد"}</div>
+                            </div>
+                            <div style={styles.actionTaskQuickItem}>
+                              <div style={styles.actionTaskQuickLabel}>الاستحقاق</div>
+                              <div style={styles.actionTaskQuickValue}>
+                                {item.dueDate ? toArabicDigits(item.dueDate) : "غير محدد"}
+                              </div>
                             </div>
                           </div>
 
@@ -12384,7 +12675,7 @@ export default function Home() {
                   اختر نوع الجلسة والمستشارين المشاركين أولًا، ثم انتقل إلى تفاصيل المشروع.
                 </p>
 
-                <div style={styles.sideSectionTitle}>تجهيز الجلسة</div>
+                <div style={{ ...styles.sideSectionTitle, marginTop: 10 }}>تجهيز الجلسة</div>
                 <div style={styles.sideBlock}>
                   <div style={styles.sideBlockTitle}>ما الذي ستحدده هنا؟</div>
                   <div style={styles.sideAlertItem("info")}>
@@ -12702,7 +12993,7 @@ export default function Home() {
                           <div style={styles.sideBlockTitle}>جودة المدخلات</div>
                           <div style={styles.qualityBadge(answerQuality.level)}>{answerQuality.level}</div>
                           <div style={styles.sideQualityText}>
-                            جودة تقديرية {toArabicDigits(answerQuality.score)}٪ • إجابات تحتاج تفصيل:
+                            جودة تقديرية %{toArabicDigits(answerQuality.score)} • إجابات تحتاج تفصيل:
                             {" "}
                             {toArabicDigits(answerQuality.weakCount)}
                           </div>
