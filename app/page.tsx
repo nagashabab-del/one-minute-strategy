@@ -664,15 +664,15 @@ function advisorRoleShort(key: string) {
 function advisorColor(key: string) {
   switch (key) {
     case "financial_advisor":
-      return "#00E5FF";
+      return "#5E8CB1";
     case "regulatory_advisor":
-      return "#B66BFF";
+      return "#8C78B5";
     case "operations_advisor":
-      return "#00FF85";
+      return "#5E9A82";
     case "marketing_advisor":
-      return "#FF4FD8";
+      return "#B07A9C";
     case "risk_advisor":
-      return "#FFC24D";
+      return "#B38F58";
     default:
       return "rgba(255,255,255,0.9)";
   }
@@ -5869,9 +5869,10 @@ export default function Home() {
           gap: 10,
           padding: isMobile ? "7px 9px" : "8px 10px",
           borderRadius: 12,
-          border: `1px solid ${advisorColor(key)}2f`,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : `1px solid ${advisorColor(key)}2f`,
+          borderTop: isCalmTheme ? `3px solid ${advisorColor(key)}B3` : `1px solid ${advisorColor(key)}2f`,
           background: isCalmTheme
-            ? `${advisorColor(key)}12`
+            ? "#FBFAFE"
             : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.02))`,
           boxShadow: isCalmTheme
             ? "none"
@@ -5885,8 +5886,8 @@ export default function Home() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: `${advisorColor(key)}20`,
-          border: `1px solid ${advisorColor(key)}40`,
+          background: isCalmTheme ? `${advisorColor(key)}18` : `${advisorColor(key)}20`,
+          border: isCalmTheme ? `1px solid ${advisorColor(key)}52` : `1px solid ${advisorColor(key)}40`,
           color: advisorColor(key),
           flexShrink: 0,
           fontSize: isMobile ? 14 : 15,
@@ -8790,14 +8791,15 @@ export default function Home() {
         gap: 8,
         marginTop: 10,
       } as CSSProperties,
-      advisorRecoItem: {
-        borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
-        padding: "8px 10px",
-        color: textTone(0.9),
-        lineHeight: 1.6,
-      } as CSSProperties,
+      advisorRecoItem: (key: string) =>
+        ({
+          borderRadius: 10,
+          border: isCalmTheme ? `1px solid ${advisorColor(key)}3A` : palette.sideBlockBorder,
+          background: isCalmTheme ? `${advisorColor(key)}10` : palette.sideBlockBg,
+          padding: "8px 10px",
+          color: textTone(0.9),
+          lineHeight: 1.6,
+        } as CSSProperties),
       inlineWarnBox: {
         marginTop: 10,
         padding: "10px 12px",
@@ -10835,7 +10837,7 @@ export default function Home() {
                             {(v?.recommendations || []).length ? (
                               <div style={styles.advisorRecoList}>
                                 {(v?.recommendations || []).map((r: string, i: number) => (
-                                  <div key={i} style={styles.advisorRecoItem}>
+                                  <div key={i} style={styles.advisorRecoItem(k)}>
                                     • {r}
                                   </div>
                                 ))}
