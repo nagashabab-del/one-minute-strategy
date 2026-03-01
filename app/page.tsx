@@ -5968,9 +5968,12 @@ export default function Home() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: isCalmTheme ? "rgba(255,255,255,0.10)" : `${advisorColor(key)}20`,
-          border: isCalmTheme ? "1px solid rgba(255,255,255,0.36)" : `1px solid ${advisorColor(key)}40`,
-          color: isCalmTheme ? "rgba(255,255,255,0.95)" : advisorColor(key),
+          background: isCalmTheme ? `${advisorColor(key)}24` : `${advisorColor(key)}2E`,
+          border: isCalmTheme ? `1px solid ${advisorColor(key)}72` : `1px solid ${advisorColor(key)}8A`,
+          color: "#FFFFFF",
+          boxShadow: isCalmTheme
+            ? `0 0 0 1px rgba(255,255,255,0.08) inset`
+            : `0 0 10px ${advisorColor(key)}33`,
           flexShrink: 0,
           fontSize: isMobile ? 14 : 15,
         } as CSSProperties),
@@ -5979,7 +5982,7 @@ export default function Home() {
         height: isMobile ? 15 : 16,
         objectFit: "contain",
         display: "block",
-        filter: isCalmTheme ? "brightness(0) invert(1)" : "none",
+        filter: "brightness(0) invert(1)",
       } as CSSProperties,
       advisorQuestionText: {
         color: isCalmTheme ? "rgba(255,255,255,0.98)" : textTone(0.92),
