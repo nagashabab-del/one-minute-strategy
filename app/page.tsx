@@ -681,30 +681,30 @@ function advisorColor(key: string) {
 function decisionAccent(decision?: string) {
   switch (decision) {
     case "جاهز للتنفيذ":
-      return "#00E5FF";
+      return "#2E8B68";
     case "جاهز بعد تحسينات محددة":
-      return "#00FF85";
+      return "#A06A2A";
     case "يحتاج إعادة ضبط استراتيجية":
-      return "#FFC24D";
+      return "#9A5A8A";
     case "يحتاج إعادة دراسة شاملة":
-      return "#FF4FD8";
+      return "#B75E64";
     default:
-      return "#B66BFF";
+      return "#6F4BA3";
   }
 }
 
 function readinessAccent(level?: string) {
   switch (level) {
     case "جاهز":
-      return "#00FF85";
+      return "#2E8B68";
     case "متقدم":
-      return "#00E5FF";
+      return "#4F63A8";
     case "متوسط":
-      return "#FF9D4D";
+      return "#A06A2A";
     case "مبدئي":
-      return "#FF4FD8";
+      return "#9A5A8A";
     default:
-      return "#B66BFF";
+      return "#6F4BA3";
   }
 }
 
@@ -7206,8 +7206,10 @@ export default function Home() {
         return {
           borderRadius: 16,
           padding: isMobile ? 14 : 16,
-          border: `1px solid ${accent}42`,
-          background: isCalmTheme ? `${accent}12` : `linear-gradient(180deg, ${accent}20, ${accent}12 52%, rgba(255,255,255,0.02))`,
+          border: `1px solid ${accent}5C`,
+          background: isCalmTheme
+            ? `${accent}1D`
+            : `linear-gradient(180deg, ${accent}20, ${accent}12 52%, rgba(255,255,255,0.02))`,
           boxShadow: isCalmTheme ? "none" : `0 10px 30px ${accent}26`,
         } as CSSProperties;
       },
@@ -7225,9 +7227,9 @@ export default function Home() {
           gap: 8,
           padding: "7px 10px",
           borderRadius: 999,
-          border: `1px solid ${decisionAccent(decision)}50`,
-          background: `${decisionAccent(decision)}14`,
-          color: isCalmTheme ? textTone(0.96) : "white",
+          border: `1px solid ${decisionAccent(decision)}5F`,
+          background: `${decisionAccent(decision)}1F`,
+          color: isCalmTheme ? decisionAccent(decision) : "white",
           fontSize: 12,
           fontWeight: 800,
         } as CSSProperties),
@@ -7236,8 +7238,10 @@ export default function Home() {
         return {
           marginTop: 10,
           borderRadius: 12,
-          border: `1px solid ${accent}45`,
-          background: isCalmTheme ? `${accent}10` : `linear-gradient(180deg, ${accent}18, rgba(255,255,255,0.02) 72%)`,
+          border: `1px solid ${accent}5C`,
+          background: isCalmTheme
+            ? `${accent}1A`
+            : `linear-gradient(180deg, ${accent}18, rgba(255,255,255,0.02) 72%)`,
           padding: isMobile ? "10px 11px" : "11px 12px",
           boxShadow: isCalmTheme ? "none" : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${accent}22`,
         } as CSSProperties;
