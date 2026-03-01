@@ -1235,6 +1235,7 @@ export default function Home() {
   >("boq");
   const [boqRowExpanded, setBoqRowExpanded] = useState<Record<string, boolean>>({});
   const [actionTaskExpanded, setActionTaskExpanded] = useState<Record<string, boolean>>({});
+  const [riskCardExpanded, setRiskCardExpanded] = useState<Record<string, boolean>>({});
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
   const initStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const round1StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
@@ -8249,6 +8250,14 @@ export default function Home() {
         gap: 8,
         flexDirection: isMobile ? "column" : "row",
       } as CSSProperties,
+      riskCardHeadActions: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: isMobile ? "space-between" : "flex-end",
+        gap: 8,
+        width: isMobile ? "100%" : "auto",
+        flexWrap: "wrap",
+      } as CSSProperties,
       riskCardTitle: {
         fontSize: 13,
         fontWeight: 900,
@@ -11993,14 +12002,33 @@ export default function Home() {
                       liveRiskItems.map((risk, idx) => {
                         const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
                         const severity = riskSeverityFromScore(score);
+                        const isRiskExpanded =
+                          !isMobile || (riskCardExpanded[risk.id] ?? idx === 0);
                         return (
                           <div key={risk.id} style={styles.riskCard(severity, risk.status)}>
                             <div style={styles.riskCardHead}>
                               <div style={styles.riskCardTitle}>
                                 {toArabicDigits(idx + 1)}. {risk.title || "خطر بدون عنوان"}
                               </div>
-                              <div style={styles.riskSeverityBadge(severity)}>
-                                شدة: {riskSeverityLabel(severity)} ({toArabicDigits(score)}/9)
+                              <div style={styles.riskCardHeadActions}>
+                                <div style={styles.riskSeverityBadge(severity)}>
+                                  شدة: {riskSeverityLabel(severity)} ({toArabicDigits(score)}/9)
+                                </div>
+                                {isMobile ? (
+                                  <button
+                                    type="button"
+                                    style={styles.collapseToggleBtn(isRiskExpanded)}
+                                    onClick={() =>
+                                      setRiskCardExpanded((prev) => ({
+                                        ...prev,
+                                        [risk.id]: !(prev[risk.id] ?? idx === 0),
+                                      }))
+                                    }
+                                    aria-expanded={isRiskExpanded}
+                                  >
+                                    {isRiskExpanded ? "إخفاء التفاصيل" : "تفاصيل الخطر"}
+                                  </button>
+                                ) : null}
                               </div>
                             </div>
                             <div style={styles.riskCardMeta}>
@@ -12024,122 +12052,130 @@ export default function Home() {
                               </div>
                             </div>
 
-                            <div style={styles.actionTaskGrid}>
-                              <div>
-                                <div style={styles.label}>عنوان الخطر</div>
-                                <input
-                                  value={risk.title}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, { title: e.target.value })
-                                  }
-                                  style={styles.input}
-                                  disabled={!canEditAdvancedExecution}
-                                  placeholder="اكتب عنوان الخطر"
-                                />
-                              </div>
-                              <div>
-                                <div style={styles.label}>الاحتمال</div>
-                                <select
-                                  value={risk.probability}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, {
-                                      probability: e.target.value as RiskLevel,
-                                    })
-                                  }
-                                  style={{ ...styles.input, ...styles.riskLevelSelect(risk.probability) }}
-                                  disabled={!canEditAdvancedExecution}
-                                >
-                                  <option value="منخفض">منخفض</option>
-                                  <option value="متوسط">متوسط</option>
-                                  <option value="مرتفع">مرتفع</option>
-                                </select>
-                              </div>
-                              <div>
-                                <div style={styles.label}>الأثر</div>
-                                <select
-                                  value={risk.impact}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, {
-                                      impact: e.target.value as RiskLevel,
-                                    })
-                                  }
-                                  style={{ ...styles.input, ...styles.riskLevelSelect(risk.impact) }}
-                                  disabled={!canEditAdvancedExecution}
-                                >
-                                  <option value="منخفض">منخفض</option>
-                                  <option value="متوسط">متوسط</option>
-                                  <option value="مرتفع">مرتفع</option>
-                                </select>
-                              </div>
-                            </div>
+                            {isRiskExpanded ? (
+                              <>
+                                <div style={styles.actionTaskGrid}>
+                                  <div>
+                                    <div style={styles.label}>عنوان الخطر</div>
+                                    <input
+                                      value={risk.title}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, { title: e.target.value })
+                                      }
+                                      style={styles.input}
+                                      disabled={!canEditAdvancedExecution}
+                                      placeholder="اكتب عنوان الخطر"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div style={styles.label}>الاحتمال</div>
+                                    <select
+                                      value={risk.probability}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, {
+                                          probability: e.target.value as RiskLevel,
+                                        })
+                                      }
+                                      style={{ ...styles.input, ...styles.riskLevelSelect(risk.probability) }}
+                                      disabled={!canEditAdvancedExecution}
+                                    >
+                                      <option value="منخفض">منخفض</option>
+                                      <option value="متوسط">متوسط</option>
+                                      <option value="مرتفع">مرتفع</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <div style={styles.label}>الأثر</div>
+                                    <select
+                                      value={risk.impact}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, {
+                                          impact: e.target.value as RiskLevel,
+                                        })
+                                      }
+                                      style={{ ...styles.input, ...styles.riskLevelSelect(risk.impact) }}
+                                      disabled={!canEditAdvancedExecution}
+                                    >
+                                      <option value="منخفض">منخفض</option>
+                                      <option value="متوسط">متوسط</option>
+                                      <option value="مرتفع">مرتفع</option>
+                                    </select>
+                                  </div>
+                                </div>
 
-                            <div style={{ ...styles.actionTaskGrid, marginTop: 8 }}>
-                              <div>
-                                <div style={styles.label}>الحالة</div>
-                                <select
-                                  value={risk.status}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, {
-                                      status: e.target.value as RiskStatus,
-                                    })
-                                  }
-                                  style={{ ...styles.input, ...styles.riskStatusSelect(risk.status) }}
-                                  disabled={!canEditAdvancedExecution}
-                                >
-                                  <option value="مفتوح">مفتوح</option>
-                                  <option value="قيد المعالجة">قيد المعالجة</option>
-                                  <option value="مصعّد">مصعّد</option>
-                                  <option value="مغلق">مغلق</option>
-                                </select>
-                              </div>
-                              <div>
-                                <div style={styles.label}>مالك الخطر</div>
-                                <input
-                                  value={risk.owner}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, { owner: e.target.value })
-                                  }
-                                  style={styles.input}
-                                  disabled={!canEditAdvancedExecution}
-                                  placeholder="اسم المالك"
-                                />
-                              </div>
-                              <div>
-                                <div style={styles.label}>تاريخ المراجعة</div>
-                                <input
-                                  type="date"
-                                  value={risk.reviewDate}
-                                  onChange={(e) =>
-                                    updateLiveRiskItem(risk.id, { reviewDate: e.target.value })
-                                  }
-                                  style={styles.input}
-                                  disabled={!canEditAdvancedExecution}
-                                />
-                              </div>
-                            </div>
+                                <div style={{ ...styles.actionTaskGrid, marginTop: 8 }}>
+                                  <div>
+                                    <div style={styles.label}>الحالة</div>
+                                    <select
+                                      value={risk.status}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, {
+                                          status: e.target.value as RiskStatus,
+                                        })
+                                      }
+                                      style={{ ...styles.input, ...styles.riskStatusSelect(risk.status) }}
+                                      disabled={!canEditAdvancedExecution}
+                                    >
+                                      <option value="مفتوح">مفتوح</option>
+                                      <option value="قيد المعالجة">قيد المعالجة</option>
+                                      <option value="مصعّد">مصعّد</option>
+                                      <option value="مغلق">مغلق</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <div style={styles.label}>مالك الخطر</div>
+                                    <input
+                                      value={risk.owner}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, { owner: e.target.value })
+                                      }
+                                      style={styles.input}
+                                      disabled={!canEditAdvancedExecution}
+                                      placeholder="اسم المالك"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div style={styles.label}>تاريخ المراجعة</div>
+                                    <input
+                                      type="date"
+                                      value={risk.reviewDate}
+                                      onChange={(e) =>
+                                        updateLiveRiskItem(risk.id, { reviewDate: e.target.value })
+                                      }
+                                      style={styles.input}
+                                      disabled={!canEditAdvancedExecution}
+                                    />
+                                  </div>
+                                </div>
 
-                            <div style={styles.blockTop8}>
-                              <div style={styles.label}>خطة المعالجة</div>
-                              <textarea
-                                value={risk.mitigation}
-                                onChange={(e) =>
-                                  updateLiveRiskItem(risk.id, { mitigation: e.target.value })
-                                }
-                                style={{ ...styles.textarea, ...styles.actionTaskNotes }}
-                                disabled={!canEditAdvancedExecution}
-                                placeholder="اكتب إجراء المعالجة وخطة الاستجابة..."
-                              />
-                            </div>
+                                <div style={styles.blockTop8}>
+                                  <div style={styles.label}>خطة المعالجة</div>
+                                  <textarea
+                                    value={risk.mitigation}
+                                    onChange={(e) =>
+                                      updateLiveRiskItem(risk.id, { mitigation: e.target.value })
+                                    }
+                                    style={{ ...styles.textarea, ...styles.actionTaskNotes }}
+                                    disabled={!canEditAdvancedExecution}
+                                    placeholder="اكتب إجراء المعالجة وخطة الاستجابة..."
+                                  />
+                                </div>
 
-                            <div style={styles.blockTop8}>
-                              <button
-                                style={styles.ghostBtn}
-                                onClick={() => removeLiveRiskItem(risk.id)}
-                                disabled={!canEditAdvancedExecution}
-                              >
-                                حذف الخطر
-                              </button>
-                            </div>
+                                <div style={styles.blockTop8}>
+                                  <button
+                                    style={styles.ghostBtn}
+                                    onClick={() => removeLiveRiskItem(risk.id)}
+                                    disabled={!canEditAdvancedExecution}
+                                  >
+                                    حذف الخطر
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div style={styles.textMutedSmallTop8}>
+                                افتح تفاصيل الخطر لتعديل الحالة والمالك وخطة المعالجة.
+                              </div>
+                            )}
                           </div>
                         );
                       })
