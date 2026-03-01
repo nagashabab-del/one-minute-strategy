@@ -5886,10 +5886,10 @@ export default function Home() {
           gap: 10,
           padding: isMobile ? "7px 9px" : "8px 10px",
           borderRadius: 12,
-          border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : `1px solid ${advisorColor(key)}2f`,
-          borderTop: isCalmTheme ? `3px solid ${advisorColor(key)}B3` : `1px solid ${advisorColor(key)}2f`,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}2f`,
+          borderTop: isCalmTheme ? `3px solid ${advisorColor(key)}C4` : `1px solid ${advisorColor(key)}2f`,
           background: isCalmTheme
-            ? "#FBFAFE"
+            ? "#4A2A73"
             : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.02))`,
           boxShadow: isCalmTheme
             ? "none"
@@ -5903,9 +5903,9 @@ export default function Home() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: isCalmTheme ? `${advisorColor(key)}18` : `${advisorColor(key)}20`,
-          border: isCalmTheme ? `1px solid ${advisorColor(key)}52` : `1px solid ${advisorColor(key)}40`,
-          color: advisorColor(key),
+          background: isCalmTheme ? "rgba(255,255,255,0.10)" : `${advisorColor(key)}20`,
+          border: isCalmTheme ? "1px solid rgba(255,255,255,0.36)" : `1px solid ${advisorColor(key)}40`,
+          color: isCalmTheme ? "rgba(255,255,255,0.95)" : advisorColor(key),
           flexShrink: 0,
           fontSize: isMobile ? 14 : 15,
         } as CSSProperties),
@@ -5914,9 +5914,10 @@ export default function Home() {
         height: isMobile ? 15 : 16,
         objectFit: "contain",
         display: "block",
+        filter: isCalmTheme ? "brightness(0) invert(1)" : "none",
       } as CSSProperties,
       advisorQuestionText: {
-        color: textTone(0.92),
+        color: isCalmTheme ? "rgba(255,255,255,0.98)" : textTone(0.92),
         fontWeight: 900,
         letterSpacing: 0.1,
         lineHeight: 1.45,
@@ -6760,8 +6761,8 @@ export default function Home() {
           borderRadius: 16,
           position: "relative",
           overflow: "hidden",
-          background: isCalmTheme ? "#FFFFFF" : "rgba(255,255,255,0.035)",
-          border: isCalmTheme ? palette.sideBlockBorder : `1px solid ${advisorColor(key)}45`,
+          background: isCalmTheme ? "#4A2A73" : "rgba(255,255,255,0.035)",
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}45`,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -6785,22 +6786,24 @@ export default function Home() {
           padding: "14px 12px 12px",
           background: active
             ? isCalmTheme
-              ? `${advisorColor(key)}14`
+              ? "#4A2A73"
               : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.03))`
             : isCalmTheme
-              ? "#FFFFFF"
+              ? "#4A2A73"
               : "rgba(255,255,255,0.02)",
           border: active
-            ? `1px solid ${advisorColor(key)}55`
+            ? isCalmTheme
+              ? `1px solid ${advisorColor(key)}90`
+              : `1px solid ${advisorColor(key)}55`
             : isCalmTheme
-              ? palette.sideBlockBorder
+              ? "1px solid rgba(85,44,128,0.40)"
               : "1px solid rgba(255,255,255,0.08)",
           boxShadow: active
             ? isCalmTheme
               ? "none"
               : `0 0 18px ${advisorColor(key)}14`
             : "none",
-          opacity: active ? 1 : 0.92,
+          opacity: active ? 1 : isCalmTheme ? 0.78 : 0.92,
           cursor: "pointer",
           transition: "all 120ms ease",
         } as CSSProperties),
@@ -6822,8 +6825,12 @@ export default function Home() {
           width: 16,
           height: 16,
           borderRadius: 999,
-          border: active ? "2px solid rgba(255,255,255,0.95)" : "1px solid rgba(85,44,128,0.35)",
-          background: active ? palette.successSolid : isCalmTheme ? "rgba(85,44,128,0.12)" : "transparent",
+          border: active
+            ? "2px solid rgba(223,247,230,0.95)"
+            : isCalmTheme
+              ? "1px solid rgba(255,255,255,0.65)"
+              : "1px solid rgba(85,44,128,0.35)",
+          background: active ? "#6EBD88" : isCalmTheme ? "rgba(255,255,255,0.24)" : "transparent",
           boxShadow: active
             ? isCalmTheme
               ? "none"
@@ -6841,18 +6848,20 @@ export default function Home() {
         objectFit: "contain",
         display: "block",
         marginBottom: 8,
+        filter: isCalmTheme ? "brightness(0) invert(1)" : "none",
       } as CSSProperties,
       advisorNameS: {
         fontSize: 16,
         fontWeight: 900,
         letterSpacing: 0.2,
         lineHeight: 1.25,
+        color: isCalmTheme ? "rgba(255,255,255,0.98)" : textTone(0.96),
       } as CSSProperties,
       advisorRoleS: {
         marginTop: 4,
         fontSize: 12,
         fontWeight: 700,
-        color: textTone(0.7),
+        color: isCalmTheme ? "rgba(255,255,255,0.86)" : textTone(0.7),
       } as CSSProperties,
 
       advisorTileEmpty: {
