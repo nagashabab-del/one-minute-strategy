@@ -6711,12 +6711,12 @@ export default function Home() {
       // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
         display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-        gap: 10,
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "repeat(2, 1fr)" : "repeat(3, minmax(0, 1fr))",
+        gap: 12,
         marginBottom: 14,
 
         // ✅ التوسيط الصحيح
-        maxWidth: isMobile ? "100%" : 520,
+        maxWidth: isMobile ? "100%" : 1020,
         marginLeft: "auto",
         marginRight: "auto",
 
@@ -6726,64 +6726,75 @@ export default function Home() {
 
       advisorTile: (key: string) =>
         ({
-          height: 88,
+          minHeight: 122,
           width: "100%", // ✅ مهم عشان يمسك عرض العمود
           borderRadius: 16,
-          background: isCalmTheme ? palette.sideBlockBg : "rgba(255,255,255,0.035)",
-          border: `1px solid ${advisorColor(key)}45`,
+          position: "relative",
+          overflow: "hidden",
+          background: isCalmTheme ? "#FFFFFF" : "rgba(255,255,255,0.035)",
+          border: isCalmTheme ? palette.sideBlockBorder : `1px solid ${advisorColor(key)}45`,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           textAlign: "center",
-          padding: 10,
+          padding: "14px 12px 12px",
           boxShadow: isCalmTheme ? "none" : `0 0 18px ${advisorColor(key)}18`,
         } as CSSProperties),
       advisorTileSelectable: (key: string, active: boolean) =>
         ({
-          height: 88,
+          minHeight: 122,
           width: "100%",
           borderRadius: 16,
           position: "relative",
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           textAlign: "center",
-          padding: 10,
+          padding: "14px 12px 12px",
           background: active
             ? isCalmTheme
-              ? `${advisorColor(key)}12`
+              ? `${advisorColor(key)}14`
               : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.03))`
             : isCalmTheme
-              ? palette.secondaryBg
+              ? "#FFFFFF"
               : "rgba(255,255,255,0.02)",
           border: active
             ? `1px solid ${advisorColor(key)}55`
-            : "1px solid rgba(255,255,255,0.08)",
+            : isCalmTheme
+              ? palette.sideBlockBorder
+              : "1px solid rgba(255,255,255,0.08)",
           boxShadow: active
             ? isCalmTheme
               ? "none"
               : `0 0 18px ${advisorColor(key)}14`
             : "none",
-          opacity: active ? 1 : 0.72,
+          opacity: active ? 1 : 0.92,
           cursor: "pointer",
           transition: "all 120ms ease",
+        } as CSSProperties),
+      advisorAccentBar: (key: string, active: boolean) =>
+        ({
+          position: "absolute",
+          top: 0,
+          right: 0,
+          left: 0,
+          height: 3,
+          background: active ? advisorColor(key) : isCalmTheme ? "rgba(85,44,128,0.16)" : "rgba(255,255,255,0.14)",
+          opacity: active ? 1 : 0.75,
         } as CSSProperties),
       advisorSelectDot: (active: boolean) =>
         ({
           position: "absolute",
-          top: 8,
-          left: 8,
-          width: 12,
-          height: 12,
+          top: 10,
+          right: 10,
+          width: 16,
+          height: 16,
           borderRadius: 999,
-          border: active
-            ? isCalmTheme
-              ? "1px solid rgba(47,182,126,0.52)"
-              : "1px solid rgba(0,255,133,0.45)"
-            : "1px solid rgba(255,255,255,0.20)",
-          background: active ? palette.successSolid : "transparent",
+          border: active ? "2px solid rgba(255,255,255,0.95)" : "1px solid rgba(85,44,128,0.35)",
+          background: active ? palette.successSolid : isCalmTheme ? "rgba(85,44,128,0.12)" : "transparent",
           boxShadow: active
             ? isCalmTheme
               ? "none"
@@ -6792,21 +6803,28 @@ export default function Home() {
         } as CSSProperties),
 
       advisorIconS: {
-        fontSize: 20,
-        marginBottom: 6,
+        fontSize: 28,
+        marginBottom: 8,
       } as CSSProperties,
       advisorNameS: {
-        fontSize: 13,
+        fontSize: 16,
         fontWeight: 900,
         letterSpacing: 0.2,
+        lineHeight: 1.25,
+      } as CSSProperties,
+      advisorRoleS: {
+        marginTop: 4,
+        fontSize: 12,
+        fontWeight: 700,
+        color: textTone(0.7),
       } as CSSProperties,
 
       advisorTileEmpty: {
-        height: 88,
+        minHeight: 122,
         width: "100%",
         borderRadius: 16,
-        background: "rgba(255,255,255,0.02)",
-        border: "1px dashed rgba(255,255,255,0.10)",
+        background: isCalmTheme ? "#FBF9FF" : "rgba(255,255,255,0.02)",
+        border: isCalmTheme ? "1px dashed rgba(85,44,128,0.20)" : "1px dashed rgba(255,255,255,0.10)",
       } as CSSProperties,
       initFormGrid: {
         display: "grid",
@@ -9928,12 +9946,19 @@ export default function Home() {
                             }
                           >
                             <span
+                              style={styles.advisorAccentBar(
+                                key,
+                                effectiveSelectedAdvisors.includes(key as AdvisorKey)
+                              )}
+                            />
+                            <span
                               style={styles.advisorSelectDot(
                                 effectiveSelectedAdvisors.includes(key as AdvisorKey)
                               )}
                             />
                             <div style={styles.advisorIconS}>{advisorIcon(key)}</div>
                             <div style={styles.advisorNameS}>{advisorName(key)}</div>
+                            <div style={styles.advisorRoleS}>{advisorRoleShort(key)}</div>
                           </button>
                         );
                       })}
