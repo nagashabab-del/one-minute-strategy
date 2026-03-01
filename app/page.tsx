@@ -6825,11 +6825,21 @@ export default function Home() {
         ({
           position: "absolute",
           top: 0,
-          right: 0,
-          left: 0,
-          height: 4,
-          background: active ? advisorColor(key) : isCalmTheme ? "rgba(85,44,128,0.16)" : "rgba(255,255,255,0.14)",
-          opacity: active ? 1 : 0.75,
+          right: 16,
+          width: 56,
+          height: 6,
+          borderRadius: "0 0 6px 6px",
+          background: active
+            ? advisorColor(key)
+            : isCalmTheme
+              ? "rgba(178,163,212,0.58)"
+              : "rgba(255,255,255,0.18)",
+          boxShadow: active
+            ? isCalmTheme
+              ? "0 1px 0 rgba(255,255,255,0.16)"
+              : "0 0 8px rgba(255,255,255,0.14)"
+            : "none",
+          opacity: active ? 1 : 0.92,
         } as CSSProperties),
       advisorSelectDot: (active: boolean) =>
         ({
