@@ -678,6 +678,23 @@ function advisorRoleShort(key: string) {
   }
 }
 
+function advisorRoleCardLabel(key: string) {
+  switch (key) {
+    case "financial_advisor":
+      return "المستشار المالي";
+    case "regulatory_advisor":
+      return "المستشار التنظيمي";
+    case "operations_advisor":
+      return "المستشار التشغيلي";
+    case "marketing_advisor":
+      return "المستشار التسويقي";
+    case "risk_advisor":
+      return "مستشار المخاطر";
+    default:
+      return key;
+  }
+}
+
 function advisorColor(key: string) {
   switch (key) {
     case "financial_advisor":
@@ -6738,44 +6755,41 @@ export default function Home() {
         gap: 8,
       } as CSSProperties,
 
-      // ✅ صفّين × 3 أعمدة (مُتوسّط + مقاس ثابت)
       advisorsGrid: {
-        display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "repeat(2, 1fr)" : "repeat(3, minmax(0, 1fr))",
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
         gap: 12,
         marginBottom: 14,
-
-        // ✅ التوسيط الصحيح
         maxWidth: isMobile ? "100%" : 1020,
         marginLeft: "auto",
         marginRight: "auto",
-
-        // ✅ نخلي العناصر تتمدد داخل العمود (أفضل تناسق)
-        justifyItems: "stretch",
       } as CSSProperties,
 
       advisorTile: (key: string) =>
         ({
           minHeight: 122,
-          width: "100%", // ✅ مهم عشان يمسك عرض العمود
-          borderRadius: 16,
+          width: isNarrowMobile ? "100%" : isMobile ? "calc(50% - 6px)" : "calc(33.333% - 8px)",
+          maxWidth: isNarrowMobile ? "100%" : isMobile ? "unset" : 324,
+          borderRadius: 14,
           position: "relative",
           overflow: "hidden",
           background: isCalmTheme ? "#4A2A73" : "rgba(255,255,255,0.035)",
-          border: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}45`,
+          border: isCalmTheme ? "1px solid rgba(178,163,212,0.55)" : `1px solid ${advisorColor(key)}45`,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           textAlign: "center",
-          padding: "14px 12px 12px",
+          padding: "18px 12px 12px",
           boxShadow: isCalmTheme ? "none" : `0 0 18px ${advisorColor(key)}18`,
         } as CSSProperties),
       advisorTileSelectable: (key: string, active: boolean) =>
         ({
           minHeight: 122,
-          width: "100%",
-          borderRadius: 16,
+          width: isNarrowMobile ? "100%" : isMobile ? "calc(50% - 6px)" : "calc(33.333% - 8px)",
+          maxWidth: isNarrowMobile ? "100%" : isMobile ? "unset" : 324,
+          borderRadius: 14,
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -6783,7 +6797,7 @@ export default function Home() {
           justifyContent: "center",
           alignItems: "center",
           textAlign: "center",
-          padding: "14px 12px 12px",
+          padding: "18px 12px 12px",
           background: active
             ? isCalmTheme
               ? "#4A2A73"
@@ -6793,17 +6807,17 @@ export default function Home() {
               : "rgba(255,255,255,0.02)",
           border: active
             ? isCalmTheme
-              ? `1px solid ${advisorColor(key)}90`
+              ? "1px solid rgba(178,163,212,0.70)"
               : `1px solid ${advisorColor(key)}55`
             : isCalmTheme
-              ? "1px solid rgba(85,44,128,0.40)"
+              ? "1px solid rgba(178,163,212,0.55)"
               : "1px solid rgba(255,255,255,0.08)",
           boxShadow: active
             ? isCalmTheme
               ? "none"
               : `0 0 18px ${advisorColor(key)}14`
             : "none",
-          opacity: active ? 1 : isCalmTheme ? 0.78 : 0.92,
+          opacity: isCalmTheme ? 1 : active ? 1 : 0.92,
           cursor: "pointer",
           transition: "all 120ms ease",
         } as CSSProperties),
@@ -6813,24 +6827,24 @@ export default function Home() {
           top: 0,
           right: 0,
           left: 0,
-          height: 3,
+          height: 4,
           background: active ? advisorColor(key) : isCalmTheme ? "rgba(85,44,128,0.16)" : "rgba(255,255,255,0.14)",
           opacity: active ? 1 : 0.75,
         } as CSSProperties),
       advisorSelectDot: (active: boolean) =>
         ({
           position: "absolute",
-          top: 10,
-          right: 10,
-          width: 16,
-          height: 16,
+          top: 8,
+          right: 8,
+          width: 12,
+          height: 12,
           borderRadius: 999,
           border: active
             ? "2px solid rgba(223,247,230,0.95)"
             : isCalmTheme
-              ? "1px solid rgba(255,255,255,0.65)"
+              ? "1px solid rgba(228,220,245,0.95)"
               : "1px solid rgba(85,44,128,0.35)",
-          background: active ? "#6EBD88" : isCalmTheme ? "rgba(255,255,255,0.24)" : "transparent",
+          background: active ? "#6EBD88" : isCalmTheme ? "rgba(228,220,245,0.55)" : "transparent",
           boxShadow: active
             ? isCalmTheme
               ? "none"
@@ -6859,17 +6873,9 @@ export default function Home() {
       } as CSSProperties,
       advisorRoleS: {
         marginTop: 4,
-        fontSize: 12,
-        fontWeight: 700,
+        fontSize: 13,
+        fontWeight: 800,
         color: isCalmTheme ? "rgba(255,255,255,0.86)" : textTone(0.7),
-      } as CSSProperties,
-
-      advisorTileEmpty: {
-        minHeight: 122,
-        width: "100%",
-        borderRadius: 16,
-        background: isCalmTheme ? "#FBF9FF" : "rgba(255,255,255,0.02)",
-        border: isCalmTheme ? "1px dashed rgba(85,44,128,0.20)" : "1px dashed rgba(255,255,255,0.10)",
       } as CSSProperties,
       initFormGrid: {
         display: "grid",
@@ -10049,12 +10055,7 @@ export default function Home() {
                         "operations_advisor",
                         "marketing_advisor",
                         "risk_advisor",
-                        ...(isMobile ? [] : ["__empty__"]),
                       ].map((key) => {
-                        if (key === "__empty__") {
-                          return <div key="empty" style={styles.advisorTileEmpty} />;
-                        }
-
                         return (
                           <button
                             type="button"
@@ -10106,7 +10107,7 @@ export default function Home() {
                               )}
                             </div>
                             <div style={styles.advisorNameS}>{advisorName(key)}</div>
-                            <div style={styles.advisorRoleS}>{advisorRoleShort(key)}</div>
+                            <div style={styles.advisorRoleS}>{advisorRoleCardLabel(key)}</div>
                           </button>
                         );
                       })}
