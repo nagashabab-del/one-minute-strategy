@@ -1239,7 +1239,6 @@ export default function Home() {
   const [pendingReplaceBackup, setPendingReplaceBackup] = useState<ProjectsBackupFile | null>(null);
   const [replaceImportConfirmText, setReplaceImportConfirmText] = useState("");
   const [backupImportMode, setBackupImportMode] = useState<"merge" | "replace">("merge");
-  const [isLocalHost, setIsLocalHost] = useState(false);
   const [experimentalHubEnabled, setExperimentalHubEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -2593,14 +2592,6 @@ export default function Home() {
 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hostname = window.location.hostname;
-    const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
-    const isVercelHost = hostname.endsWith(".vercel.app");
-    setIsLocalHost(isLocal || isVercelHost);
   }, []);
 
   useEffect(() => {
@@ -5281,7 +5272,7 @@ export default function Home() {
         heroMessage: isMobile ? 14 : 18,
       };
       const touchTarget = 44;
-      const isCalmTheme = isLocalHost && experimentalHubEnabled;
+      const isCalmTheme = experimentalHubEnabled;
       const palette = isCalmTheme
         ? {
             pageBg: "#F3F1F6",
@@ -5494,6 +5485,32 @@ export default function Home() {
         fontSize: isMobile ? 11.5 : 12.5,
         fontWeight: 700,
         lineHeight: 1.35,
+      } as CSSProperties,
+      themeControlBar: {
+        marginTop: 12,
+        borderRadius: 12,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        padding: isMobile ? "9px 10px" : "10px 12px",
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        gap: 8,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      themeControlInfo: {
+        display: "grid",
+        gap: 2,
+      } as CSSProperties,
+      themeControlLabel: {
+        fontSize: 11.5,
+        fontWeight: 800,
+        color: textTone(0.72),
+      } as CSSProperties,
+      themeControlState: {
+        fontSize: 13,
+        fontWeight: 800,
+        color: textTone(0.95),
       } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
@@ -9492,7 +9509,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, isTablet, isProjectsHub, isLocalHost, experimentalHubEnabled]
+    [isMobile, isNarrowMobile, isTablet, isProjectsHub, experimentalHubEnabled]
   );
 
   const renderSummarySection = (
@@ -9756,6 +9773,22 @@ export default function Home() {
             </header>
           )}
 
+          <div style={styles.themeControlBar}>
+            <div style={styles.themeControlInfo}>
+              <div style={styles.themeControlLabel}>ثيم الواجهة</div>
+              <div style={styles.themeControlState}>
+                {experimentalHubEnabled ? "تجريبي مفعّل" : "أساسي مفعّل"}
+              </div>
+            </div>
+            <button
+              type="button"
+              style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
+              onClick={() => setExperimentalHubEnabled((prev) => !prev)}
+            >
+              {experimentalHubEnabled ? "تعطيل الثيم التجريبي" : "تفعيل الثيم التجريبي"}
+            </button>
+          </div>
+
           {!isWelcome ? (
             <div style={styles.sessionAdminBar}>
               <div style={styles.sessionAdminProjectContext}>
@@ -9879,22 +9912,7 @@ export default function Home() {
             {/* PROJECTS HUB */}
             {stage === "projects_hub" && (
               <>
-                {isLocalHost ? (
-                  <div style={styles.projectHubExperimentNotice}>
-                    <div style={styles.projectHubExperimentNoticeText}>
-                      نسخة تجريبية داخلية: عند التفعيل يتطبق النمط التجريبي على جميع المراحل بدون تغيير منطق النظام.
-                    </div>
-                    <button
-                      type="button"
-                      style={styles.projectHubExpSecondaryBtn(false)}
-                      onClick={() => setExperimentalHubEnabled((prev) => !prev)}
-                    >
-                      {experimentalHubEnabled ? "تعطيل النسخة التجريبية" : "تفعيل النسخة التجريبية"}
-                    </button>
-                  </div>
-                ) : null}
-
-                {isLocalHost && experimentalHubEnabled && showExperimentalProjectsHubShell ? (
+                {experimentalHubEnabled && showExperimentalProjectsHubShell ? (
                   <div style={styles.projectHubExperimentShell}>
                     <div style={styles.projectHubExperimentTopBar}>
                       <div style={styles.projectHubExperimentTitleWrap}>
