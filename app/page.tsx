@@ -1224,6 +1224,7 @@ export default function Home() {
   const [reportText, setReportText] = useState(initialSaved.reportText ?? "");
   const [uiError, setUiError] = useState("");
   const [uiSuccess, setUiSuccess] = useState("");
+  const [pauseToastDismiss, setPauseToastDismiss] = useState(false);
   const [roleQaReport, setRoleQaReport] = useState<{
     status: "idle" | "pass" | "fail";
     summary: string;
@@ -2656,18 +2657,15 @@ export default function Home() {
     });
   }, [advancedBoqStep, stage]);
 
-  // إخفاء الرسائل تلقائيًا بعد مدة قصيرة
+  // نجاحات الواجهة تُخفى تلقائيًا بعد مدة أطول، والتحذير يبقى حتى الإغلاق اليدوي.
   useEffect(() => {
-    if (!uiError && !uiSuccess) return;
-
-    const timeoutMs = uiError ? 4500 : 3000;
+    if (uiError || !uiSuccess || pauseToastDismiss) return;
     const t = setTimeout(() => {
-      setUiError("");
       setUiSuccess("");
-    }, timeoutMs);
+    }, 6000);
 
     return () => clearTimeout(t);
-  }, [uiError, uiSuccess]);
+  }, [uiError, uiSuccess, pauseToastDismiss]);
 
   useEffect(() => {
     if (!showClearSessionConfirm) return;
@@ -2787,16 +2785,19 @@ export default function Home() {
   function clearStatus() {
     setUiError("");
     setUiSuccess("");
+    setPauseToastDismiss(false);
   }
 
   function showError(message: string) {
     setUiSuccess("");
     setUiError(message);
+    setPauseToastDismiss(false);
   }
 
   function showSuccess(message: string) {
     setUiError("");
     setUiSuccess(message);
+    setPauseToastDismiss(false);
   }
 
   function runRolePermissionQACheck() {
@@ -6137,6 +6138,48 @@ export default function Home() {
         willChange: "transform, opacity",
         lineHeight: 1.5,
       },
+      toastRow: {
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+      } as CSSProperties,
+      toastMessage: {
+        flex: 1,
+        minWidth: 0,
+      } as CSSProperties,
+      toastCloseBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        border: "1px solid currentColor",
+        background: "transparent",
+        color: "inherit",
+        cursor: "pointer",
+        lineHeight: 1,
+        fontSize: 16,
+        fontWeight: 900,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      } as CSSProperties,
+      toastErrorBox: {
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(196,112,104,0.18), rgba(255,255,255,0.92))"
+          : "linear-gradient(180deg, rgba(255,138,92,0.18), rgba(179,53,70,0.14))",
+        border: palette.dangerBorder,
+        color: isCalmTheme ? palette.dangerText : "rgba(255,238,238,0.98)",
+      } as CSSProperties,
+      toastSuccessBox: {
+        background: isCalmTheme ? "#E9F7EF" : "#123529",
+        border: isCalmTheme ? "1px solid #3B8A67" : "1px solid #1FD091",
+        color: isCalmTheme ? "#124734" : "#E8FFF4",
+        boxShadow: isCalmTheme
+          ? "0 10px 22px rgba(59,138,103,0.18), inset 0 1px 0 rgba(255,255,255,0.72)"
+          : "0 10px 24px rgba(31,208,145,0.18)",
+        backdropFilter: "none",
+        fontWeight: 800,
+      } as CSSProperties,
       confirmOverlay: {
         position: "fixed" as const,
         inset: 0,
@@ -14483,15 +14526,26 @@ export default function Home() {
           <div
             style={{
               ...styles.toastBox,
-              background:
-                "linear-gradient(180deg, rgba(179, 0, 255, 0.18), rgba(106, 0, 255, 0.12))",
-              border: "1px solid rgba(179, 0, 255, 0.35)",
-              color: "white",
+              ...styles.toastErrorBox,
             }}
+            onMouseEnter={() => setPauseToastDismiss(true)}
+            onMouseLeave={() => setPauseToastDismiss(false)}
             role="alert"
             aria-live="assertive"
           >
-            <strong>ملاحظة:</strong> {uiError}
+            <div style={styles.toastRow}>
+              <div style={styles.toastMessage}>
+                <strong>تحذير:</strong> {uiError}
+              </div>
+              <button
+                type="button"
+                style={styles.toastCloseBtn}
+                onClick={clearStatus}
+                aria-label="إغلاق الرسالة"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -14501,15 +14555,26 @@ export default function Home() {
           <div
             style={{
               ...styles.toastBox,
-              background:
-                "linear-gradient(180deg, rgba(0, 229, 255, 0.16), rgba(106, 0, 255, 0.10))",
-              border: "1px solid rgba(0, 229, 255, 0.28)",
-              color: "white",
+              ...styles.toastSuccessBox,
             }}
+            onMouseEnter={() => setPauseToastDismiss(true)}
+            onMouseLeave={() => setPauseToastDismiss(false)}
             role="status"
             aria-live="polite"
           >
-            <strong>نجاح:</strong> {uiSuccess}
+            <div style={styles.toastRow}>
+              <div style={styles.toastMessage}>
+                <strong>نجاح:</strong> {uiSuccess}
+              </div>
+              <button
+                type="button"
+                style={styles.toastCloseBtn}
+                onClick={clearStatus}
+                aria-label="إغلاق الرسالة"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
