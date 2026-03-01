@@ -1271,6 +1271,8 @@ export default function Home() {
     canLoadDemo,
   } = currentRolePermissions;
   const canEditBoqPricing = canEditAdvancedExecution || canEditBudget;
+  // Keep experimental mode as a visual theme only (no alternate feature shell).
+  const showExperimentalProjectsHubShell = false;
   const roleCapabilities = [
     { id: "session", label: "إعداد الجلسة", enabled: canEditSessionSetup },
     { id: "project", label: "بيانات المشروع", enabled: canEditProjectCore },
@@ -9268,7 +9270,7 @@ export default function Home() {
                   </div>
                 ) : null}
 
-                {isLocalHost && experimentalHubEnabled ? (
+                {isLocalHost && experimentalHubEnabled && showExperimentalProjectsHubShell ? (
                   <div style={styles.projectHubExperimentShell}>
                     <div style={styles.projectHubExperimentTopBar}>
                       <div style={styles.projectHubExperimentTitleWrap}>
