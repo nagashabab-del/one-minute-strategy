@@ -7240,9 +7240,9 @@ export default function Home() {
         return {
           borderRadius: 16,
           padding: isMobile ? 14 : 16,
-          border: `1px solid ${accent}5C`,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.24)" : `1px solid ${accent}5C`,
           background: isCalmTheme
-            ? `${accent}1D`
+            ? "#F7F4FC"
             : `linear-gradient(180deg, ${accent}20, ${accent}12 52%, rgba(255,255,255,0.02))`,
           boxShadow: isCalmTheme ? "none" : `0 10px 30px ${accent}26`,
         } as CSSProperties;
@@ -7253,6 +7253,8 @@ export default function Home() {
         justifyContent: "space-between",
         gap: 10,
         flexDirection: isMobile ? "column" : "row",
+        paddingBottom: isCalmTheme ? 8 : 0,
+        borderBottom: isCalmTheme ? "1px solid rgba(85,44,128,0.14)" : "none",
       } as CSSProperties,
       decisionBadge: (decision?: string) =>
         ({
@@ -7261,9 +7263,9 @@ export default function Home() {
           gap: 8,
           padding: "7px 10px",
           borderRadius: 999,
-          border: `1px solid ${decisionAccent(decision)}5F`,
-          background: `${decisionAccent(decision)}1F`,
-          color: isCalmTheme ? decisionAccent(decision) : "white",
+          border: isCalmTheme ? palette.infoBorder : `1px solid ${decisionAccent(decision)}5F`,
+          background: isCalmTheme ? palette.infoBg : `${decisionAccent(decision)}1F`,
+          color: isCalmTheme ? textTone(0.96) : "white",
           fontSize: 12,
           fontWeight: 800,
         } as CSSProperties),
@@ -7272,9 +7274,9 @@ export default function Home() {
         return {
           marginTop: 10,
           borderRadius: 12,
-          border: `1px solid ${accent}5C`,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.20)" : `1px solid ${accent}5C`,
           background: isCalmTheme
-            ? `${accent}1A`
+            ? "#FFFFFF"
             : `linear-gradient(180deg, ${accent}18, rgba(255,255,255,0.02) 72%)`,
           padding: isMobile ? "10px 11px" : "11px 12px",
           boxShadow: isCalmTheme ? "none" : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${accent}22`,
@@ -7300,9 +7302,10 @@ export default function Home() {
       decisionReasonItem: {
         padding: "10px 12px",
         borderRadius: 12,
-        border: isCalmTheme ? palette.sideBlockBorder : "1px solid rgba(255,255,255,0.08)",
-        background: isCalmTheme ? palette.sideBlockBg : "rgba(255,255,255,0.03)",
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : "1px solid rgba(255,255,255,0.08)",
+        background: isCalmTheme ? "#FFFFFF" : "rgba(255,255,255,0.03)",
         color: textTone(0.9),
+        lineHeight: 1.7,
       } as CSSProperties,
       quickStatsGrid: {
         display: "grid",
@@ -7313,8 +7316,8 @@ export default function Home() {
       statTile: {
         borderRadius: 14,
         padding: "10px 12px",
-        border: isCalmTheme ? palette.sideBlockBorder : "1px solid rgba(255,255,255,0.08)",
-        background: isCalmTheme ? palette.sideBlockBg : "rgba(255,255,255,0.03)",
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.20)" : "1px solid rgba(255,255,255,0.08)",
+        background: isCalmTheme ? "#FFFFFF" : "rgba(255,255,255,0.03)",
       } as CSSProperties,
       statLabel: {
         fontSize: 12,
@@ -7462,9 +7465,9 @@ export default function Home() {
         padding: isMobile ? 12 : 14,
       } as CSSProperties,
       sidePanel: {
-        background: palette.sidePanelBg,
+        background: isCalmTheme ? "#F7F5FB" : palette.sidePanelBg,
         backdropFilter: isCalmTheme ? "none" : "blur(16px)",
-        border: palette.sidePanelBorder,
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.22)" : palette.sidePanelBorder,
         borderRadius: 18,
         boxShadow: isCalmTheme
           ? "none"
@@ -7640,7 +7643,7 @@ export default function Home() {
       } as CSSProperties,
       sideSectionTitle: {
         margin: 0,
-        fontSize: 12,
+        fontSize: 12.5,
         letterSpacing: 0.3,
         color: isCalmTheme ? "rgba(108,72,164,0.92)" : "rgba(0,229,255,0.82)",
         fontWeight: 900,
@@ -7650,7 +7653,7 @@ export default function Home() {
         marginTop: isMobile ? 10 : 12,
         borderRadius: 14,
         border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        background: isCalmTheme ? palette.sectionBg : palette.sideBlockBg,
+        background: isCalmTheme ? "#F8F6FC" : palette.sideBlockBg,
         padding: isMobile ? 9 : 10,
       } as CSSProperties,
       sideSectionGroupHead: {
@@ -7668,16 +7671,16 @@ export default function Home() {
       sideBlock: {
         marginTop: isMobile ? 7 : 8,
         borderRadius: 14,
-        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        borderRight: isCalmTheme ? "2px solid rgba(85,44,128,0.24)" : palette.sideBlockAccent,
-        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : palette.sideBlockBorder,
+        borderRight: isCalmTheme ? "none" : palette.sideBlockAccent,
+        background: isCalmTheme ? "#FFFFFF" : palette.sideBlockBg,
         boxShadow: isCalmTheme ? "none" : "inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: isMobile ? 9 : 11,
       } as CSSProperties,
       sideBlockTitle: {
         fontWeight: 900,
         fontSize: 12.5,
-        color: textTone(0.96),
+        color: isCalmTheme ? "#4A2A73" : textTone(0.96),
         marginBottom: 7,
         lineHeight: 1.45,
       } as CSSProperties,
@@ -7746,8 +7749,8 @@ export default function Home() {
           borderRadius: 10,
           border: enabled
             ? palette.successBorder
-            : palette.sideBlockBorder,
-          background: enabled ? palette.successBg : palette.sideBlockBg,
+            : (isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : palette.sideBlockBorder),
+          background: enabled ? palette.successBg : (isCalmTheme ? "#FFFFFF" : palette.sideBlockBg),
           padding: "7px 8px",
           fontSize: 11.5,
           lineHeight: 1.45,
@@ -7755,8 +7758,8 @@ export default function Home() {
         } as CSSProperties),
       miniStat: {
         borderRadius: 12,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : palette.sideBlockBorder,
+        background: isCalmTheme ? "#FCFBFF" : palette.sideBlockBg,
         padding: "9px 10px",
       } as CSSProperties,
       miniStatLabel: {
@@ -8774,8 +8777,9 @@ export default function Home() {
       advisorRecoCard: (key: string) =>
         ({
           borderRadius: 14,
-          border: `1px solid ${advisorColor(key)}26`,
-          background: isCalmTheme ? `${advisorColor(key)}10` : `linear-gradient(180deg, ${advisorColor(key)}10, rgba(255,255,255,0.02) 55%)`,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : `1px solid ${advisorColor(key)}26`,
+          borderTop: isCalmTheme ? `3px solid ${advisorColor(key)}B8` : `1px solid ${advisorColor(key)}26`,
+          background: isCalmTheme ? "#FFFFFF" : `linear-gradient(180deg, ${advisorColor(key)}10, rgba(255,255,255,0.02) 55%)`,
           padding: 12,
         } as CSSProperties),
       advisorRecoList: {
@@ -8800,7 +8804,7 @@ export default function Home() {
         color: textTone(0.92),
       } as CSSProperties,
       analysisCard: (tone: "strength" | "opportunity" | "gap" | "risk") => {
-        const palette = {
+        const tonePalette = {
           strength: {
             accent: isCalmTheme ? "#5D358E" : "#00E5FF",
             border: isCalmTheme ? "rgba(93,53,142,0.30)" : "rgba(0,229,255,0.22)",
@@ -8839,11 +8843,12 @@ export default function Home() {
           padding: 14,
           borderRadius: 14,
           marginTop: 12,
-          border: `1px solid ${palette.border}`,
-          background: palette.bg,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : `1px solid ${tonePalette.border}`,
+          borderTop: isCalmTheme ? `3px solid ${tonePalette.accent}` : `1px solid ${tonePalette.border}`,
+          background: isCalmTheme ? "#FFFFFF" : tonePalette.bg,
           boxShadow: isCalmTheme
             ? "none"
-            : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 22px ${palette.glow}`,
+            : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 22px ${tonePalette.glow}`,
         } as CSSProperties;
       },
       analysisCardHead: (_tone: "strength" | "opportunity" | "gap" | "risk") => {
@@ -8881,8 +8886,8 @@ export default function Home() {
       analysisListItem: {
         padding: "8px 10px",
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? "1px solid rgba(85,44,128,0.16)" : palette.sideBlockBorder,
+        background: isCalmTheme ? "#F9F7FD" : palette.sideBlockBg,
         color: textTone(0.88),
         lineHeight: 1.6,
       } as CSSProperties,
@@ -8898,8 +8903,9 @@ export default function Home() {
         gap: 10,
       } as CSSProperties,
       upgradeCard: (priorityIdx: number) => {
-        const palette = [
+        const priorityTone = [
           {
+            accent: "#5D358E",
             border: isCalmTheme ? "rgba(93,53,142,0.30)" : "rgba(0,229,255,0.28)",
             bg: isCalmTheme
               ? "rgba(93,53,142,0.10)"
@@ -8907,6 +8913,7 @@ export default function Home() {
             glow: isCalmTheme ? "rgba(93,53,142,0.10)" : "rgba(0,229,255,0.12)",
           },
           {
+            accent: "#2FB67E",
             border: isCalmTheme ? "rgba(47,182,126,0.30)" : "rgba(0,255,133,0.28)",
             bg: isCalmTheme
               ? "rgba(47,182,126,0.10)"
@@ -8914,6 +8921,7 @@ export default function Home() {
             glow: isCalmTheme ? "rgba(47,182,126,0.10)" : "rgba(0,255,133,0.12)",
           },
           {
+            accent: "#F0AA4E",
             border: isCalmTheme ? "rgba(240,170,78,0.30)" : "rgba(255,194,77,0.30)",
             bg: isCalmTheme
               ? "rgba(240,170,78,0.10)"
@@ -8924,11 +8932,12 @@ export default function Home() {
 
         return {
           borderRadius: 12,
-          border: `1px solid ${palette.border}`,
-          background: palette.bg,
+          border: isCalmTheme ? "1px solid rgba(85,44,128,0.18)" : `1px solid ${priorityTone.border}`,
+          borderTop: isCalmTheme ? `3px solid ${priorityTone.accent}` : `1px solid ${priorityTone.border}`,
+          background: isCalmTheme ? "#FFFFFF" : priorityTone.bg,
           boxShadow: isCalmTheme
             ? "none"
-            : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${palette.glow}`,
+            : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 8px 20px ${priorityTone.glow}`,
           padding: 11,
           minHeight: 112,
         } as CSSProperties;
