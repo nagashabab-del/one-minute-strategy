@@ -5282,6 +5282,13 @@ export default function Home() {
             successText: "#1E7A58",
             dangerText: "#9C2F39",
             warnText: "#9A6A2F",
+            sectionBg: "#F8F6FC",
+            sectionBorder: "1px solid rgba(85,44,128,0.20)",
+            fieldBg: "#FFFFFF",
+            fieldBorder: "1px solid rgba(85,44,128,0.30)",
+            fieldSoftBg: "#F5F2FA",
+            labelText: "rgba(85,44,128,0.78)",
+            headingText: "rgba(49,33,73,0.98)",
           }
         : {
             pageBg: "#05070d",
@@ -5341,6 +5348,13 @@ export default function Home() {
             successText: "#A6F4D8",
             dangerText: "#FFC5C5",
             warnText: "#FFDAB0",
+            sectionBg: "rgba(255,255,255,0.03)",
+            sectionBorder: "1px solid rgba(255,255,255,0.12)",
+            fieldBg: "rgba(0,0,0,0.35)",
+            fieldBorder: "1px solid rgba(255,255,255,0.16)",
+            fieldSoftBg: "rgba(255,255,255,0.04)",
+            labelText: "rgba(255,255,255,0.76)",
+            headingText: "rgba(255,255,255,0.96)",
           };
       const textTone = (alpha: number) =>
         isCalmTheme
@@ -5627,13 +5641,18 @@ export default function Home() {
         gap: space.md,
       },
       card: {
-        background: palette.cardBg,
+        background: isCalmTheme ? palette.sectionBg : palette.cardBg,
         backdropFilter: isCalmTheme ? "none" : "blur(14px)",
-        border: palette.cardBorder,
+        border: isCalmTheme ? palette.sectionBorder : palette.cardBorder,
         borderRadius: 16,
         padding: isMobile ? space.sm : space.md,
       },
-      cardTitle: { fontSize: textScale.sectionTitle, fontWeight: 900, margin: 0 },
+      cardTitle: {
+        fontSize: textScale.sectionTitle,
+        fontWeight: 900,
+        margin: 0,
+        color: palette.headingText,
+      },
       muted: {
         color: textTone(0.76),
         fontSize: textScale.small,
@@ -5641,7 +5660,8 @@ export default function Home() {
       },
       label: {
         fontSize: textScale.small,
-        color: textTone(0.78),
+        color: isCalmTheme ? palette.labelText : textTone(0.78),
+        fontWeight: 700,
         marginBottom: space.xs,
       },
       input: {
@@ -5649,8 +5669,8 @@ export default function Home() {
         padding: isMobile ? "10px 11px" : `${space.xs}px`,
         minHeight: touchTarget,
         borderRadius: 12,
-        background: palette.inputBg,
-        border: palette.inputBorder,
+        background: palette.fieldBg,
+        border: palette.fieldBorder,
         color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         fontSize: isMobile ? 16 : 14,
@@ -5698,8 +5718,8 @@ export default function Home() {
         width: "100%",
         padding: isMobile ? "11px 12px" : `${space.sm}px`,
         borderRadius: isMobile ? 12 : 14,
-        background: palette.inputBg,
-        border: palette.inputBorder,
+        background: palette.fieldBg,
+        border: palette.fieldBorder,
         color: isCalmTheme ? "rgba(49,33,73,0.96)" : "white",
         outline: "none",
         resize: "none" as const,
@@ -5728,18 +5748,18 @@ export default function Home() {
       qCard: {
         padding: isMobile ? 11 : 14,
         borderRadius: 14,
-        background: palette.cardBg,
-        border: palette.cardBorder,
+        background: isCalmTheme ? palette.sectionBg : palette.cardBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.cardBorder,
         marginTop: isMobile ? 10 : 12,
       } as CSSProperties,
       advancedScopeCard: {
         marginTop: 0,
         padding: isMobile ? 12 : 15,
         borderRadius: isMobile ? 14 : 15,
-        border: palette.infoBorder,
+        border: isCalmTheme ? palette.sectionBorder : palette.infoBorder,
         background:
           isCalmTheme
-            ? palette.cardBg
+            ? palette.sectionBg
             : "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 36%, rgba(255,255,255,0.02) 100%)",
         boxShadow: isCalmTheme
           ? "none"
@@ -5832,6 +5852,7 @@ export default function Home() {
         marginBottom: space.xs,
         lineHeight: 1.5,
         fontSize: textScale.bodyStrong,
+        color: palette.headingText,
       } as CSSProperties,
       advisorQuestionHeader: (key: string) =>
         ({
@@ -7541,8 +7562,8 @@ export default function Home() {
       sideSectionGroup: {
         marginTop: isMobile ? 10 : 12,
         borderRadius: 14,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.sectionBg : palette.sideBlockBg,
         padding: isMobile ? 9 : 10,
       } as CSSProperties,
       sideSectionGroupHead: {
@@ -7560,9 +7581,9 @@ export default function Home() {
       sideBlock: {
         marginTop: isMobile ? 7 : 8,
         borderRadius: 14,
-        border: palette.sideBlockBorder,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
         borderRight: isCalmTheme ? "2px solid rgba(85,44,128,0.24)" : palette.sideBlockAccent,
-        background: palette.sideBlockBg,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         boxShadow: isCalmTheme ? "none" : "inset 0 1px 0 rgba(255,255,255,0.04)",
         padding: isMobile ? 9 : 11,
       } as CSSProperties,
@@ -7929,8 +7950,8 @@ export default function Home() {
       } as CSSProperties,
       actionTrackerStat: {
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: "7px 8px",
       } as CSSProperties,
       actionTrackerStatLabel: {
@@ -7987,8 +8008,8 @@ export default function Home() {
       } as CSSProperties,
       actionTaskQuickItem: {
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: "6px 8px",
         display: "grid",
         gap: 2,
@@ -8023,8 +8044,8 @@ export default function Home() {
       } as CSSProperties,
       outputPackCard: {
         borderRadius: 12,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: 10,
       } as CSSProperties,
       outputPackTitle: {
@@ -8068,8 +8089,8 @@ export default function Home() {
       } as CSSProperties,
       riskBoardStat: {
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: "7px 8px",
       } as CSSProperties,
       riskBoardStatLabel: {
@@ -8090,8 +8111,8 @@ export default function Home() {
       } as CSSProperties,
       riskLegendItem: {
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: "7px 8px",
         display: "flex",
         alignItems: "center",
@@ -8233,8 +8254,8 @@ export default function Home() {
       } as CSSProperties,
       riskQuickItem: {
         borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
         padding: "6px 8px",
         display: "grid",
         gap: 2,
@@ -8319,8 +8340,8 @@ export default function Home() {
       } as CSSProperties,
       governanceStat: {
         borderRadius: 10,
-        border: isCalmTheme ? palette.sideBlockBorder : "1px solid rgba(255,255,255,0.08)",
-        background: isCalmTheme ? palette.sideBlockBg : "rgba(255,255,255,0.03)",
+        border: isCalmTheme ? palette.sectionBorder : "1px solid rgba(255,255,255,0.08)",
+        background: isCalmTheme ? palette.fieldSoftBg : "rgba(255,255,255,0.03)",
         padding: "8px 9px",
       } as CSSProperties,
       governanceStatLabel: {
@@ -8504,7 +8525,7 @@ export default function Home() {
         fontSize: isMobile ? 16 : 18,
         fontWeight: 900,
         lineHeight: 1.45,
-        color: textTone(0.96),
+        color: palette.headingText,
       } as CSSProperties,
       stageScrollAnchor: {
         scrollMarginTop: isMobile ? 10 : 14,
