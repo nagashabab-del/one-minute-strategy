@@ -797,10 +797,15 @@ const STORAGE_KEY = "oms_dashboard_full_v1";
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const EXPERIMENTAL_HUB_KEY = "oms_local_experimental_hub_v1";
+const EXPERIMENTAL_HUB_PROJECT_KEY_PREFIX = "oms_local_experimental_hub_project_v1_";
 const FALLBACK_PROJECT_ID = "local_default_project";
 
 function projectDataKey(projectId: string) {
   return `${PROJECT_DATA_KEY_PREFIX}${projectId}`;
+}
+
+function experimentalHubProjectKey(projectId: string) {
+  return `${EXPERIMENTAL_HUB_PROJECT_KEY_PREFIX}${projectId}`;
 }
 
 function createProjectId() {
@@ -1238,6 +1243,10 @@ export default function Home() {
   const [experimentalHubEnabled, setExperimentalHubEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
+      const projectScopedValue = localStorage.getItem(experimentalHubProjectKey(activeProjectId));
+      if (projectScopedValue === "1" || projectScopedValue === "0") {
+        return projectScopedValue === "1";
+      }
       return localStorage.getItem(EXPERIMENTAL_HUB_KEY) === "1";
     } catch {
       return false;
@@ -1310,8 +1319,7 @@ export default function Home() {
     canLoadDemo,
   } = currentRolePermissions;
   const canEditBoqPricing = canEditAdvancedExecution || canEditBudget;
-  // Keep experimental mode as a visual theme only (no alternate feature shell).
-  const showExperimentalProjectsHubShell = false;
+  const showExperimentalProjectsHubShell = true;
   const roleCapabilities = [
     { id: "session", label: "إعداد الجلسة", enabled: canEditSessionSetup },
     { id: "project", label: "بيانات المشروع", enabled: canEditProjectCore },
@@ -2598,11 +2606,15 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(EXPERIMENTAL_HUB_KEY, experimentalHubEnabled ? "1" : "0");
+      localStorage.setItem(
+        experimentalHubProjectKey(activeProjectId),
+        experimentalHubEnabled ? "1" : "0"
+      );
+      localStorage.removeItem(EXPERIMENTAL_HUB_KEY);
     } catch {
       // no-op
     }
-  }, [experimentalHubEnabled]);
+  }, [activeProjectId, experimentalHubEnabled]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -12152,8 +12164,7 @@ export default function Home() {
                           : boqStateTone === "working"
                             ? "مكتمل جزئيًا"
                             : "غير مكتمل";
-                      const isBoqExpanded =
-                        !isMobile || (boqRowExpanded[row.id] ?? idx === 0);
+                      const isBoqExpanded = !isMobile || (boqRowExpanded[row.id] ?? true);
                       return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.boqItemCard}>
@@ -12175,7 +12186,7 @@ export default function Home() {
                                   onClick={() =>
                                     setBoqRowExpanded((prev) => ({
                                       ...prev,
-                                      [row.id]: !(prev[row.id] ?? idx === 0),
+                                      [row.id]: !(prev[row.id] ?? true),
                                     }))
                                   }
                                   aria-expanded={isBoqExpanded}
@@ -12702,8 +12713,7 @@ export default function Home() {
                       liveRiskItems.map((risk, idx) => {
                         const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
                         const severity = riskSeverityFromScore(score);
-                        const isRiskExpanded =
-                          !isMobile || (riskCardExpanded[risk.id] ?? idx === 0);
+                        const isRiskExpanded = !isMobile || (riskCardExpanded[risk.id] ?? true);
                         return (
                           <div key={risk.id} style={styles.riskCard(severity, risk.status)}>
                             <div style={styles.riskCardHead}>
@@ -12721,7 +12731,7 @@ export default function Home() {
                                     onClick={() =>
                                       setRiskCardExpanded((prev) => ({
                                         ...prev,
-                                        [risk.id]: !(prev[risk.id] ?? idx === 0),
+                                        [risk.id]: !(prev[risk.id] ?? true),
                                       }))
                                     }
                                     aria-expanded={isRiskExpanded}
@@ -13091,8 +13101,7 @@ export default function Home() {
                       </div>
                     ) : (
                       actionTrackerItems.map((item, idx) => {
-                        const isTaskExpanded =
-                          !isMobile || (actionTaskExpanded[item.id] ?? idx === 0);
+                        const isTaskExpanded = !isMobile || (actionTaskExpanded[item.id] ?? true);
                         return (
                         <div key={item.id} style={styles.actionTaskCard(item.status)}>
                           <div style={styles.actionTaskTopRow}>
@@ -13113,7 +13122,7 @@ export default function Home() {
                                   onClick={() =>
                                     setActionTaskExpanded((prev) => ({
                                       ...prev,
-                                      [item.id]: !(prev[item.id] ?? idx === 0),
+                                      [item.id]: !(prev[item.id] ?? true),
                                     }))
                                   }
                                   aria-expanded={isTaskExpanded}
