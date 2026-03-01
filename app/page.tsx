@@ -6845,8 +6845,12 @@ export default function Home() {
       } as CSSProperties,
       boqItemCard: {
         borderRadius: 14,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
+        border: isCalmTheme
+          ? "1px solid rgba(176,162,211,0.45)"
+          : palette.sideBlockBorder,
+        background: isCalmTheme
+          ? "#FBFAFE"
+          : palette.sideBlockBg,
         padding: isMobile ? 11 : 12,
       } as CSSProperties,
       boqItemHead: {
@@ -6873,16 +6877,22 @@ export default function Home() {
       } as CSSProperties,
       boqItemIndexBadge: {
         borderRadius: 999,
-        border: palette.infoBorder,
-        background: palette.infoBg,
-        color: textTone(0.94),
+        border: isCalmTheme
+          ? "1px solid rgba(85,44,128,0.30)"
+          : palette.infoBorder,
+        background: isCalmTheme
+          ? "rgba(85,44,128,0.10)"
+          : palette.infoBg,
+        color: isCalmTheme
+          ? "rgba(85,44,128,0.96)"
+          : textTone(0.94),
         fontSize: 11.5,
         fontWeight: 900,
         padding: "4px 8px",
         whiteSpace: "nowrap",
       } as CSSProperties,
       boqItemHeadTitle: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 900,
         color: textTone(0.94),
         lineHeight: 1.45,
@@ -6895,20 +6905,24 @@ export default function Home() {
       } as CSSProperties,
       boqMiniSummaryItem: {
         borderRadius: 10,
-        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
-        padding: "6px 8px",
+        border: isCalmTheme
+          ? "1px solid rgba(85,44,128,0.34)"
+          : palette.sideBlockBorder,
+        background: isCalmTheme
+          ? "#552C80"
+          : palette.sideBlockBg,
+        padding: "7px 8px",
         display: "grid",
         gap: 2,
       } as CSSProperties,
       boqMiniSummaryLabel: {
         fontSize: 10.5,
-        color: textTone(0.68),
+        color: isCalmTheme ? "rgba(255,255,255,0.82)" : textTone(0.68),
         lineHeight: 1.35,
       } as CSSProperties,
       boqMiniSummaryValue: {
         fontSize: 12.5,
-        color: textTone(0.94),
+        color: isCalmTheme ? "#FFFFFF" : textTone(0.94),
         fontWeight: 800,
         lineHeight: 1.45,
       } as CSSProperties,
@@ -8080,24 +8094,34 @@ export default function Home() {
       actionTaskCard: (status: ActionTaskStatus) =>
         ({
           marginTop: 10,
-          borderRadius: 12,
+          borderRadius: 14,
           border:
-            status === "مكتمل"
-              ? palette.successBorder
-              : status === "متعثر"
-                ? palette.dangerBorder
-                : status === "جاري"
-                  ? palette.infoBorder
-                  : palette.sideBlockBorder,
+            isCalmTheme
+              ? status === "مكتمل"
+                ? "1px solid rgba(74,158,125,0.44)"
+                : status === "متعثر"
+                  ? "1px solid rgba(196,112,104,0.46)"
+                  : status === "جاري"
+                    ? "1px solid rgba(85,44,128,0.40)"
+                    : "1px solid rgba(176,162,211,0.45)"
+              : status === "مكتمل"
+                ? palette.successBorder
+                : status === "متعثر"
+                  ? palette.dangerBorder
+                  : status === "جاري"
+                    ? palette.infoBorder
+                    : palette.sideBlockBorder,
           background:
-            status === "مكتمل"
-              ? palette.successBg
-              : status === "متعثر"
-                ? palette.dangerBg
-                : status === "جاري"
-                  ? palette.infoBg
-                  : palette.sideBlockBg,
-          padding: isMobile ? 9 : 10,
+            isCalmTheme
+              ? "#FBFAFE"
+              : status === "مكتمل"
+                ? palette.successBg
+                : status === "متعثر"
+                  ? palette.dangerBg
+                  : status === "جاري"
+                    ? palette.infoBg
+                    : palette.sideBlockBg,
+          padding: isMobile ? 10 : 11,
         } as CSSProperties),
       actionTaskHead: {
         display: "grid",
@@ -8119,14 +8143,14 @@ export default function Home() {
         flexWrap: "wrap",
       } as CSSProperties,
       actionTaskTitle: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 900,
         color: textTone(0.96),
         lineHeight: 1.5,
       } as CSSProperties,
       actionTaskMeta: {
-        fontSize: 11.5,
-        color: textTone(0.72),
+        fontSize: 12,
+        color: textTone(0.76),
       } as CSSProperties,
       actionTaskQuickGrid: {
         marginTop: 8,
@@ -8136,20 +8160,22 @@ export default function Home() {
       } as CSSProperties,
       actionTaskQuickItem: {
         borderRadius: 10,
-        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
-        padding: "6px 8px",
+        border: isCalmTheme
+          ? "1px solid rgba(85,44,128,0.34)"
+          : palette.sideBlockBorder,
+        background: isCalmTheme ? "#552C80" : palette.sideBlockBg,
+        padding: "7px 8px",
         display: "grid",
         gap: 2,
       } as CSSProperties,
       actionTaskQuickLabel: {
         fontSize: 10.5,
-        color: textTone(0.68),
+        color: isCalmTheme ? "rgba(255,255,255,0.82)" : textTone(0.68),
         lineHeight: 1.35,
       } as CSSProperties,
       actionTaskQuickValue: {
         fontSize: 12.5,
-        color: textTone(0.94),
+        color: isCalmTheme ? "#FFFFFF" : textTone(0.94),
         fontWeight: 800,
         lineHeight: 1.45,
       } as CSSProperties,
@@ -8274,27 +8300,39 @@ export default function Home() {
       riskCard: (severity: RiskSeverity, status: RiskStatus) =>
         ({
           marginTop: 10,
-          borderRadius: 12,
+          borderRadius: 14,
           border:
-            status === "مغلق"
-              ? palette.successBorder
-              : severity === "critical"
-                ? palette.criticalBorder
-                : severity === "high"
-                  ? palette.dangerBorder
-                  : severity === "medium"
-                    ? palette.warnBorder
-                    : palette.infoBorder,
+            isCalmTheme
+              ? status === "مغلق"
+                ? "1px solid rgba(74,158,125,0.44)"
+                : severity === "critical"
+                  ? "1px solid rgba(183,94,123,0.48)"
+                  : severity === "high"
+                    ? "1px solid rgba(196,112,104,0.46)"
+                    : severity === "medium"
+                      ? "1px solid rgba(188,127,57,0.46)"
+                      : "1px solid rgba(85,44,128,0.40)"
+              : status === "مغلق"
+                ? palette.successBorder
+                : severity === "critical"
+                  ? palette.criticalBorder
+                  : severity === "high"
+                    ? palette.dangerBorder
+                    : severity === "medium"
+                      ? palette.warnBorder
+                      : palette.infoBorder,
           background:
-            status === "مغلق"
-              ? palette.successBg
-              : severity === "critical"
-                ? (isCalmTheme ? palette.criticalBg : `linear-gradient(180deg, ${palette.criticalBg}, rgba(255,255,255,0.02))`)
-                : severity === "high"
-                  ? (isCalmTheme ? palette.dangerBg : `linear-gradient(180deg, ${palette.dangerBg}, rgba(255,255,255,0.02))`)
-                  : severity === "medium"
-                    ? (isCalmTheme ? palette.warnBg : `linear-gradient(180deg, ${palette.warnBg}, rgba(255,255,255,0.02))`)
-                    : (isCalmTheme ? palette.infoBg : `linear-gradient(180deg, ${palette.infoBg}, rgba(255,255,255,0.02))`),
+            isCalmTheme
+              ? "#FBFAFE"
+              : status === "مغلق"
+                ? palette.successBg
+                : severity === "critical"
+                  ? `linear-gradient(180deg, ${palette.criticalBg}, rgba(255,255,255,0.02))`
+                  : severity === "high"
+                    ? `linear-gradient(180deg, ${palette.dangerBg}, rgba(255,255,255,0.02))`
+                    : severity === "medium"
+                      ? `linear-gradient(180deg, ${palette.warnBg}, rgba(255,255,255,0.02))`
+                      : `linear-gradient(180deg, ${palette.infoBg}, rgba(255,255,255,0.02))`,
           boxShadow:
             status === "مغلق"
               ? "none"
@@ -8323,7 +8361,7 @@ export default function Home() {
         flexWrap: "wrap",
       } as CSSProperties,
       riskCardTitle: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 900,
         color: textTone(0.96),
       } as CSSProperties,
@@ -8390,20 +8428,22 @@ export default function Home() {
       } as CSSProperties,
       riskQuickItem: {
         borderRadius: 10,
-        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
-        padding: "6px 8px",
+        border: isCalmTheme
+          ? "1px solid rgba(85,44,128,0.34)"
+          : palette.sideBlockBorder,
+        background: isCalmTheme ? "#552C80" : palette.sideBlockBg,
+        padding: "7px 8px",
         display: "grid",
         gap: 2,
       } as CSSProperties,
       riskQuickLabel: {
         fontSize: 10.5,
-        color: textTone(0.68),
+        color: isCalmTheme ? "rgba(255,255,255,0.82)" : textTone(0.68),
         lineHeight: 1.35,
       } as CSSProperties,
       riskQuickValue: {
         fontSize: 12.5,
-        color: textTone(0.94),
+        color: isCalmTheme ? "#FFFFFF" : textTone(0.94),
         fontWeight: 800,
         lineHeight: 1.45,
       } as CSSProperties,
