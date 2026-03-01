@@ -9551,6 +9551,7 @@ export default function Home() {
 
   const answerQuality = analyzeAnswerQuality();
   const indicators = projectIndicators();
+  const brandLogoSrc = experimentalHubEnabled ? "/logo.svg" : "/logo-basic.svg";
 
   if (!hasMounted) {
     return (
@@ -9669,7 +9670,7 @@ export default function Home() {
           {isWelcome ? (
             <div style={styles.welcomeHero}>
               <Image
-                src="/logo.svg"
+                src={brandLogoSrc}
                 alt="One Minute Strategy"
                 width={420}
                 height={142}
@@ -9755,7 +9756,7 @@ export default function Home() {
             <header style={styles.header}>
               <div style={styles.headerBrand}>
                 <Image
-                  src="/logo.svg"
+                  src={brandLogoSrc}
                   alt="One Minute Strategy"
                   width={180}
                   height={44}
