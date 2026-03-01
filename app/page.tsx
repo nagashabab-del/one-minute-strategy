@@ -5898,19 +5898,33 @@ export default function Home() {
       } as CSSProperties,
       advisorQuestionHeader: (key: string) =>
         ({
+          position: "relative",
+          overflow: "hidden",
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: isMobile ? "7px 9px" : "8px 10px",
+          padding: isMobile ? "10px 9px 8px" : "11px 10px 8px",
           borderRadius: 12,
           border: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}2f`,
-          borderTop: isCalmTheme ? `3px solid ${advisorColor(key)}C4` : `1px solid ${advisorColor(key)}2f`,
+          borderTop: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}2f`,
           background: isCalmTheme
             ? "#4A2A73"
             : `linear-gradient(180deg, ${advisorColor(key)}14, rgba(255,255,255,0.02))`,
           boxShadow: isCalmTheme
             ? "none"
             : `inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 18px ${advisorColor(key)}12`,
+        } as CSSProperties),
+      advisorQuestionAccentBar: (key: string) =>
+        ({
+          position: "absolute",
+          top: 0,
+          right: 14,
+          width: 52,
+          height: 5,
+          borderRadius: "0 0 6px 6px",
+          background: advisorColor(key),
+          opacity: 0.96,
+          pointerEvents: "none",
         } as CSSProperties),
       advisorQuestionIcon: (key: string) =>
         ({
@@ -10297,6 +10311,7 @@ export default function Home() {
                     return (
                       <div key={q.id} style={styles.advisorFlowCard("round1")}>
                         <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                          <span style={styles.advisorQuestionAccentBar(q.advisor_key)} />
                           <span style={styles.advisorQuestionIcon(q.advisor_key)}>
                             {advisorIconSrc(q.advisor_key) ? (
                               <Image
@@ -10386,6 +10401,7 @@ export default function Home() {
                     return (
                       <div key={q.id} style={styles.advisorFlowCard("round2")}>
                         <div style={styles.advisorQuestionHeader(q.advisor_key)}>
+                          <span style={styles.advisorQuestionAccentBar(q.advisor_key)} />
                           <span style={styles.advisorQuestionIcon(q.advisor_key)}>
                             {advisorIconSrc(q.advisor_key) ? (
                               <Image
@@ -10474,6 +10490,7 @@ export default function Home() {
                   {dialogue.map((m, i) => (
                     <div key={i} style={styles.advisorFlowCard("dialogue")}>
                       <div style={styles.advisorQuestionHeader(m.advisor)}>
+                        <span style={styles.advisorQuestionAccentBar(m.advisor)} />
                         <span style={styles.advisorQuestionIcon(m.advisor)}>
                           {advisorIconSrc(m.advisor) ? (
                             <Image
@@ -10922,6 +10939,7 @@ export default function Home() {
                         ([k, v]) => (
                           <div key={k} style={styles.advisorRecoCard(k)}>
                             <div style={styles.advisorQuestionHeader(k)}>
+                              <span style={styles.advisorQuestionAccentBar(k)} />
                               <span style={styles.advisorQuestionIcon(k)}>
                                 {advisorIconSrc(k) ? (
                                   <Image
