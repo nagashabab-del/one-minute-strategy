@@ -1233,6 +1233,8 @@ export default function Home() {
   const [advancedBoqStep, setAdvancedBoqStep] = useState<
     "boq" | "quality_risk" | "operations"
   >("boq");
+  const [boqRowExpanded, setBoqRowExpanded] = useState<Record<string, boolean>>({});
+  const [actionTaskExpanded, setActionTaskExpanded] = useState<Record<string, boolean>>({});
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
   const initStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const round1StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
@@ -6834,6 +6836,14 @@ export default function Home() {
         gap: 8,
         marginBottom: 8,
       } as CSSProperties,
+      boqItemHeadActions: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: isMobile ? "space-between" : "flex-end",
+        gap: 8,
+        width: isMobile ? "100%" : "auto",
+        flexWrap: "wrap",
+      } as CSSProperties,
       boqItemTitleWrap: {
         display: "flex",
         alignItems: "center",
@@ -6856,6 +6866,44 @@ export default function Home() {
         color: textTone(0.94),
         lineHeight: 1.45,
       } as CSSProperties,
+      boqMiniSummaryGrid: {
+        marginTop: 6,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      boqMiniSummaryItem: {
+        borderRadius: 10,
+        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
+        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
+        padding: "6px 8px",
+        display: "grid",
+        gap: 2,
+      } as CSSProperties,
+      boqMiniSummaryLabel: {
+        fontSize: 10.5,
+        color: textTone(0.68),
+        lineHeight: 1.35,
+      } as CSSProperties,
+      boqMiniSummaryValue: {
+        fontSize: 12.5,
+        color: textTone(0.94),
+        fontWeight: 800,
+        lineHeight: 1.45,
+      } as CSSProperties,
+      collapseToggleBtn: (open: boolean) =>
+        ({
+          minHeight: 34,
+          borderRadius: 999,
+          border: open ? palette.infoBorder : palette.secondaryBorder,
+          background: open ? palette.infoBg : palette.secondaryBg,
+          color: isCalmTheme ? textTone(0.95) : "white",
+          fontSize: 11.5,
+          fontWeight: 800,
+          padding: "6px 10px",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        } as CSSProperties),
       timelineGrid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
@@ -7989,6 +8037,21 @@ export default function Home() {
       actionTaskHead: {
         display: "grid",
         gap: 4,
+      } as CSSProperties,
+      actionTaskTopRow: {
+        display: "flex",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        gap: 8,
+        flexDirection: isMobile ? "column" : "row",
+      } as CSSProperties,
+      actionTaskHeadActions: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: isMobile ? "space-between" : "flex-end",
+        gap: 8,
+        width: isMobile ? "100%" : "auto",
+        flexWrap: "wrap",
       } as CSSProperties,
       actionTaskTitle: {
         fontSize: 13,
@@ -11375,6 +11438,8 @@ export default function Home() {
                           : boqStateTone === "working"
                             ? "مكتمل جزئيًا"
                             : "غير مكتمل";
+                      const isBoqExpanded =
+                        !isMobile || (boqRowExpanded[row.id] ?? idx === 0);
                       return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.boqItemCard}>
@@ -11387,9 +11452,61 @@ export default function Home() {
                                 {row.item.trim() || "بند بدون اسم"}
                               </div>
                             </div>
-                            <div style={styles.stageStatusChip(boqStateTone)}>{boqStateLabel}</div>
+                            <div style={styles.boqItemHeadActions}>
+                              <div style={styles.stageStatusChip(boqStateTone)}>{boqStateLabel}</div>
+                              {isMobile ? (
+                                <button
+                                  type="button"
+                                  style={styles.collapseToggleBtn(isBoqExpanded)}
+                                  onClick={() =>
+                                    setBoqRowExpanded((prev) => ({
+                                      ...prev,
+                                      [row.id]: !(prev[row.id] ?? idx === 0),
+                                    }))
+                                  }
+                                  aria-expanded={isBoqExpanded}
+                                >
+                                  {isBoqExpanded ? "إخفاء التفاصيل" : "تفاصيل البند"}
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
 
+                          <div style={styles.boqMiniSummaryGrid}>
+                            <div style={styles.boqMiniSummaryItem}>
+                              <div style={styles.boqMiniSummaryLabel}>الكمية</div>
+                              <div style={styles.boqMiniSummaryValue}>
+                                {toArabicDigits(row.qty || "0")} {row.unit || ""}
+                              </div>
+                            </div>
+                            <div style={styles.boqMiniSummaryItem}>
+                              <div style={styles.boqMiniSummaryLabel}>إجمالي التكلفة</div>
+                              <div style={styles.boqMiniSummaryValue}>
+                                {financialRow
+                                  ? renderMoneyValue(financialRow.totalCost)
+                                  : "غير مكتمل"}
+                              </div>
+                            </div>
+                            <div style={styles.boqMiniSummaryItem}>
+                              <div style={styles.boqMiniSummaryLabel}>إجمالي البيع</div>
+                              <div style={styles.boqMiniSummaryValue}>
+                                {financialRow
+                                  ? renderMoneyValue(financialRow.totalSell)
+                                  : "غير مكتمل"}
+                              </div>
+                            </div>
+                            <div style={styles.boqMiniSummaryItem}>
+                              <div style={styles.boqMiniSummaryLabel}>الربح</div>
+                              <div style={styles.boqMiniSummaryValue}>
+                                {financialRow
+                                  ? renderMoneyValue(financialRow.profit)
+                                  : "غير مكتمل"}
+                              </div>
+                            </div>
+                          </div>
+
+                          {isBoqExpanded ? (
+                          <>
                           <div style={styles.initFormGrid}>
                             <input
                               value={row.category}
@@ -11637,6 +11754,12 @@ export default function Home() {
                               حذف البند
                             </button>
                           </div>
+                          </>
+                          ) : (
+                            <div style={styles.textMutedSmallTop8}>
+                              افتح تفاصيل البند لتعديل المواصفات والتسعير والتبعية.
+                            </div>
+                          )}
                         </div>
                       </div>
                       );
@@ -12227,14 +12350,45 @@ export default function Home() {
                         المرحلة السابقة لإنشاء قائمة التنفيذ.
                       </div>
                     ) : (
-                      actionTrackerItems.map((item, idx) => (
+                      actionTrackerItems.map((item, idx) => {
+                        const taskTone: "ready" | "active" | "working" | "idle" =
+                          item.status === "مكتمل"
+                            ? "ready"
+                            : item.status === "جاري"
+                              ? "active"
+                              : item.status === "متعثر"
+                                ? "working"
+                                : "idle";
+                        const isTaskExpanded =
+                          !isMobile || (actionTaskExpanded[item.id] ?? idx === 0);
+                        return (
                         <div key={item.id} style={styles.actionTaskCard(item.status)}>
-                          <div style={styles.actionTaskHead}>
-                            <div style={styles.actionTaskTitle}>
-                              {toArabicDigits(idx + 1)}. {item.task}
+                          <div style={styles.actionTaskTopRow}>
+                            <div style={styles.actionTaskHead}>
+                              <div style={styles.actionTaskTitle}>
+                                {toArabicDigits(idx + 1)}. {item.task}
+                              </div>
+                              <div style={styles.actionTaskMeta}>
+                                {item.phase} • {item.stream}
+                              </div>
                             </div>
-                            <div style={styles.actionTaskMeta}>
-                              {item.phase} • {item.stream}
+                            <div style={styles.actionTaskHeadActions}>
+                              <div style={styles.stageStatusChip(taskTone)}>{item.status}</div>
+                              {isMobile ? (
+                                <button
+                                  type="button"
+                                  style={styles.collapseToggleBtn(isTaskExpanded)}
+                                  onClick={() =>
+                                    setActionTaskExpanded((prev) => ({
+                                      ...prev,
+                                      [item.id]: !(prev[item.id] ?? idx === 0),
+                                    }))
+                                  }
+                                  aria-expanded={isTaskExpanded}
+                                >
+                                  {isTaskExpanded ? "إخفاء التفاصيل" : "تفاصيل المهمة"}
+                                </button>
+                              ) : null}
                             </div>
                           </div>
 
@@ -12255,6 +12409,8 @@ export default function Home() {
                             </div>
                           </div>
 
+                          {isTaskExpanded ? (
+                          <>
                           <div style={styles.actionTaskGrid}>
                             <div>
                               <div style={styles.label}>الحالة</div>
@@ -12312,8 +12468,15 @@ export default function Home() {
                               placeholder="اكتب تحديث الحالة أو سبب التعثر أو الإجراء المطلوب..."
                             />
                           </div>
+                          </>
+                          ) : (
+                            <div style={styles.textMutedSmallTop8}>
+                              افتح تفاصيل المهمة لتعديل الحالة والمسؤول والملاحظات التنفيذية.
+                            </div>
+                          )}
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
