@@ -7755,6 +7755,16 @@ export default function Home() {
         fontWeight: 900,
         color: textTone(0.95),
       } as CSSProperties,
+      financialOutcomeValue: (status: string) =>
+        ({
+          color:
+            status === "رابح"
+              ? palette.successSolid
+              : status === "خاسر"
+                ? palette.dangerSolid
+                : textTone(0.92),
+          fontWeight: 900,
+        } as CSSProperties),
       welcomeHero: {
         display: "flex",
         flexDirection: "column",
@@ -11825,12 +11835,7 @@ export default function Home() {
                           <div
                             style={{
                               ...styles.miniStatValue,
-                              color:
-                                boqFinancialSummary.status === "رابح"
-                                  ? "#00FF85"
-                                  : boqFinancialSummary.status === "خاسر"
-                                    ? "#FF7A45"
-                                    : "rgba(255,255,255,0.95)",
+                              ...styles.financialOutcomeValue(boqFinancialSummary.status),
                             }}
                           >
                             {renderMoneyValue(boqFinancialSummary.profit)}
@@ -13160,12 +13165,7 @@ export default function Home() {
                             صافي النتيجة:{" "}
                             <strong
                               style={{
-                                color:
-                                  boqFinancialSummary.status === "رابح"
-                                    ? "#00FF85"
-                                    : boqFinancialSummary.status === "خاسر"
-                                      ? "#FF7A45"
-                                      : "rgba(255,255,255,0.95)",
+                                ...styles.financialOutcomeValue(boqFinancialSummary.status),
                               }}
                             >
                               {renderMoneyValue(boqFinancialSummary.profit)} ({boqFinancialSummary.status})
