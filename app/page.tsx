@@ -5936,7 +5936,7 @@ export default function Home() {
           overflow: "hidden",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 12,
           padding: isMobile ? "10px 9px 8px" : "11px 10px 8px",
           borderRadius: 12,
           border: isCalmTheme ? "1px solid rgba(85,44,128,0.40)" : `1px solid ${advisorColor(key)}2f`,
@@ -5962,8 +5962,8 @@ export default function Home() {
         } as CSSProperties),
       advisorQuestionIcon: (key: string) =>
         ({
-          width: isMobile ? 26 : 28,
-          height: isMobile ? 26 : 28,
+          width: isMobile ? 32 : 34,
+          height: isMobile ? 32 : 34,
           borderRadius: 999,
           display: "flex",
           alignItems: "center",
@@ -5975,11 +5975,11 @@ export default function Home() {
             ? `0 0 0 1px rgba(255,255,255,0.08) inset`
             : `0 0 10px ${advisorColor(key)}33`,
           flexShrink: 0,
-          fontSize: isMobile ? 14 : 15,
+          fontSize: isMobile ? 16 : 17,
         } as CSSProperties),
       advisorQuestionIconImage: {
-        width: isMobile ? 15 : 16,
-        height: isMobile ? 15 : 16,
+        width: isMobile ? 18 : 19,
+        height: isMobile ? 18 : 19,
         objectFit: "contain",
         display: "block",
         filter: "brightness(0) invert(1)",
