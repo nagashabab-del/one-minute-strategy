@@ -7886,20 +7886,22 @@ export default function Home() {
         marginTop: 10,
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap: 10,
+        gap: 12,
       } as CSSProperties,
       orgRoleCard: (active: boolean) =>
         ({
-          borderRadius: 12,
-          border: active
-            ? palette.infoBorder
-            : palette.sideBlockBorder,
-          background: active
-            ? (isCalmTheme
-                ? palette.infoBg
-                : "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))")
-            : palette.sideBlockBg,
-          padding: isMobile ? 11 : 10,
+          borderRadius: 14,
+          border: isCalmTheme
+            ? "1px solid rgba(176,162,211,0.45)"
+            : active
+              ? palette.infoBorder
+              : palette.sideBlockBorder,
+          background: isCalmTheme
+            ? "#FBFAFE"
+            : active
+              ? "linear-gradient(180deg, rgba(0,229,255,0.09), rgba(255,255,255,0.03))"
+              : palette.sideBlockBg,
+          padding: isMobile ? 12 : 11,
         } as CSSProperties),
       orgRoleHead: {
         display: "flex",
@@ -7913,33 +7915,52 @@ export default function Home() {
         flex: 1,
       } as CSSProperties,
       orgRoleTitle: {
-        fontSize: 13,
+        fontSize: 15,
         fontWeight: 900,
         color: textTone(0.95),
+        lineHeight: 1.35,
       } as CSSProperties,
       orgRoleSummary: {
-        marginTop: 3,
-        fontSize: 11.5,
-        color: textTone(0.72),
-        lineHeight: 1.5,
+        marginTop: 4,
+        fontSize: 12,
+        color: textTone(0.76),
+        lineHeight: 1.55,
       } as CSSProperties,
       orgRoleToggle: (active: boolean) =>
         ({
-          minHeight: 30,
+          minHeight: 26,
           borderRadius: 999,
           border: active
-            ? palette.successBorder
-            : palette.warnBorder,
+            ? "1px solid rgba(70,168,98,0.48)"
+            : "1px solid rgba(197,102,87,0.45)",
           background: active
-            ? palette.successBg
-            : palette.warnBg,
-          color: isCalmTheme ? textTone(0.96) : "white",
-          fontSize: 11.5,
+            ? "rgba(70,168,98,0.92)"
+            : "rgba(197,102,87,0.92)",
+          color: "#FFFFFF",
+          fontSize: 11,
           fontWeight: 800,
-          padding: "5px 10px",
+          padding: "4px 10px",
           cursor: "pointer",
           flexShrink: 0,
           alignSelf: isNarrowMobile ? "flex-start" : "auto",
+        } as CSSProperties),
+      orgRoleAssigneeInput: (enabled: boolean) =>
+        ({
+          minHeight: 38,
+          borderRadius: 10,
+          border: isCalmTheme
+            ? "1px solid rgba(104,78,150,0.42)"
+            : palette.inputBorder,
+          background: isCalmTheme
+            ? enabled
+              ? "#552C80"
+              : "#E7E0F3"
+            : palette.inputBg,
+          color: isCalmTheme ? (enabled ? "#FFFFFF" : "rgba(85,44,128,0.72)") : "white",
+          fontWeight: 800,
+          textAlign: "right",
+          width: "100%",
+          padding: "0 12px",
         } as CSSProperties),
       orgRoleMetaRow: {
         marginTop: 8,
@@ -7948,14 +7969,18 @@ export default function Home() {
         gap: 8,
       } as CSSProperties,
       orgRoleMetaBox: {
-        borderRadius: 10,
-        border: palette.sideBlockBorder,
-        background: palette.sideBlockBg,
-        padding: "7px 8px",
+          borderRadius: 10,
+        border: isCalmTheme
+          ? "1px solid rgba(85,44,128,0.28)"
+          : palette.sideBlockBorder,
+        background: isCalmTheme
+          ? "#552C80"
+          : palette.sideBlockBg,
+        padding: "8px 9px",
       } as CSSProperties,
       orgRoleMetaLabel: {
         fontSize: 11,
-        color: textTone(0.70),
+        color: isCalmTheme ? "rgba(255,255,255,0.86)" : textTone(0.70),
       } as CSSProperties,
       orgRoleMetaHead: {
         display: "flex",
@@ -7967,9 +7992,13 @@ export default function Home() {
         width: 20,
         height: 20,
         borderRadius: 999,
-        border: palette.infoBorder,
-        background: palette.infoBg,
-        color: isCalmTheme ? textTone(0.96) : "white",
+        border: isCalmTheme
+          ? "1px solid rgba(255,255,255,0.32)"
+          : palette.infoBorder,
+        background: isCalmTheme
+          ? "rgba(255,255,255,0.12)"
+          : palette.infoBg,
+        color: "white",
         fontSize: 11,
         fontWeight: 900,
         lineHeight: 1,
@@ -7981,9 +8010,9 @@ export default function Home() {
       } as CSSProperties,
       orgRoleMetaValue: {
         marginTop: 3,
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 900,
-        color: textTone(0.95),
+        color: isCalmTheme ? "#FFFFFF" : textTone(0.95),
       } as CSSProperties,
       orgRoleDetailsPanel: {
         marginTop: 8,
@@ -8006,8 +8035,9 @@ export default function Home() {
       orgRoleMetaText: {
         marginTop: 8,
         fontSize: 11.5,
-        color: textTone(0.78),
+        color: textTone(0.74),
         lineHeight: 1.5,
+        textAlign: "center",
       } as CSSProperties,
       actionTrackerHead: {
         display: "flex",
@@ -11177,7 +11207,7 @@ export default function Home() {
                                   updateOrgRole(role.id, { enabled: !role.enabled })
                                 }
                               >
-                                {role.enabled ? "مفعّل" : "غير مفعّل"}
+                                {role.enabled ? "فعال" : "غير فعال"}
                               </button>
                             </div>
 
@@ -11187,7 +11217,7 @@ export default function Home() {
                                 onChange={(e) =>
                                   updateOrgRole(role.id, { assignee: e.target.value })
                                 }
-                                style={styles.input}
+                                style={{ ...styles.input, ...styles.orgRoleAssigneeInput(role.enabled) }}
                                 disabled={!canEditAdvancedExecution || !role.enabled}
                                 placeholder="اسم المسؤول (اختياري)"
                               />
