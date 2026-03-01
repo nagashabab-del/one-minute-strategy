@@ -591,7 +591,24 @@ function escapeHtml(text: string) {
     .replaceAll("'", "&#39;");
 }
 
-function advisorIcon(key: string) {
+function advisorIconSrc(key: string) {
+  switch (key) {
+    case "financial_advisor":
+      return "/advisor-icons/financial-advisor.svg";
+    case "regulatory_advisor":
+      return "/advisor-icons/regulatory-advisor.svg";
+    case "operations_advisor":
+      return "/advisor-icons/operations-advisor.svg";
+    case "marketing_advisor":
+      return "/advisor-icons/marketing-advisor.svg";
+    case "risk_advisor":
+      return "/advisor-icons/risk-advisor.svg";
+    default:
+      return "";
+  }
+}
+
+function advisorIconFallback(key: string) {
   switch (key) {
     case "financial_advisor":
       return "💰";
@@ -5892,6 +5909,12 @@ export default function Home() {
           flexShrink: 0,
           fontSize: isMobile ? 14 : 15,
         } as CSSProperties),
+      advisorQuestionIconImage: {
+        width: isMobile ? 15 : 16,
+        height: isMobile ? 15 : 16,
+        objectFit: "contain",
+        display: "block",
+      } as CSSProperties,
       advisorQuestionText: {
         color: textTone(0.92),
         fontWeight: 900,
@@ -6810,6 +6833,13 @@ export default function Home() {
 
       advisorIconS: {
         fontSize: 28,
+        marginBottom: 8,
+      } as CSSProperties,
+      advisorIconSImage: {
+        width: 34,
+        height: 34,
+        objectFit: "contain",
+        display: "block",
         marginBottom: 8,
       } as CSSProperties,
       advisorNameS: {
@@ -10052,7 +10082,20 @@ export default function Home() {
                                 effectiveSelectedAdvisors.includes(key as AdvisorKey)
                               )}
                             />
-                            <div style={styles.advisorIconS}>{advisorIcon(key)}</div>
+                            <div style={styles.advisorIconS}>
+                              {advisorIconSrc(key) ? (
+                                <Image
+                                  src={advisorIconSrc(key)}
+                                  alt=""
+                                  aria-hidden="true"
+                                  width={34}
+                                  height={34}
+                                  style={styles.advisorIconSImage}
+                                />
+                              ) : (
+                                advisorIconFallback(key)
+                              )}
+                            </div>
                             <div style={styles.advisorNameS}>{advisorName(key)}</div>
                             <div style={styles.advisorRoleS}>{advisorRoleShort(key)}</div>
                           </button>
@@ -10235,7 +10278,18 @@ export default function Home() {
                       <div key={q.id} style={styles.advisorFlowCard("round1")}>
                         <div style={styles.advisorQuestionHeader(q.advisor_key)}>
                           <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                            {advisorIcon(q.advisor_key)}
+                            {advisorIconSrc(q.advisor_key) ? (
+                              <Image
+                                src={advisorIconSrc(q.advisor_key)}
+                                alt=""
+                                aria-hidden="true"
+                                width={16}
+                                height={16}
+                                style={styles.advisorQuestionIconImage}
+                              />
+                            ) : (
+                              advisorIconFallback(q.advisor_key)
+                            )}
                           </span>
                           <span style={styles.advisorQuestionText}>
                             {advisorTitle(q.advisor_key)}
@@ -10313,7 +10367,18 @@ export default function Home() {
                       <div key={q.id} style={styles.advisorFlowCard("round2")}>
                         <div style={styles.advisorQuestionHeader(q.advisor_key)}>
                           <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                            {advisorIcon(q.advisor_key)}
+                            {advisorIconSrc(q.advisor_key) ? (
+                              <Image
+                                src={advisorIconSrc(q.advisor_key)}
+                                alt=""
+                                aria-hidden="true"
+                                width={16}
+                                height={16}
+                                style={styles.advisorQuestionIconImage}
+                              />
+                            ) : (
+                              advisorIconFallback(q.advisor_key)
+                            )}
                           </span>
                           <span style={styles.advisorQuestionText}>
                             {advisorTitle(q.advisor_key)}
@@ -10390,7 +10455,18 @@ export default function Home() {
                     <div key={i} style={styles.advisorFlowCard("dialogue")}>
                       <div style={styles.advisorQuestionHeader(m.advisor)}>
                         <span style={styles.advisorQuestionIcon(m.advisor)}>
-                          {advisorIcon(m.advisor)}
+                          {advisorIconSrc(m.advisor) ? (
+                            <Image
+                              src={advisorIconSrc(m.advisor)}
+                              alt=""
+                              aria-hidden="true"
+                              width={16}
+                              height={16}
+                              style={styles.advisorQuestionIconImage}
+                            />
+                          ) : (
+                            advisorIconFallback(m.advisor)
+                          )}
                         </span>
                         <span style={styles.advisorQuestionText}>
                           {advisorTitle(m.advisor)}
@@ -10827,7 +10903,18 @@ export default function Home() {
                           <div key={k} style={styles.advisorRecoCard(k)}>
                             <div style={styles.advisorQuestionHeader(k)}>
                               <span style={styles.advisorQuestionIcon(k)}>
-                                {advisorIcon(k)}
+                                {advisorIconSrc(k) ? (
+                                  <Image
+                                    src={advisorIconSrc(k)}
+                                    alt=""
+                                    aria-hidden="true"
+                                    width={16}
+                                    height={16}
+                                    style={styles.advisorQuestionIconImage}
+                                  />
+                                ) : (
+                                  advisorIconFallback(k)
+                                )}
                               </span>
                               <span style={styles.advisorQuestionText}>
                                 {advisorTitle(k)}
