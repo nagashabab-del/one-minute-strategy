@@ -1271,6 +1271,7 @@ export default function Home() {
   const [actionTaskExpanded, setActionTaskExpanded] = useState<Record<string, boolean>>({});
   const [riskCardExpanded, setRiskCardExpanded] = useState<Record<string, boolean>>({});
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
   const initStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const round1StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const round2StageHeadingRef = useRef<HTMLHeadingElement | null>(null);
@@ -1287,6 +1288,10 @@ export default function Home() {
   const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
   const backupImportInputRef = useRef<HTMLInputElement | null>(null);
   const lastProjectMetaTouchRef = useRef(0);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -6596,14 +6601,52 @@ export default function Home() {
         fontWeight: 800,
         padding: "3px 7px",
       } as CSSProperties,
-      projectHubTaskCard: {
-        borderRadius: 12,
-        border: palette.cardBorder,
-        background: palette.cardBg,
-        padding: 9,
-        display: "grid",
-        gap: 6,
-      } as CSSProperties,
+      projectHubTaskCard: (group: ProjectHubTaskStatusGroup, overdue = false) =>
+        ({
+          borderRadius: 12,
+          border:
+            overdue || group === "blocked"
+              ? isCalmTheme
+                ? "1px solid rgba(198,95,95,0.56)"
+                : palette.dangerBorder
+              : group === "done"
+                ? isCalmTheme
+                  ? "1px solid rgba(74,158,125,0.52)"
+                  : palette.successBorder
+                : group === "in_progress"
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.42)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.40)"
+                    : palette.cardBorder,
+          borderRight: isCalmTheme
+            ? overdue || group === "blocked"
+              ? "4px solid rgba(198,95,95,0.72)"
+              : group === "done"
+                ? "4px solid rgba(74,158,125,0.68)"
+                : group === "in_progress"
+                  ? "4px solid rgba(85,44,128,0.66)"
+                  : "4px solid rgba(126,110,168,0.54)"
+            : undefined,
+          background:
+            overdue || group === "blocked"
+              ? isCalmTheme
+                ? "rgba(198,95,95,0.11)"
+                : palette.dangerBg
+              : group === "done"
+                ? isCalmTheme
+                  ? "rgba(74,158,125,0.10)"
+                  : palette.successBg
+                : group === "in_progress"
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.08)"
+                    : palette.infoBg
+                  : palette.cardBg,
+          padding: 9,
+          display: "grid",
+          gap: 6,
+        } as CSSProperties),
       projectHubTaskTitle: {
         fontSize: 13.5,
         lineHeight: 1.5,
@@ -6620,28 +6663,52 @@ export default function Home() {
           borderRadius: 999,
           border:
             group === "done"
-              ? palette.successBorder
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
               : group === "blocked"
-                ? palette.dangerBorder
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
                 : group === "in_progress"
-                  ? palette.infoBorder
-                  : palette.subtleBorder,
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.46)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.44)"
+                    : palette.subtleBorder,
           background:
             group === "done"
-              ? palette.successBg
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.18)"
+                : palette.successBg
               : group === "blocked"
-                ? palette.dangerBg
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.18)"
+                  : palette.dangerBg
                 : group === "in_progress"
-                  ? palette.infoBg
-                  : palette.subtleBg,
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.14)"
+                    : palette.infoBg
+                  : isCalmTheme
+                    ? "rgba(126,110,168,0.13)"
+                    : palette.subtleBg,
           color:
             group === "done"
-              ? palette.successText
+              ? isCalmTheme
+                ? "#1F6548"
+                : palette.successText
               : group === "blocked"
-                ? palette.dangerText
+                ? isCalmTheme
+                  ? "#7C2D2D"
+                  : palette.dangerText
                 : group === "in_progress"
-                  ? palette.tabActiveText
-                  : palette.tabText,
+                  ? isCalmTheme
+                    ? "#4A2A73"
+                    : palette.tabActiveText
+                  : isCalmTheme
+                    ? "#5A4A78"
+                    : palette.tabText,
           fontSize: 11.5,
           fontWeight: 800,
           padding: "4px 8px",
@@ -6652,14 +6719,52 @@ export default function Home() {
         display: "grid",
         gap: 8,
       } as CSSProperties,
-      projectHubListRow: {
-        borderRadius: 12,
-        border: palette.cardBorder,
-        background: palette.cardBg,
-        padding: "9px 10px",
-        display: "grid",
-        gap: 6,
-      } as CSSProperties,
+      projectHubListRow: (group: ProjectHubTaskStatusGroup, overdue = false) =>
+        ({
+          borderRadius: 12,
+          border:
+            overdue || group === "blocked"
+              ? isCalmTheme
+                ? "1px solid rgba(198,95,95,0.56)"
+                : palette.dangerBorder
+              : group === "done"
+                ? isCalmTheme
+                  ? "1px solid rgba(74,158,125,0.52)"
+                  : palette.successBorder
+                : group === "in_progress"
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.42)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.40)"
+                    : palette.cardBorder,
+          borderRight: isCalmTheme
+            ? overdue || group === "blocked"
+              ? "4px solid rgba(198,95,95,0.72)"
+              : group === "done"
+                ? "4px solid rgba(74,158,125,0.68)"
+                : group === "in_progress"
+                  ? "4px solid rgba(85,44,128,0.66)"
+                  : "4px solid rgba(126,110,168,0.54)"
+            : undefined,
+          background:
+            overdue || group === "blocked"
+              ? isCalmTheme
+                ? "rgba(198,95,95,0.11)"
+                : palette.dangerBg
+              : group === "done"
+                ? isCalmTheme
+                  ? "rgba(74,158,125,0.10)"
+                  : palette.successBg
+                : group === "in_progress"
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.08)"
+                    : palette.infoBg
+                  : palette.cardBg,
+          padding: "9px 10px",
+          display: "grid",
+          gap: 6,
+        } as CSSProperties),
       projectHubListHead: {
         display: "flex",
         alignItems: "center",
@@ -8148,25 +8253,90 @@ export default function Home() {
       actionTrackerStatsGrid: {
         marginTop: 10,
         display: "grid",
-        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
         gap: 8,
       } as CSSProperties,
-      actionTrackerStat: {
-        borderRadius: 10,
-        border: isCalmTheme ? palette.sectionBorder : palette.sideBlockBorder,
-        background: isCalmTheme ? palette.fieldSoftBg : palette.sideBlockBg,
-        padding: "7px 8px",
-      } as CSSProperties,
-      actionTrackerStatLabel: {
-        fontSize: 11,
-        color: textTone(0.70),
-      } as CSSProperties,
-      actionTrackerStatValue: {
-        marginTop: 3,
-        fontSize: 14,
-        fontWeight: 900,
-        color: textTone(0.96),
-      } as CSSProperties,
+      actionTrackerStat: (
+        tone: "total" | "not_started" | "in_progress" | "done" | "blocked"
+      ) =>
+        ({
+          borderRadius: 10,
+          border:
+            tone === "done"
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.54)"
+                : palette.successBorder
+              : tone === "blocked"
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
+                : tone === "in_progress"
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.42)"
+                    : palette.infoBorder
+                  : tone === "not_started"
+                    ? isCalmTheme
+                      ? "1px solid rgba(126,110,168,0.42)"
+                      : palette.sectionBorder
+                    : isCalmTheme
+                      ? "1px solid rgba(85,44,128,0.24)"
+                      : palette.sideBlockBorder,
+          background:
+            tone === "done"
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.15)"
+                : palette.successBg
+              : tone === "blocked"
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.16)"
+                  : palette.dangerBg
+                : tone === "in_progress"
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.13)"
+                    : palette.infoBg
+                  : tone === "not_started"
+                    ? isCalmTheme
+                      ? "rgba(126,110,168,0.12)"
+                      : palette.fieldSoftBg
+                    : isCalmTheme
+                      ? "#F8F5FD"
+                      : palette.sideBlockBg,
+          padding: "7px 8px",
+        } as CSSProperties),
+      actionTrackerStatLabel: (
+        tone: "total" | "not_started" | "in_progress" | "done" | "blocked"
+      ) =>
+        ({
+          fontSize: 11,
+          color:
+            tone === "done"
+              ? "rgba(31,108,75,0.92)"
+              : tone === "blocked"
+                ? "rgba(124,45,45,0.90)"
+                : tone === "in_progress"
+                  ? "rgba(74,42,115,0.90)"
+                  : tone === "not_started"
+                    ? "rgba(90,74,120,0.90)"
+                    : textTone(0.70),
+        } as CSSProperties),
+      actionTrackerStatValue: (
+        tone: "total" | "not_started" | "in_progress" | "done" | "blocked"
+      ) =>
+        ({
+          marginTop: 3,
+          fontSize: 14,
+          fontWeight: 900,
+          color:
+            tone === "done"
+              ? "#1F6548"
+              : tone === "blocked"
+                ? "#7C2D2D"
+                : tone === "in_progress"
+                  ? "#4A2A73"
+                  : tone === "not_started"
+                    ? "#5A4A78"
+                    : textTone(0.96),
+        } as CSSProperties),
       actionTaskCard: (status: ActionTaskStatus) =>
         ({
           marginTop: 10,
@@ -8174,11 +8344,11 @@ export default function Home() {
           border:
             isCalmTheme
               ? status === "مكتمل"
-                ? "1px solid rgba(74,158,125,0.44)"
+                ? "1px solid rgba(74,158,125,0.56)"
                 : status === "متعثر"
-                  ? "1px solid rgba(196,112,104,0.46)"
+                  ? "1px solid rgba(198,95,95,0.56)"
                   : status === "جاري"
-                    ? "1px solid rgba(85,44,128,0.40)"
+                    ? "1px solid rgba(85,44,128,0.46)"
                     : "1px solid rgba(176,162,211,0.45)"
               : status === "مكتمل"
                 ? palette.successBorder
@@ -8189,7 +8359,13 @@ export default function Home() {
                     : palette.sideBlockBorder,
           background:
             isCalmTheme
-              ? "#FBFAFE"
+              ? status === "مكتمل"
+                ? "rgba(74,158,125,0.11)"
+                : status === "متعثر"
+                  ? "rgba(198,95,95,0.12)"
+                  : status === "جاري"
+                    ? "rgba(85,44,128,0.10)"
+                    : "#FBFAFE"
               : status === "مكتمل"
                 ? palette.successBg
                 : status === "متعثر"
@@ -8197,7 +8373,66 @@ export default function Home() {
                   : status === "جاري"
                     ? palette.infoBg
                     : palette.sideBlockBg,
+          borderRight: isCalmTheme
+            ? status === "مكتمل"
+              ? "4px solid rgba(74,158,125,0.68)"
+              : status === "متعثر"
+                ? "4px solid rgba(198,95,95,0.72)"
+                : status === "جاري"
+                  ? "4px solid rgba(85,44,128,0.66)"
+                  : "4px solid rgba(176,162,211,0.54)"
+            : undefined,
           padding: isMobile ? 10 : 11,
+        } as CSSProperties),
+      actionTaskStatusChip: (status: ActionTaskStatus) =>
+        ({
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 800,
+          border:
+            status === "مكتمل"
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
+              : status === "متعثر"
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
+                : status === "جاري"
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.46)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.44)"
+                    : palette.secondaryBorder,
+          background:
+            status === "مكتمل"
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.18)"
+                : palette.successBg
+              : status === "متعثر"
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.18)"
+                  : palette.dangerBg
+                : status === "جاري"
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.14)"
+                    : palette.infoBg
+                  : isCalmTheme
+                    ? "rgba(126,110,168,0.13)"
+                    : palette.secondaryBg,
+          color:
+            status === "مكتمل"
+              ? "#1F6548"
+              : status === "متعثر"
+                ? "#7C2D2D"
+                : status === "جاري"
+                  ? "#4A2A73"
+                  : "#5A4A78",
         } as CSSProperties),
       actionTaskHead: {
         display: "grid",
@@ -8380,14 +8615,18 @@ export default function Home() {
           border:
             isCalmTheme
               ? status === "مغلق"
-                ? "1px solid rgba(74,158,125,0.44)"
-                : severity === "critical"
-                  ? "1px solid rgba(183,94,123,0.48)"
-                  : severity === "high"
-                    ? "1px solid rgba(196,112,104,0.46)"
-                    : severity === "medium"
-                      ? "1px solid rgba(188,127,57,0.46)"
-                      : "1px solid rgba(85,44,128,0.40)"
+                ? "1px solid rgba(74,158,125,0.56)"
+                : status === "مصعّد"
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : status === "قيد المعالجة"
+                    ? "1px solid rgba(85,44,128,0.46)"
+                    : severity === "critical"
+                      ? "1px solid rgba(183,94,123,0.50)"
+                      : severity === "high"
+                        ? "1px solid rgba(196,112,104,0.48)"
+                        : severity === "medium"
+                          ? "1px solid rgba(188,127,57,0.48)"
+                          : "1px solid rgba(126,110,168,0.44)"
               : status === "مغلق"
                 ? palette.successBorder
                 : severity === "critical"
@@ -8399,7 +8638,13 @@ export default function Home() {
                       : palette.infoBorder,
           background:
             isCalmTheme
-              ? "#FBFAFE"
+              ? status === "مغلق"
+                ? "rgba(74,158,125,0.11)"
+                : status === "مصعّد"
+                  ? "rgba(198,95,95,0.12)"
+                  : status === "قيد المعالجة"
+                    ? "rgba(85,44,128,0.10)"
+                    : "#FBFAFE"
               : status === "مغلق"
                 ? palette.successBg
                 : severity === "critical"
@@ -8419,6 +8664,15 @@ export default function Home() {
                   : severity === "medium"
                     ? (isCalmTheme ? "none" : `0 8px 20px rgba(255,194,77,0.10)`)
                     : (isCalmTheme ? "none" : `0 8px 18px rgba(0,229,255,0.09)`),
+          borderRight: isCalmTheme
+            ? status === "مغلق"
+              ? "4px solid rgba(74,158,125,0.68)"
+              : status === "مصعّد"
+                ? "4px solid rgba(198,95,95,0.72)"
+                : status === "قيد المعالجة"
+                  ? "4px solid rgba(85,44,128,0.66)"
+                  : "4px solid rgba(126,110,168,0.54)"
+            : undefined,
           padding: 10,
         } as CSSProperties),
       riskCardHead: {
@@ -8471,24 +8725,47 @@ export default function Home() {
           borderRadius: 999,
           border:
             status === "مغلق"
-              ? palette.successBorder
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
               : status === "مصعّد"
-                ? palette.criticalBorder
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.criticalBorder
                 : status === "قيد المعالجة"
-                  ? palette.warnBorder
-                  : palette.infoBorder,
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.46)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.44)"
+                    : palette.secondaryBorder,
           background:
             status === "مغلق"
-              ? palette.successBg
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.18)"
+                : palette.successBg
               : status === "مصعّد"
-                ? palette.criticalBg
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.18)"
+                  : palette.criticalBg
                 : status === "قيد المعالجة"
-                  ? palette.warnBg
-                  : palette.infoBg,
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.14)"
+                    : palette.infoBg
+                  : isCalmTheme
+                    ? "rgba(126,110,168,0.13)"
+                    : palette.secondaryBg,
           padding: "5px 9px",
           fontSize: 11.5,
           fontWeight: 800,
-          color: isCalmTheme ? textTone(0.96) : "white",
+          color:
+            status === "مغلق"
+              ? "#1F6548"
+              : status === "مصعّد"
+                ? "#7C2D2D"
+                : status === "قيد المعالجة"
+                  ? "#4A2A73"
+                  : "#5A4A78",
           width: "fit-content",
         } as CSSProperties),
       riskCardMeta: {
@@ -8542,20 +8819,44 @@ export default function Home() {
         ({
           border:
             status === "مغلق"
-              ? palette.successBorder
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
               : status === "مصعّد"
-                ? palette.criticalBorder
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.criticalBorder
                 : status === "قيد المعالجة"
-                  ? palette.warnBorder
-                  : palette.infoBorder,
+                  ? isCalmTheme
+                    ? "1px solid rgba(85,44,128,0.46)"
+                    : palette.infoBorder
+                  : isCalmTheme
+                    ? "1px solid rgba(126,110,168,0.44)"
+                    : palette.secondaryBorder,
           background:
             status === "مغلق"
-              ? palette.successBg
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.18)"
+                : palette.successBg
               : status === "مصعّد"
-                ? palette.criticalBg
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.18)"
+                  : palette.criticalBg
                 : status === "قيد المعالجة"
-                  ? palette.warnBg
-                  : palette.infoBg,
+                  ? isCalmTheme
+                    ? "rgba(85,44,128,0.14)"
+                    : palette.infoBg
+                  : isCalmTheme
+                    ? "rgba(126,110,168,0.13)"
+                    : palette.secondaryBg,
+          color:
+            status === "مغلق"
+              ? "#1F6548"
+              : status === "مصعّد"
+                ? "#7C2D2D"
+                : status === "قيد المعالجة"
+                  ? "#4A2A73"
+                  : "#5A4A78",
         } as CSSProperties),
       governanceBadge: (tone: "frozen" | "changed" | "idle") =>
         ({
@@ -8590,39 +8891,126 @@ export default function Home() {
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 10,
       } as CSSProperties,
-      governanceStat: {
-        borderRadius: 10,
-        border: isCalmTheme ? palette.sectionBorder : "1px solid rgba(255,255,255,0.08)",
-        background: isCalmTheme ? palette.fieldSoftBg : "rgba(255,255,255,0.03)",
-        padding: "8px 9px",
-      } as CSSProperties,
-      governanceStatLabel: {
-        fontSize: 11,
-        color: textTone(0.70),
-      } as CSSProperties,
-      governanceStatValue: {
-        marginTop: 3,
-        fontSize: 14,
-        fontWeight: 900,
-        color: textTone(0.96),
-      } as CSSProperties,
+      governanceStat: (tone: "open" | "approved" | "rejected") =>
+        ({
+          borderRadius: 10,
+          border:
+            tone === "approved"
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
+              : tone === "rejected"
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
+                : isCalmTheme
+                  ? "1px solid rgba(85,44,128,0.46)"
+                  : palette.infoBorder,
+          background:
+            tone === "approved"
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.15)"
+                : palette.successBg
+              : tone === "rejected"
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.16)"
+                  : palette.dangerBg
+                : isCalmTheme
+                  ? "rgba(85,44,128,0.12)"
+                  : palette.infoBg,
+          padding: "8px 9px",
+        } as CSSProperties),
+      governanceStatLabel: (tone: "open" | "approved" | "rejected") =>
+        ({
+          fontSize: 11,
+          color:
+            tone === "approved"
+              ? "rgba(31,108,75,0.92)"
+              : tone === "rejected"
+                ? "rgba(124,45,45,0.90)"
+                : "rgba(74,42,115,0.90)",
+        } as CSSProperties),
+      governanceStatValue: (tone: "open" | "approved" | "rejected") =>
+        ({
+          marginTop: 3,
+          fontSize: 14,
+          fontWeight: 900,
+          color:
+            tone === "approved"
+              ? "#1F6548"
+              : tone === "rejected"
+                ? "#7C2D2D"
+                : "#4A2A73",
+        } as CSSProperties),
       crCard: (status: ChangeRequestStatus) =>
         ({
           marginTop: 8,
           borderRadius: 10,
           border:
             status === "معتمد"
-              ? palette.successBorder
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
               : status === "مرفوض"
-                ? palette.criticalBorder
-                : palette.infoBorder,
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
+                : isCalmTheme
+                  ? "1px solid rgba(85,44,128,0.46)"
+                  : palette.infoBorder,
           background:
             status === "معتمد"
-              ? palette.successBg
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.15)"
+                : palette.successBg
               : status === "مرفوض"
-                ? palette.criticalBg
-                : palette.infoBg,
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.16)"
+                  : palette.dangerBg
+                : isCalmTheme
+                  ? "rgba(85,44,128,0.12)"
+                  : palette.infoBg,
+          borderRight: isCalmTheme
+            ? status === "معتمد"
+              ? "4px solid rgba(74,158,125,0.68)"
+              : status === "مرفوض"
+                ? "4px solid rgba(198,95,95,0.72)"
+                : "4px solid rgba(85,44,128,0.66)"
+            : undefined,
           padding: "9px 10px",
+        } as CSSProperties),
+      crStatusSelect: (status: ChangeRequestStatus) =>
+        ({
+          border:
+            status === "معتمد"
+              ? isCalmTheme
+                ? "1px solid rgba(74,158,125,0.56)"
+                : palette.successBorder
+              : status === "مرفوض"
+                ? isCalmTheme
+                  ? "1px solid rgba(198,95,95,0.58)"
+                  : palette.dangerBorder
+                : isCalmTheme
+                  ? "1px solid rgba(85,44,128,0.46)"
+                  : palette.infoBorder,
+          background:
+            status === "معتمد"
+              ? isCalmTheme
+                ? "rgba(74,158,125,0.18)"
+                : palette.successBg
+              : status === "مرفوض"
+                ? isCalmTheme
+                  ? "rgba(198,95,95,0.18)"
+                  : palette.dangerBg
+                : isCalmTheme
+                  ? "rgba(85,44,128,0.14)"
+                  : palette.infoBg,
+          color:
+            status === "معتمد"
+              ? "#1F6548"
+              : status === "مرفوض"
+                ? "#7C2D2D"
+                : "#4A2A73",
         } as CSSProperties),
       crTitle: {
         fontSize: 13,
@@ -9106,6 +9494,38 @@ export default function Home() {
   const answerQuality = analyzeAnswerQuality();
   const indicators = projectIndicators();
 
+  if (!hasMounted) {
+    return (
+      <main
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          background: "#F3F1F6",
+          color: "#312149",
+          display: "grid",
+          placeItems: "center",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            borderRadius: 14,
+            border: "1px solid rgba(85,44,128,0.18)",
+            background: "#FFFFFF",
+            padding: "14px 16px",
+            textAlign: "center",
+            fontWeight: 800,
+            lineHeight: 1.7,
+          }}
+        >
+          جاري تهيئة الجلسة...
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main style={styles.page} dir="rtl">
       <style>{`
@@ -9514,7 +9934,7 @@ export default function Home() {
                           </div>
                           <div
                             style={styles.projectHubKpiCard(
-                              projectHubOverview.blocked > 0 ? "warning" : "default"
+                              projectHubOverview.blocked > 0 ? "danger" : "default"
                             )}
                           >
                             <div style={styles.projectHubKpiValue}>{toArabicDigits(projectHubOverview.blocked)}</div>
@@ -9765,7 +10185,10 @@ export default function Home() {
                                     </div>
                                     <div style={{ display: "grid", gap: 8 }}>
                                       {column.tasks.map((task) => (
-                                        <div key={task.id} style={styles.projectHubTaskCard}>
+                                        <div
+                                          key={task.id}
+                                          style={styles.projectHubTaskCard(task.statusGroup, task.isOverdue)}
+                                        >
                                           <span style={styles.projectHubStatusPill(task.statusGroup)}>
                                             {projectHubTaskGroupLabel(task.statusGroup)}
                                           </span>
@@ -9793,7 +10216,10 @@ export default function Home() {
                             ) : (
                               <div style={styles.projectHubListWrap}>
                                 {projectHubTasks.map((task) => (
-                                  <div key={task.id} style={styles.projectHubListRow}>
+                                  <div
+                                    key={task.id}
+                                    style={styles.projectHubListRow(task.statusGroup, task.isOverdue)}
+                                  >
                                     <div style={styles.projectHubListHead}>
                                       <div style={styles.projectHubTaskTitle}>{task.task}</div>
                                       <span style={styles.projectHubStatusPill(task.statusGroup)}>
@@ -12597,29 +13023,33 @@ export default function Home() {
                     </div>
 
                     <div style={styles.actionTrackerStatsGrid}>
-                      <div style={styles.actionTrackerStat}>
-                        <div style={styles.actionTrackerStatLabel}>إجمالي المهام</div>
-                        <div style={styles.actionTrackerStatValue}>
+                      <div style={styles.actionTrackerStat("total")}>
+                        <div style={styles.actionTrackerStatLabel("total")}>إجمالي المهام</div>
+                        <div style={styles.actionTrackerStatValue("total")}>
                           {toArabicDigits(actionTrackerStats.total)}
                         </div>
                       </div>
-                      <div style={styles.actionTrackerStat}>
-                        <div style={styles.actionTrackerStatLabel}>لم تبدأ</div>
-                        <div style={styles.actionTrackerStatValue}>
+                      <div style={styles.actionTrackerStat("not_started")}>
+                        <div style={styles.actionTrackerStatLabel("not_started")}>لم تبدأ</div>
+                        <div style={styles.actionTrackerStatValue("not_started")}>
                           {toArabicDigits(actionTrackerStats.notStarted)}
                         </div>
                       </div>
-                      <div style={styles.actionTrackerStat}>
-                        <div style={styles.actionTrackerStatLabel}>جاري</div>
-                        <div style={styles.actionTrackerStatValue}>
+                      <div style={styles.actionTrackerStat("in_progress")}>
+                        <div style={styles.actionTrackerStatLabel("in_progress")}>جاري</div>
+                        <div style={styles.actionTrackerStatValue("in_progress")}>
                           {toArabicDigits(actionTrackerStats.inProgress)}
                         </div>
                       </div>
-                      <div style={styles.actionTrackerStat}>
-                        <div style={styles.actionTrackerStatLabel}>مكتمل / متعثر</div>
-                        <div style={styles.actionTrackerStatValue}>
+                      <div style={styles.actionTrackerStat("done")}>
+                        <div style={styles.actionTrackerStatLabel("done")}>مكتمل</div>
+                        <div style={styles.actionTrackerStatValue("done")}>
                           {toArabicDigits(actionTrackerStats.done)}
-                          {" / "}
+                        </div>
+                      </div>
+                      <div style={styles.actionTrackerStat("blocked")}>
+                        <div style={styles.actionTrackerStatLabel("blocked")}>متعثر</div>
+                        <div style={styles.actionTrackerStatValue("blocked")}>
                           {toArabicDigits(actionTrackerStats.blocked)}
                         </div>
                       </div>
@@ -12632,14 +13062,6 @@ export default function Home() {
                       </div>
                     ) : (
                       actionTrackerItems.map((item, idx) => {
-                        const taskTone: "ready" | "active" | "working" | "idle" =
-                          item.status === "مكتمل"
-                            ? "ready"
-                            : item.status === "جاري"
-                              ? "active"
-                              : item.status === "متعثر"
-                                ? "working"
-                                : "idle";
                         const isTaskExpanded =
                           !isMobile || (actionTaskExpanded[item.id] ?? idx === 0);
                         return (
@@ -12654,7 +13076,7 @@ export default function Home() {
                               </div>
                             </div>
                             <div style={styles.actionTaskHeadActions}>
-                              <div style={styles.stageStatusChip(taskTone)}>{item.status}</div>
+                              <div style={styles.actionTaskStatusChip(item.status)}>{item.status}</div>
                               {isMobile ? (
                                 <button
                                   type="button"
@@ -12790,21 +13212,21 @@ export default function Home() {
                     </div>
 
                     <div style={styles.governanceGrid}>
-                      <div style={styles.governanceStat}>
-                        <div style={styles.governanceStatLabel}>طلبات مفتوحة</div>
-                        <div style={styles.governanceStatValue}>
+                      <div style={styles.governanceStat("open")}>
+                        <div style={styles.governanceStatLabel("open")}>طلبات مفتوحة</div>
+                        <div style={styles.governanceStatValue("open")}>
                           {toArabicDigits(openChangeRequests)}
                         </div>
                       </div>
-                      <div style={styles.governanceStat}>
-                        <div style={styles.governanceStatLabel}>طلبات معتمدة</div>
-                        <div style={styles.governanceStatValue}>
+                      <div style={styles.governanceStat("approved")}>
+                        <div style={styles.governanceStatLabel("approved")}>طلبات معتمدة</div>
+                        <div style={styles.governanceStatValue("approved")}>
                           {toArabicDigits(approvedChangeRequests)}
                         </div>
                       </div>
-                      <div style={styles.governanceStat}>
-                        <div style={styles.governanceStatLabel}>طلبات مرفوضة</div>
-                        <div style={styles.governanceStatValue}>
+                      <div style={styles.governanceStat("rejected")}>
+                        <div style={styles.governanceStatLabel("rejected")}>طلبات مرفوضة</div>
+                        <div style={styles.governanceStatValue("rejected")}>
                           {toArabicDigits(rejectedChangeRequests)}
                         </div>
                       </div>
@@ -12956,7 +13378,7 @@ export default function Home() {
                                         status: e.target.value as ChangeRequestStatus,
                                       })
                                     }
-                                    style={styles.input}
+                                    style={{ ...styles.input, ...styles.crStatusSelect(request.status) }}
                                     disabled={!canEditGovernance}
                                   >
                                     <option value="مفتوح">مفتوح</option>
@@ -13398,9 +13820,20 @@ export default function Home() {
                             <div style={styles.sideSummaryPrimaryText}>
                               الإنجاز الحالي: <strong>%{toArabicDigits(actionTrackerProgress)}</strong>
                             </div>
-                            <div style={styles.textMutedSmallTop8}>
-                              مكتمل: {toArabicDigits(actionTrackerStats.done)} • متعثر:{" "}
-                              {toArabicDigits(actionTrackerStats.blocked)}
+                            <div
+                              style={{
+                                marginTop: 8,
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 6,
+                              }}
+                            >
+                              <span style={styles.actionTaskStatusChip("مكتمل")}>
+                                مكتمل: {toArabicDigits(actionTrackerStats.done)}
+                              </span>
+                              <span style={styles.actionTaskStatusChip("متعثر")}>
+                                متعثر: {toArabicDigits(actionTrackerStats.blocked)}
+                              </span>
                             </div>
                           </div>
                         ) : null}
