@@ -5705,8 +5705,10 @@ export default function Home() {
         height: 16,
         objectFit: "contain",
         display: "block",
-        opacity: 1,
-        filter: isCalmTheme ? "none" : "brightness(0) invert(1)",
+        opacity: isCalmTheme ? 0.95 : 1,
+        filter: isCalmTheme
+          ? "brightness(0) saturate(100%) invert(19%) sepia(33%) saturate(1507%) hue-rotate(240deg) brightness(89%) contrast(93%)"
+          : "brightness(0) invert(1)",
       } as CSSProperties,
       moneyInline: {
         display: "inline-flex",
@@ -5718,6 +5720,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "center",
         minWidth: 16,
+        color: isCalmTheme ? "#4A2A73" : "rgba(255,255,255,0.94)",
       } as CSSProperties,
       textarea: {
         width: "100%",
