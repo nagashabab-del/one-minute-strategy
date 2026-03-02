@@ -89,9 +89,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     >
       <div
         className={`app-shell-inner ${inStrategyFlow ? "in-strategy-flow" : ""}`}
-        style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 16px 86px" }}
+        style={{
+          maxWidth: 1320,
+          margin: "0 auto",
+          padding: "calc(env(safe-area-inset-top, 0px) + 16px) 16px 86px",
+        }}
       >
         <header
+          className="app-shell-header"
           style={{
             borderRadius: 16,
             border: "1px solid rgba(138,160,255,0.24)",
@@ -101,11 +106,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             alignItems: "center",
             justifyContent: "space-between",
             gap: 10,
+            rowGap: 8,
             flexWrap: "wrap",
           }}
         >
-          <div style={{ fontSize: 17, fontWeight: 900 }}>One Minute Strategy</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="app-shell-brand" style={{ fontSize: 17, fontWeight: 900 }}>
+            One Minute Strategy
+          </div>
+          <div className="app-shell-user-zone" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {clerkConfigured ? (
               <>
                 <UserButton afterSignOutUrl="/" />
@@ -136,6 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <section
+          className="app-shell-context"
           style={{
             marginTop: 12,
             borderRadius: 16,
@@ -146,7 +155,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             gap: 10,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div
+            className="app-shell-context-row"
+            style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
+          >
             <div>
               <div style={{ fontSize: 12, color: "rgba(220,231,255,0.70)" }}>القسم الحالي</div>
               <div style={{ marginTop: 3, fontSize: 22, fontWeight: 900 }}>{currentSection}</div>
@@ -161,7 +173,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="app-shell-context-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link href="/app/strategy" className="oms-btn oms-btn-primary">
               بدء تحليل جديد
             </Link>
@@ -307,11 +319,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         @media (max-width: 720px) {
           .app-shell-inner {
-            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 98px) !important;
+            padding-top: max(22px, calc(env(safe-area-inset-top, 0px) + 14px)) !important;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 148px) !important;
           }
 
           .app-shell-inner.in-strategy-flow {
-            padding-bottom: 16px !important;
+            padding-bottom: 20px !important;
+          }
+
+          .app-shell-header {
+            padding: 10px 10px !important;
+          }
+
+          .app-shell-brand {
+            font-size: 15px !important;
+          }
+
+          .app-shell-user-zone {
+            gap: 8px !important;
+          }
+
+          .app-shell-context {
+            padding: 10px 10px !important;
+            gap: 8px !important;
+          }
+
+          .app-shell-context-row {
+            display: grid !important;
+            grid-template-columns: 1fr;
+            gap: 8px !important;
+          }
+
+          .app-shell-context-actions {
+            display: grid !important;
+            grid-template-columns: 1fr;
           }
 
           .app-shell-sidebar {
@@ -332,9 +373,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           .app-shell-mobile-bottom {
             position: fixed;
-            left: 8px;
-            right: 8px;
-            bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+            left: max(8px, calc(env(safe-area-inset-left, 0px) + 8px));
+            right: max(8px, calc(env(safe-area-inset-right, 0px) + 8px));
+            bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 8px));
             z-index: 40;
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -351,6 +392,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         @media (min-width: 721px) {
           .app-shell-mobile-bottom {
             display: none;
+          }
+        }
+
+        @media (max-width: 980px) {
+          .app-shell-context-actions {
+            gap: 6px !important;
           }
         }
       `}</style>

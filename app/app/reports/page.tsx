@@ -138,7 +138,7 @@ export default function ReportsPage() {
                     <p className="reports-card-preview">{truncate(report.executiveDecision, 130)}</p>
                   </div>
                   <div className="reports-card-actions">
-                    <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary">
+                    <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
                       فتح التقرير
                     </Link>
                   </div>
@@ -256,6 +256,11 @@ export default function ReportsPage() {
             .reports-card-actions {
               display: flex;
               align-items: center;
+              justify-content: flex-start;
+            }
+
+            .reports-open-btn {
+              white-space: nowrap;
             }
 
             @media (max-width: 980px) {
@@ -269,6 +274,16 @@ export default function ReportsPage() {
 
               .reports-card {
                 grid-template-columns: 1fr;
+                gap: 10px;
+              }
+
+              .reports-card-actions {
+                width: 100%;
+              }
+
+              .reports-open-btn {
+                width: 100%;
+                justify-content: center;
               }
             }
           `}</style>
