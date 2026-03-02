@@ -286,7 +286,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <style>{`
         @media (max-width: 980px) {
           .app-shell-mobile-stack {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr !important;
           }
 
           .app-shell-sidebar {
@@ -307,6 +307,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
 
         @media (max-width: 720px) {
+          .app-shell-sidebar {
+            display: none !important;
+          }
+
+          .app-shell-mobile-stack {
+            grid-template-columns: 1fr !important;
+          }
+
           .app-shell-nav {
             display: none !important;
           }
