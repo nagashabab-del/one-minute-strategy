@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
 
 const NAV_ITEMS = [
-  { href: "/app", label: "Dashboard" },
-  { href: "/app/strategy", label: "Strategy" },
-  { href: "/app/reports", label: "Reports" },
+  { href: "/app", label: "لوحة التحكم" },
+  { href: "/app/strategy", label: "الاستراتيجية" },
+  { href: "/app/reports", label: "التقارير" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -91,6 +91,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           }}
         >
           <aside
+            className="app-shell-sidebar"
             style={{
               borderRadius: 16,
               border: "1px solid rgba(138,160,255,0.22)",
@@ -102,11 +103,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             }}
           >
             <div style={{ fontSize: 12, color: "rgba(225,233,255,0.72)", marginBottom: 8 }}>التنقل</div>
-            <nav style={{ display: "grid", gap: 6 }}>
+            <nav className="app-shell-nav" style={{ display: "grid", gap: 6 }}>
               {NAV_ITEMS.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
+                    className="app-shell-nav-link"
                     key={item.href}
                     href={item.href}
                     style={{
@@ -135,6 +137,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <section
+            className="app-shell-main"
             style={{
               borderRadius: 16,
               border: "1px solid rgba(138,160,255,0.20)",
@@ -152,6 +155,39 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         @media (max-width: 980px) {
           .app-shell-mobile-stack {
             grid-template-columns: 1fr;
+          }
+
+          .app-shell-sidebar {
+            position: static !important;
+            top: auto !important;
+            padding: 10px 8px !important;
+          }
+
+          .app-shell-nav {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(120px, 1fr));
+            gap: 8px !important;
+          }
+
+          .app-shell-main {
+            min-height: auto !important;
+          }
+        }
+
+        @media (max-width: 720px) {
+          .app-shell-nav {
+            display: flex !important;
+            overflow-x: auto;
+            gap: 8px !important;
+            padding-bottom: 2px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+          }
+
+          .app-shell-nav-link {
+            min-width: 145px;
+            white-space: nowrap;
+            justify-content: center !important;
           }
         }
       `}</style>

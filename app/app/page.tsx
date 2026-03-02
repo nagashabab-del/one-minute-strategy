@@ -1,9 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
+import { readReports } from "./reports/report-store";
 
 export default function DashboardPage() {
+  const reports = useMemo(() => readReports(), []);
+  const approvedCount = reports.filter((item) => item.status === "معتمد").length;
+  const lastDate = reports[0]?.date ?? "—";
+
   return (
     <main>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>Dashboard</h1>
+      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>لوحة التحكم</h1>
       <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
         مرحبًا بك في مساحة العمل. ابدأ تحليل جديد أو راجع التقارير السابقة.
       </p>
@@ -37,15 +45,15 @@ export default function DashboardPage() {
       >
         <div style={kpiCardStyle}>
           <div style={kpiLabelStyle}>إجمالي التحليلات</div>
-          <div style={kpiValueStyle}>24</div>
+          <div style={kpiValueStyle}>{reports.length}</div>
         </div>
         <div style={kpiCardStyle}>
           <div style={kpiLabelStyle}>آخر تحليل</div>
-          <div style={kpiValueStyle}>2026/03/02</div>
+          <div style={kpiValueStyle}>{lastDate}</div>
         </div>
         <div style={kpiCardStyle}>
           <div style={kpiLabelStyle}>تقارير معتمدة</div>
-          <div style={kpiValueStyle}>8</div>
+          <div style={kpiValueStyle}>{approvedCount}</div>
         </div>
       </section>
     </main>

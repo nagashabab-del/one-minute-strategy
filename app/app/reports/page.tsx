@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { MockReport, readReports } from "./report-store";
+import { StrategyReport, readReports } from "./report-store";
 
 export default function ReportsPage() {
-  const [reports] = useState<MockReport[]>(() => readReports());
+  const [reports] = useState<StrategyReport[]>(() => readReports());
 
   return (
     <main>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>Reports</h1>
+      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>التقارير</h1>
       <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
-        قائمة التقارير الحالية (Mock) لحين ربط قاعدة البيانات.
+        تقارير مبنية على بيانات المشاريع المحفوظة داخل مساحة الاستراتيجية.
       </p>
 
       {reports.length === 0 ? (
@@ -31,7 +31,7 @@ export default function ReportsPage() {
               <div>
                 <div style={{ fontWeight: 900, fontSize: 17 }}>{report.title}</div>
                 <div style={{ marginTop: 6, color: "rgba(224,233,255,0.74)", fontSize: 13 }}>
-                  التاريخ: {report.date} • الحالة: {report.status}
+                  تاريخ التحديث: {report.date} • الحالة: {report.status}
                 </div>
               </div>
               <Link href={`/app/reports/${report.id}`} style={openBtnStyle}>

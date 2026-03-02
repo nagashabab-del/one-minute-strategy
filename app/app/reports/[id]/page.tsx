@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
-import { MockReport, readReportById } from "../report-store";
+import { StrategyReport, readReportById } from "../report-store";
 
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string }>();
-  const report = useMemo<MockReport | null>(() => readReportById(params.id), [params.id]);
+  const report = useMemo<StrategyReport | null>(() => readReportById(params.id), [params.id]);
 
   if (!report) {
     return (
@@ -31,17 +31,17 @@ export default function ReportDetailsPage() {
 
       <h1 style={{ margin: "12px 0 0", fontSize: 28, fontWeight: 900 }}>{report.title}</h1>
       <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
-        التاريخ: {report.date} • الحالة: {report.status}
+        تاريخ التحديث: {report.date} • الحالة: {report.status}
       </p>
 
       <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
         <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>Executive decision</h2>
+          <h2 style={sectionTitleStyle}>القرار التنفيذي</h2>
           <p style={sectionTextStyle}>{report.executiveDecision}</p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>Advisors highlights</h2>
+          <h2 style={sectionTitleStyle}>أبرز ملاحظات المستشارين</h2>
           {report.advisorsHighlights.map((line, idx) => (
             <div key={idx} style={listLineStyle}>
               • {line}
@@ -50,7 +50,7 @@ export default function ReportDetailsPage() {
         </section>
 
         <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>Risks</h2>
+          <h2 style={sectionTitleStyle}>المخاطر</h2>
           {report.risks.map((line, idx) => (
             <div key={idx} style={listLineStyle}>
               • {line}
@@ -59,7 +59,7 @@ export default function ReportDetailsPage() {
         </section>
 
         <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>Recommendations</h2>
+          <h2 style={sectionTitleStyle}>التوصيات</h2>
           {report.recommendations.map((line, idx) => (
             <div key={idx} style={listLineStyle}>
               • {line}
