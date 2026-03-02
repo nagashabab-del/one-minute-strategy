@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 
 const features = [
   {
@@ -17,11 +16,7 @@ const features = [
 ];
 
 export default async function LandingPage() {
-  const clerkConfigured = Boolean(
-    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
-  );
-  const { userId } = clerkConfigured ? await auth() : { userId: null as string | null };
-  const primaryHref = userId ? "/app" : "/sign-up";
+  const primaryHref = "/sign-up";
 
   return (
     <main
