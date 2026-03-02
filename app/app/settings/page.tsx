@@ -30,6 +30,9 @@ export default function SettingsPage() {
           <Link href="/app/strategy" style={primaryBtnStyle}>
             الانتقال إلى الاستراتيجية
           </Link>
+          <Link href="/app/workflows" style={secondaryBtnStyle}>
+            متابعة سير العمل
+          </Link>
           <Link href="/app/reports" style={secondaryBtnStyle}>
             عرض التقارير
           </Link>

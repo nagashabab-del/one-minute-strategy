@@ -17,6 +17,7 @@ export default function DashboardPage() {
       </p>
 
       <section
+        className="dashboard-actions-grid"
         style={{
           marginTop: 12,
           display: "grid",
@@ -24,18 +25,19 @@ export default function DashboardPage() {
           gap: 10,
         }}
       >
-        <Link href="/app/strategy" style={cardLinkStyle}>
+        <Link className="dashboard-action-card" href="/app/strategy" style={cardLinkStyle}>
           <strong>ابدأ تحليل جديد</strong>
           <span style={cardHintStyle}>الانتقال إلى مساحة الاستراتيجية</span>
         </Link>
 
-        <Link href="/app/reports" style={cardLinkStyle}>
+        <Link className="dashboard-action-card" href="/app/reports" style={cardLinkStyle}>
           <strong>عرض التقارير</strong>
           <span style={cardHintStyle}>استعرض قائمة التقارير والتفاصيل</span>
         </Link>
       </section>
 
       <section
+        className="dashboard-kpi-grid"
         style={{
           marginTop: 12,
           display: "grid",
@@ -43,19 +45,51 @@ export default function DashboardPage() {
           gap: 10,
         }}
       >
-        <div style={kpiCardStyle}>
+        <div className="dashboard-kpi-card" style={kpiCardStyle}>
           <div style={kpiLabelStyle}>إجمالي التحليلات</div>
-          <div style={kpiValueStyle}>{reports.length}</div>
+          <div className="dashboard-kpi-value" style={kpiValueStyle}>
+            {reports.length}
+          </div>
         </div>
-        <div style={kpiCardStyle}>
+        <div className="dashboard-kpi-card" style={kpiCardStyle}>
           <div style={kpiLabelStyle}>آخر تحليل</div>
-          <div style={kpiValueStyle}>{lastDate}</div>
+          <div className="dashboard-kpi-value" style={kpiValueStyle}>
+            {lastDate}
+          </div>
         </div>
-        <div style={kpiCardStyle}>
+        <div className="dashboard-kpi-card" style={kpiCardStyle}>
           <div style={kpiLabelStyle}>تقارير معتمدة</div>
-          <div style={kpiValueStyle}>{approvedCount}</div>
+          <div className="dashboard-kpi-value" style={kpiValueStyle}>
+            {approvedCount}
+          </div>
         </div>
       </section>
+
+      <style>{`
+        @media (max-width: 720px) {
+          .dashboard-actions-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .dashboard-action-card {
+            min-height: 76px !important;
+            padding: 12px 10px !important;
+          }
+
+          .dashboard-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .dashboard-kpi-card {
+            padding: 10px !important;
+          }
+
+          .dashboard-kpi-value {
+            margin-top: 6px !important;
+            font-size: 22px !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }

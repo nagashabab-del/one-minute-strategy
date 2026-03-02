@@ -77,6 +77,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
+      className="app-shell-root"
       dir="rtl"
       style={{
         minHeight: "100vh",
@@ -85,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         color: "#F5F8FF",
       }}
     >
-      <div style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 16px 86px" }}>
+      <div className="app-shell-inner" style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 16px 86px" }}>
         <header
           style={{
             borderRadius: 16,
@@ -172,10 +173,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/app/strategy" style={contextPrimaryBtnStyle}>
               بدء تحليل جديد
             </Link>
-            <Link href="/app/workflows" style={contextGhostBtnStyle}>
+            <Link className="context-btn-secondary" href="/app/workflows" style={contextGhostBtnStyle}>
               متابعة سير العمل
             </Link>
-            <Link href="/app/reports" style={contextGhostBtnStyle}>
+            <Link className="context-btn-secondary" href="/app/reports" style={contextGhostBtnStyle}>
               فتح التقارير
             </Link>
           </div>
@@ -307,6 +308,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
 
         @media (max-width: 720px) {
+          .app-shell-inner {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 98px) !important;
+          }
+
           .app-shell-sidebar {
             display: none !important;
           }
@@ -319,11 +324,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             display: none !important;
           }
 
+          .context-btn-secondary {
+            display: none !important;
+          }
+
           .app-shell-mobile-bottom {
             position: fixed;
-            left: 10px;
-            right: 10px;
-            bottom: 10px;
+            left: 8px;
+            right: 8px;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
             z-index: 40;
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
