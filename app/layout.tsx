@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "One Minute Strategy",
   description: "منصة ذكاء قرارات تنفيذية لإدارة المشاريع وتشغيل الفعاليات.",
 };
+
+export const dynamic = "force-dynamic";
 
 export default function RootLayout({
   children,
@@ -13,7 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ClerkProvider>{children}</ClerkProvider>
+      </body>
     </html>
   );
 }
