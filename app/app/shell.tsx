@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 type NavItem = {
   href: string;
@@ -36,7 +36,6 @@ const MOBILE_ITEMS: NavItem[] = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-  const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
 
   const currentSection = useMemo(() => {
     if (pathname.startsWith("/app/strategy")) return "الاستراتيجية";
@@ -46,18 +45,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return "نظرة عامة";
   }, [pathname]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const projectContext = useMemo<ProjectContext | null>(() => {
+    if (typeof window === "undefined") return null;
+    if (!pathname) return null;
     try {
       const raw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
-      if (!raw) return;
+      if (!raw) return null;
       const parsed = JSON.parse(raw) as {
         activeProjectId?: string;
         projects?: Array<{ id: string; name: string; updatedAt?: string }>;
       };
       const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
       const active = projects.find((item) => item.id === parsed.activeProjectId) ?? projects[0];
-      if (!active) return;
+      if (!active) return null;
       const updated = active.updatedAt ? new Date(active.updatedAt) : null;
       const updatedText =
         updated && !Number.isNaN(updated.getTime())
@@ -66,12 +66,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               minute: "2-digit",
             })}`
           : "غير متاح";
-      setProjectContext({
+      return {
         name: active.name?.trim() || "مشروع بدون اسم",
         updatedAt: updatedText,
-      });
+      };
     } catch {
-      setProjectContext(null);
+      return null;
     }
   }, [pathname]);
 
@@ -107,15 +107,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <UserButton afterSignOutUrl="/" />
                 <SignOutButton>
                   <button
+                    className="oms-btn oms-btn-ghost"
                     type="button"
                     style={{
-                      minHeight: 38,
-                      borderRadius: 10,
-                      border: "1px solid rgba(138,160,255,0.30)",
-                      background: "rgba(10,15,28,0.80)",
-                      color: "#F5F8FF",
-                      fontWeight: 800,
-                      padding: "0 12px",
                       cursor: "pointer",
                     }}
                   >
@@ -125,16 +119,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </>
             ) : (
               <div
+                className="oms-btn oms-btn-ghost"
                 style={{
-                  minHeight: 38,
-                  borderRadius: 10,
-                  border: "1px solid rgba(138,160,255,0.30)",
-                  background: "rgba(10,15,28,0.80)",
                   color: "rgba(245,248,255,0.76)",
                   fontWeight: 700,
-                  padding: "0 12px",
-                  display: "inline-flex",
-                  alignItems: "center",
                 }}
               >
                 وضع تجريبي بدون Clerk
@@ -170,13 +158,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/app/strategy" style={contextPrimaryBtnStyle}>
+            <Link href="/app/strategy" className="oms-btn oms-btn-primary">
               بدء تحليل جديد
             </Link>
-            <Link className="context-btn-secondary" href="/app/workflows" style={contextGhostBtnStyle}>
+            <Link className="context-btn-secondary oms-btn oms-btn-ghost" href="/app/workflows">
               متابعة سير العمل
             </Link>
-            <Link className="context-btn-secondary" href="/app/reports" style={contextGhostBtnStyle}>
+            <Link className="context-btn-secondary oms-btn oms-btn-ghost" href="/app/reports">
               فتح التقارير
             </Link>
           </div>
@@ -355,29 +343,3 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-const contextPrimaryBtnStyle = {
-  minHeight: 38,
-  borderRadius: 10,
-  border: "1px solid rgba(160,114,255,0.50)",
-  background: "linear-gradient(180deg, rgba(131,64,242,0.94), rgba(88,39,187,0.92))",
-  color: "#FFFFFF",
-  fontWeight: 800,
-  textDecoration: "none",
-  padding: "0 12px",
-  display: "inline-flex",
-  alignItems: "center",
-} as const;
-
-const contextGhostBtnStyle = {
-  minHeight: 38,
-  borderRadius: 10,
-  border: "1px solid rgba(138,160,255,0.30)",
-  background: "rgba(10,15,28,0.80)",
-  color: "#F5F8FF",
-  fontWeight: 800,
-  textDecoration: "none",
-  padding: "0 12px",
-  display: "inline-flex",
-  alignItems: "center",
-} as const;

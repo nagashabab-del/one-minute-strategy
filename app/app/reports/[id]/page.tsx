@@ -12,11 +12,13 @@ export default function ReportDetailsPage() {
   if (!report) {
     return (
       <main>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>التقرير غير موجود</h1>
-        <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)" }}>
+        <h1 className="oms-page-title" style={{ fontSize: 24 }}>
+          التقرير غير موجود
+        </h1>
+        <p className="oms-page-subtitle">
           لم يتم العثور على التقرير المطلوب.
         </p>
-        <Link href="/app/reports" style={backBtnStyle}>
+        <Link href="/app/reports" className="oms-btn oms-btn-ghost">
           رجوع إلى التقارير
         </Link>
       </main>
@@ -25,43 +27,45 @@ export default function ReportDetailsPage() {
 
   return (
     <main>
-      <Link href="/app/reports" style={backBtnStyle}>
+      <Link href="/app/reports" className="oms-btn oms-btn-ghost">
         ← رجوع إلى قائمة التقارير
       </Link>
 
-      <h1 style={{ margin: "12px 0 0", fontSize: 28, fontWeight: 900 }}>{report.title}</h1>
-      <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
+      <h1 className="oms-page-title" style={{ marginTop: 12 }}>
+        {report.title}
+      </h1>
+      <p className="oms-page-subtitle">
         تاريخ التحديث: {report.date} • الحالة: {report.status}
       </p>
 
-      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>القرار التنفيذي</h2>
-          <p style={sectionTextStyle}>{report.executiveDecision}</p>
+      <div className="oms-list">
+        <section className="oms-panel">
+          <h2 className="oms-section-title">القرار التنفيذي</h2>
+          <p className="oms-text">{report.executiveDecision}</p>
         </section>
 
-        <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>أبرز ملاحظات المستشارين</h2>
+        <section className="oms-panel">
+          <h2 className="oms-section-title">أبرز ملاحظات المستشارين</h2>
           {report.advisorsHighlights.map((line, idx) => (
-            <div key={idx} style={listLineStyle}>
+            <div key={idx} className="oms-list-line">
               • {line}
             </div>
           ))}
         </section>
 
-        <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>المخاطر</h2>
+        <section className="oms-panel">
+          <h2 className="oms-section-title">المخاطر</h2>
           {report.risks.map((line, idx) => (
-            <div key={idx} style={listLineStyle}>
+            <div key={idx} className="oms-list-line">
               • {line}
             </div>
           ))}
         </section>
 
-        <section style={cardStyle}>
-          <h2 style={sectionTitleStyle}>التوصيات</h2>
+        <section className="oms-panel">
+          <h2 className="oms-section-title">التوصيات</h2>
           {report.recommendations.map((line, idx) => (
-            <div key={idx} style={listLineStyle}>
+            <div key={idx} className="oms-list-line">
               • {line}
             </div>
           ))}
@@ -70,41 +74,3 @@ export default function ReportDetailsPage() {
     </main>
   );
 }
-
-const cardStyle = {
-  borderRadius: 14,
-  border: "1px solid rgba(138,160,255,0.22)",
-  background: "linear-gradient(180deg, rgba(12,20,36,0.88), rgba(10,16,28,0.80))",
-  padding: "12px",
-} as const;
-
-const sectionTitleStyle = {
-  margin: 0,
-  fontSize: 18,
-  fontWeight: 900,
-} as const;
-
-const sectionTextStyle = {
-  marginTop: 8,
-  color: "rgba(226,235,255,0.84)",
-  lineHeight: 1.8,
-} as const;
-
-const listLineStyle = {
-  marginTop: 6,
-  color: "rgba(226,235,255,0.84)",
-  lineHeight: 1.7,
-} as const;
-
-const backBtnStyle = {
-  minHeight: 36,
-  borderRadius: 10,
-  border: "1px solid rgba(138,160,255,0.32)",
-  background: "linear-gradient(180deg, rgba(11,18,33,0.88), rgba(8,13,24,0.84))",
-  color: "#F5F8FF",
-  textDecoration: "none",
-  padding: "0 12px",
-  display: "inline-flex",
-  alignItems: "center",
-  fontWeight: 800,
-} as const;

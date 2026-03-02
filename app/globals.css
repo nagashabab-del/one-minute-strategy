@@ -1,15 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --oms-bg: #070a14;
+  --oms-bg-elevated: #0b1020;
+  --oms-bg-panel: linear-gradient(180deg, rgba(12, 20, 36, 0.88), rgba(10, 16, 28, 0.8));
+  --oms-bg-card: linear-gradient(180deg, rgba(12, 18, 34, 0.86), rgba(9, 13, 24, 0.78));
+  --oms-bg-nav-active: linear-gradient(180deg, rgba(133, 65, 247, 0.9), rgba(93, 39, 201, 0.9));
+  --oms-bg-nav-idle: linear-gradient(180deg, rgba(11, 18, 33, 0.88), rgba(8, 13, 24, 0.84));
+  --oms-bg-primary: linear-gradient(180deg, rgba(131, 64, 242, 0.94), rgba(88, 39, 187, 0.92));
+  --oms-text: #f5f8ff;
+  --oms-text-muted: rgba(226, 235, 255, 0.78);
+  --oms-text-faint: rgba(221, 232, 255, 0.68);
+  --oms-border: rgba(138, 160, 255, 0.22);
+  --oms-border-strong: rgba(138, 160, 255, 0.32);
+  --oms-border-active: rgba(165, 120, 255, 0.55);
+  --oms-success: #40d3a1;
+  --oms-warning: #f2b24a;
+  --oms-danger: #ff7f8e;
+  --oms-radius-sm: 10px;
+  --oms-radius-md: 14px;
+  --oms-radius-lg: 16px;
+  --oms-space-1: 6px;
+  --oms-space-2: 10px;
+  --oms-space-3: 12px;
+  --oms-space-4: 16px;
+  --oms-space-5: 20px;
+  --oms-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.3);
+  --background: var(--oms-bg);
+  --foreground: var(--oms-text);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
+    "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", "Helvetica Neue",
+    Tahoma,
     sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
@@ -18,13 +44,146 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: var(--oms-bg);
+    --foreground: var(--oms-text);
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+.oms-page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--oms-text);
+}
+
+.oms-page-subtitle {
+  margin-top: 8px;
+  color: var(--oms-text-muted);
+  line-height: 1.8;
+}
+
+.oms-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--oms-text);
+}
+
+.oms-text {
+  margin-top: 8px;
+  color: var(--oms-text-muted);
+  line-height: 1.8;
+}
+
+.oms-list-line {
+  margin-top: 6px;
+  color: var(--oms-text-muted);
+  line-height: 1.7;
+}
+
+.oms-panel {
+  margin-top: 12px;
+  border-radius: var(--oms-radius-md);
+  border: 1px solid var(--oms-border);
+  background: var(--oms-bg-panel);
+  padding: 12px;
+}
+
+.oms-card {
+  border-radius: var(--oms-radius-md);
+  border: 1px solid var(--oms-border);
+  background: var(--oms-bg-card);
+}
+
+.oms-kpi-card {
+  border-radius: var(--oms-radius-md);
+  border: 1px solid var(--oms-border);
+  background: var(--oms-bg-card);
+  padding: 12px;
+}
+
+.oms-kpi-label {
+  color: var(--oms-text-faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.oms-kpi-value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.oms-btn {
+  min-height: 38px;
+  border-radius: var(--oms-radius-sm);
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 800;
+  border: 1px solid var(--oms-border-strong);
+  color: var(--oms-text);
+  transition: filter 0.16s ease, transform 0.16s ease;
+}
+
+.oms-btn:hover {
+  filter: brightness(1.08);
+}
+
+.oms-btn:active {
+  transform: translateY(1px);
+}
+
+.oms-btn-primary {
+  border-color: rgba(160, 114, 255, 0.5);
+  background: var(--oms-bg-primary);
+}
+
+.oms-btn-ghost {
+  background: rgba(10, 15, 28, 0.8);
+}
+
+.oms-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.oms-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.oms-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .oms-page-title {
+    font-size: 24px;
+  }
+
+  .oms-kpi-value {
+    font-size: 22px;
+  }
+
+  .oms-grid-2 {
+    grid-template-columns: 1fr;
+  }
 }

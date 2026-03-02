@@ -11,8 +11,8 @@ export default function DashboardPage() {
 
   return (
     <main>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>نظرة عامة</h1>
-      <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
+      <h1 className="oms-page-title">نظرة عامة</h1>
+      <p className="oms-page-subtitle">
         مركز متابعة الحالة التنفيذية. ابدأ تحليل جديد أو راجع مخرجات المشاريع الحالية.
       </p>
 
@@ -25,12 +25,12 @@ export default function DashboardPage() {
           gap: 10,
         }}
       >
-        <Link className="dashboard-action-card" href="/app/strategy" style={cardLinkStyle}>
+        <Link className="dashboard-action-card oms-card" href="/app/strategy" style={actionCardStyle}>
           <strong>ابدأ تحليل جديد</strong>
           <span style={cardHintStyle}>الانتقال إلى مساحة الاستراتيجية</span>
         </Link>
 
-        <Link className="dashboard-action-card" href="/app/reports" style={cardLinkStyle}>
+        <Link className="dashboard-action-card oms-card" href="/app/reports" style={actionCardStyle}>
           <strong>عرض التقارير</strong>
           <span style={cardHintStyle}>استعرض قائمة التقارير والتفاصيل</span>
         </Link>
@@ -45,23 +45,17 @@ export default function DashboardPage() {
           gap: 10,
         }}
       >
-        <div className="dashboard-kpi-card" style={kpiCardStyle}>
-          <div style={kpiLabelStyle}>إجمالي التحليلات</div>
-          <div className="dashboard-kpi-value" style={kpiValueStyle}>
-            {reports.length}
-          </div>
+        <div className="dashboard-kpi-card oms-kpi-card">
+          <div className="oms-kpi-label">إجمالي التحليلات</div>
+          <div className="dashboard-kpi-value oms-kpi-value">{reports.length}</div>
         </div>
-        <div className="dashboard-kpi-card" style={kpiCardStyle}>
-          <div style={kpiLabelStyle}>آخر تحليل</div>
-          <div className="dashboard-kpi-value" style={kpiValueStyle}>
-            {lastDate}
-          </div>
+        <div className="dashboard-kpi-card oms-kpi-card">
+          <div className="oms-kpi-label">آخر تحليل</div>
+          <div className="dashboard-kpi-value oms-kpi-value">{lastDate}</div>
         </div>
-        <div className="dashboard-kpi-card" style={kpiCardStyle}>
-          <div style={kpiLabelStyle}>تقارير معتمدة</div>
-          <div className="dashboard-kpi-value" style={kpiValueStyle}>
-            {approvedCount}
-          </div>
+        <div className="dashboard-kpi-card oms-kpi-card">
+          <div className="oms-kpi-label">تقارير معتمدة</div>
+          <div className="dashboard-kpi-value oms-kpi-value">{approvedCount}</div>
         </div>
       </section>
 
@@ -94,10 +88,7 @@ export default function DashboardPage() {
   );
 }
 
-const cardLinkStyle = {
-  borderRadius: 14,
-  border: "1px solid rgba(138,160,255,0.24)",
-  background: "linear-gradient(180deg, rgba(12,20,38,0.88), rgba(10,16,28,0.82))",
+const actionCardStyle = {
   color: "#F5F8FF",
   textDecoration: "none",
   padding: "14px 12px",
@@ -108,25 +99,6 @@ const cardLinkStyle = {
 } as const;
 
 const cardHintStyle = {
-  color: "rgba(224,233,255,0.74)",
+  color: "var(--oms-text-muted)",
   fontSize: 13,
-} as const;
-
-const kpiCardStyle = {
-  borderRadius: 14,
-  border: "1px solid rgba(138,160,255,0.22)",
-  background: "linear-gradient(180deg, rgba(12,18,34,0.86), rgba(9,13,24,0.78))",
-  padding: "12px 12px 14px",
-} as const;
-
-const kpiLabelStyle = {
-  color: "rgba(221,232,255,0.74)",
-  fontSize: 12,
-  fontWeight: 700,
-} as const;
-
-const kpiValueStyle = {
-  marginTop: 8,
-  fontSize: 28,
-  fontWeight: 900,
 } as const;
