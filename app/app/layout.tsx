@@ -7,9 +7,15 @@ export default async function ProtectedAppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/sign-in?redirect_url=/app");
+  const clerkConfigured = Boolean(
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
+  );
+
+  if (clerkConfigured) {
+    const { userId } = await auth();
+    if (!userId) {
+      redirect("/sign-in?redirect_url=/app");
+    }
   }
 
   return <AppShell>{children}</AppShell>;

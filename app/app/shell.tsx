@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
   return (
     <div
@@ -39,24 +40,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         >
           <div style={{ fontSize: 17, fontWeight: 900 }}>One Minute Strategy</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <UserButton afterSignOutUrl="/" />
-            <SignOutButton>
-              <button
-                type="button"
+            {clerkConfigured ? (
+              <>
+                <UserButton afterSignOutUrl="/" />
+                <SignOutButton>
+                  <button
+                    type="button"
+                    style={{
+                      minHeight: 38,
+                      borderRadius: 10,
+                      border: "1px solid rgba(138,160,255,0.30)",
+                      background: "rgba(10,15,28,0.80)",
+                      color: "#F5F8FF",
+                      fontWeight: 800,
+                      padding: "0 12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    تسجيل الخروج
+                  </button>
+                </SignOutButton>
+              </>
+            ) : (
+              <div
                 style={{
                   minHeight: 38,
                   borderRadius: 10,
                   border: "1px solid rgba(138,160,255,0.30)",
                   background: "rgba(10,15,28,0.80)",
-                  color: "#F5F8FF",
-                  fontWeight: 800,
+                  color: "rgba(245,248,255,0.76)",
+                  fontWeight: 700,
                   padding: "0 12px",
-                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
                 }}
               >
-                تسجيل الخروج
-              </button>
-            </SignOutButton>
+                وضع تجريبي بدون Clerk
+              </div>
+            )}
           </div>
         </header>
 
