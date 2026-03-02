@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { readReports } from "./reports/report-store";
 
 type NavItem = {
   href: string;
@@ -37,6 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const inStrategyFlow = pathname.startsWith("/app/strategy");
+  const [hasReports, setHasReports] = useState(false);
 
   const currentSection = useMemo(() => {
     if (pathname.startsWith("/app/strategy")) return "الاستراتيجية";
@@ -75,6 +77,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const refreshReportsState = () => {
+      setHasReports(readReports().length > 0);
+    };
+    refreshReportsState();
+    window.addEventListener("storage", refreshReportsState);
+    return () => window.removeEventListener("storage", refreshReportsState);
+  }, [pathname]);
+
+  const shouldShowReportsShortcut = !inStrategyFlow || hasReports;
 
   return (
     <div
@@ -177,12 +190,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/app/strategy" className="oms-btn oms-btn-primary">
               بدء تحليل جديد
             </Link>
-            <Link className="context-btn-secondary oms-btn oms-btn-ghost" href="/app/workflows">
+            <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href="/app/workflows">
               متابعة سير العمل
             </Link>
-            <Link className="context-btn-secondary oms-btn oms-btn-ghost" href="/app/reports">
-              فتح التقارير
-            </Link>
+            {shouldShowReportsShortcut ? (
+              <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                فتح التقارير
+              </Link>
+            ) : null}
           </div>
         </section>
 
@@ -367,7 +382,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             display: none !important;
           }
 
-          .context-btn-secondary {
+          .context-btn-mobile-hide {
             display: none !important;
           }
 
