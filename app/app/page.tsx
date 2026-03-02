@@ -11,9 +11,9 @@ export default function DashboardPage() {
 
   return (
     <main>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>لوحة التحكم</h1>
+      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>نظرة عامة</h1>
       <p style={{ marginTop: 8, color: "rgba(226,235,255,0.78)", lineHeight: 1.8 }}>
-        مرحبًا بك في مساحة العمل. ابدأ تحليل جديد أو راجع التقارير السابقة.
+        مركز متابعة الحالة التنفيذية. ابدأ تحليل جديد أو راجع مخرجات المشاريع الحالية.
       </p>
 
       <section
