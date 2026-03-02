@@ -19,9 +19,6 @@ export default function StrategyPage() {
           <Link href="/app/strategy/brief" className="oms-btn oms-btn-primary">
             ابدأ من موجز المشروع
           </Link>
-          <Link href="/app/strategy/workspace" className="oms-btn oms-btn-ghost">
-            فتح محرك التحليل الحالي
-          </Link>
         </div>
       </section>
 

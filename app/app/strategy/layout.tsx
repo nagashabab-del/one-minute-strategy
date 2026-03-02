@@ -26,6 +26,7 @@ export default function StrategyLayout({
           {STRATEGY_STAGES.map((stage, idx) => {
             const active = stage.id === activeId;
             const completed = idx < activeIndex;
+            const stateLabel = active ? "نشطة" : completed ? "مكتملة" : "قادمة";
             return (
               <Link
                 key={stage.id}
@@ -34,7 +35,12 @@ export default function StrategyLayout({
                   completed ? "is-complete" : ""
                 }`}
               >
-                <span className="strategy-stage-title">{stage.title}</span>
+                <span className="strategy-stage-row">
+                  <span className="strategy-stage-title">{stage.title}</span>
+                  <span className={`strategy-stage-state ${active ? "is-active" : completed ? "is-complete" : ""}`}>
+                    {stateLabel}
+                  </span>
+                </span>
                 <span className="strategy-stage-subtitle">{stage.subtitle}</span>
               </Link>
             );
@@ -105,23 +111,58 @@ export default function StrategyLayout({
           background: var(--oms-bg-nav-idle);
           padding: 8px 9px;
           display: grid;
-          gap: 2px;
+          gap: 4px;
           min-height: 52px;
         }
 
         .strategy-stage-link.is-complete {
-          border-color: rgba(95, 209, 153, 0.45);
+          border-color: rgba(95, 209, 153, 0.5);
+          background: linear-gradient(180deg, rgba(16, 36, 33, 0.94), rgba(9, 23, 20, 0.88));
         }
 
         .strategy-stage-link.is-active {
-          border-color: var(--oms-border-active);
+          border-color: rgba(174, 128, 255, 0.76);
           background: var(--oms-bg-nav-active);
+          box-shadow: 0 0 0 1px rgba(174, 128, 255, 0.22), 0 8px 18px rgba(61, 24, 129, 0.42);
+        }
+
+        .strategy-stage-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
         }
 
         .strategy-stage-title {
           font-size: 13px;
           font-weight: 800;
           line-height: 1.3;
+        }
+
+        .strategy-stage-state {
+          min-height: 20px;
+          border-radius: 999px;
+          border: 1px solid rgba(138, 160, 255, 0.28);
+          background: rgba(8, 14, 26, 0.72);
+          color: var(--oms-text-faint);
+          font-size: 10px;
+          font-weight: 800;
+          padding: 0 6px;
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+
+        .strategy-stage-state.is-complete {
+          border-color: rgba(95, 209, 153, 0.55);
+          color: #6ce3b5;
+          background: rgba(13, 42, 35, 0.82);
+        }
+
+        .strategy-stage-state.is-active {
+          border-color: rgba(186, 148, 255, 0.75);
+          color: #f2e9ff;
+          background: rgba(93, 39, 201, 0.45);
         }
 
         .strategy-stage-subtitle {

@@ -36,6 +36,7 @@ const MOBILE_ITEMS: NavItem[] = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const inStrategyFlow = pathname.startsWith("/app/strategy");
 
   const currentSection = useMemo(() => {
     if (pathname.startsWith("/app/strategy")) return "الاستراتيجية";
@@ -86,7 +87,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         color: "#F5F8FF",
       }}
     >
-      <div className="app-shell-inner" style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 16px 86px" }}>
+      <div
+        className={`app-shell-inner ${inStrategyFlow ? "in-strategy-flow" : ""}`}
+        style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 16px 86px" }}
+      >
         <header
           style={{
             borderRadius: 16,
@@ -175,56 +179,60 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           style={{
             marginTop: 12,
             display: "grid",
-            gridTemplateColumns: "minmax(220px, 250px) minmax(0, 1fr)",
+            gridTemplateColumns: inStrategyFlow
+              ? "minmax(0, 1fr)"
+              : "minmax(220px, 250px) minmax(0, 1fr)",
             gap: 12,
           }}
         >
-          <aside
-            className="app-shell-sidebar"
-            style={{
-              borderRadius: 16,
-              border: "1px solid rgba(138,160,255,0.22)",
-              background: "linear-gradient(180deg, rgba(11,16,32,0.90), rgba(8,12,23,0.80))",
-              padding: 10,
-              height: "fit-content",
-              position: "sticky",
-              top: 12,
-            }}
-          >
-              <div style={{ fontSize: 12, color: "rgba(225,233,255,0.72)", marginBottom: 8 }}>التنقل</div>
-            <nav className="app-shell-nav" style={{ display: "grid", gap: 6 }}>
-              {NAV_ITEMS.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    className="app-shell-nav-link"
-                    key={item.href}
-                    href={item.href}
-                    style={{
-                      minHeight: 42,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      borderRadius: 10,
-                      border: active
-                        ? "1px solid rgba(165,120,255,0.55)"
-                        : "1px solid rgba(138,160,255,0.26)",
-                      background: active
-                        ? "linear-gradient(180deg, rgba(133,65,247,0.88), rgba(93,39,201,0.88))"
-                        : "linear-gradient(180deg, rgba(11,18,33,0.88), rgba(8,13,24,0.84))",
-                      color: "#F5F8FF",
-                      fontWeight: 800,
-                      textDecoration: "none",
-                      padding: "0 12px",
-                      fontSize: 15,
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </aside>
+          {!inStrategyFlow ? (
+            <aside
+              className="app-shell-sidebar"
+              style={{
+                borderRadius: 16,
+                border: "1px solid rgba(138,160,255,0.22)",
+                background: "linear-gradient(180deg, rgba(11,16,32,0.90), rgba(8,12,23,0.80))",
+                padding: 10,
+                height: "fit-content",
+                position: "sticky",
+                top: 12,
+              }}
+            >
+                <div style={{ fontSize: 12, color: "rgba(225,233,255,0.72)", marginBottom: 8 }}>التنقل</div>
+              <nav className="app-shell-nav" style={{ display: "grid", gap: 6 }}>
+                {NAV_ITEMS.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      className="app-shell-nav-link"
+                      key={item.href}
+                      href={item.href}
+                      style={{
+                        minHeight: 42,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        borderRadius: 10,
+                        border: active
+                          ? "1px solid rgba(165,120,255,0.55)"
+                          : "1px solid rgba(138,160,255,0.26)",
+                        background: active
+                          ? "linear-gradient(180deg, rgba(133,65,247,0.88), rgba(93,39,201,0.88))"
+                          : "linear-gradient(180deg, rgba(11,18,33,0.88), rgba(8,13,24,0.84))",
+                        color: "#F5F8FF",
+                        fontWeight: 800,
+                        textDecoration: "none",
+                        padding: "0 12px",
+                        fontSize: 15,
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </aside>
+          ) : null}
 
           <section
             className="app-shell-main"
@@ -240,36 +248,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </section>
         </div>
 
-        <nav className="app-shell-mobile-bottom">
-          {MOBILE_ITEMS.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  minHeight: 44,
-                  borderRadius: 11,
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  color: "#F5F8FF",
-                  border: active
-                    ? "1px solid rgba(165,120,255,0.52)"
-                    : "1px solid rgba(138,160,255,0.26)",
-                  background: active
-                    ? "linear-gradient(180deg, rgba(133,65,247,0.92), rgba(93,39,201,0.90))"
-                    : "linear-gradient(180deg, rgba(11,18,33,0.88), rgba(8,13,24,0.84))",
-                }}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {!inStrategyFlow ? (
+          <nav className="app-shell-mobile-bottom">
+            {MOBILE_ITEMS.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    minHeight: 44,
+                    borderRadius: 11,
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#F5F8FF",
+                    border: active
+                      ? "1px solid rgba(165,120,255,0.52)"
+                      : "1px solid rgba(138,160,255,0.26)",
+                    background: active
+                      ? "linear-gradient(180deg, rgba(133,65,247,0.92), rgba(93,39,201,0.90))"
+                      : "linear-gradient(180deg, rgba(11,18,33,0.88), rgba(8,13,24,0.84))",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
       </div>
 
       <style>{`
@@ -298,6 +308,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         @media (max-width: 720px) {
           .app-shell-inner {
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 98px) !important;
+          }
+
+          .app-shell-inner.in-strategy-flow {
+            padding-bottom: 16px !important;
           }
 
           .app-shell-sidebar {

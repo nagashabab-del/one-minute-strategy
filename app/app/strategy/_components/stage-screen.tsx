@@ -11,6 +11,9 @@ type StageScreenProps = {
 };
 
 export default function StageScreen(props: StageScreenProps) {
+  const scopeItems = props.currentScope.slice(0, 2);
+  const deliverables = props.nextDeliverables.slice(0, 2);
+
   return (
     <main>
       <h1 className="oms-page-title">{props.title}</h1>
@@ -24,7 +27,7 @@ export default function StageScreen(props: StageScreenProps) {
       <section className="oms-grid-2" style={{ marginTop: 12 }}>
         <article className="oms-panel" style={{ marginTop: 0 }}>
           <h2 className="oms-section-title">النطاق الحالي</h2>
-          {props.currentScope.map((line, idx) => (
+          {scopeItems.map((line, idx) => (
             <div key={idx} className="oms-list-line">
               • {line}
             </div>
@@ -32,7 +35,7 @@ export default function StageScreen(props: StageScreenProps) {
         </article>
         <article className="oms-panel" style={{ marginTop: 0 }}>
           <h2 className="oms-section-title">المخرجات التالية</h2>
-          {props.nextDeliverables.map((line, idx) => (
+          {deliverables.map((line, idx) => (
             <div key={idx} className="oms-list-line">
               • {line}
             </div>
@@ -45,9 +48,6 @@ export default function StageScreen(props: StageScreenProps) {
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
           <Link href={props.primaryActionHref} className="oms-btn oms-btn-primary">
             {props.primaryActionLabel}
-          </Link>
-          <Link href="/app/strategy/workspace" className="oms-btn oms-btn-ghost">
-            فتح المحرك الحالي
           </Link>
         </div>
       </section>
