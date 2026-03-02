@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { STRATEGY_STAGES, resolveActiveStageId, stageCompletionRatio } from "./stages";
 
 export default function StrategyLayout({
@@ -10,9 +11,11 @@ export default function StrategyLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
+  const [mobileStagesOpen, setMobileStagesOpen] = useState(false);
   const activeId = resolveActiveStageId(pathname);
   const activeIndex = STRATEGY_STAGES.findIndex((item) => item.id === activeId);
   const completion = stageCompletionRatio(activeId);
+  const activeStage = STRATEGY_STAGES.find((item) => item.id === activeId);
 
   return (
     <div className="strategy-layout">
@@ -22,7 +25,16 @@ export default function StrategyLayout({
           <div className="strategy-sidebar-progress">{completion}%</div>
         </div>
 
-        <nav className="strategy-stage-list">
+        <button
+          type="button"
+          className="strategy-mobile-toggle"
+          onClick={() => setMobileStagesOpen((prev) => !prev)}
+        >
+          <span>المرحلة الحالية: {activeStage?.title ?? "غير محددة"}</span>
+          <span>{mobileStagesOpen ? "إخفاء المراحل" : "عرض المراحل"}</span>
+        </button>
+
+        <nav className={`strategy-stage-list ${mobileStagesOpen ? "is-open" : ""}`}>
           {STRATEGY_STAGES.map((stage, idx) => {
             const active = stage.id === activeId;
             const completed = idx < activeIndex;
@@ -34,6 +46,7 @@ export default function StrategyLayout({
                 className={`strategy-stage-link ${active ? "is-active" : ""} ${
                   completed ? "is-complete" : ""
                 }`}
+                onClick={() => setMobileStagesOpen(false)}
               >
                 <span className="strategy-stage-row">
                   <span className="strategy-stage-title">{stage.title}</span>
@@ -47,7 +60,10 @@ export default function StrategyLayout({
           })}
         </nav>
 
-        <Link href="/app/strategy/workspace" className="oms-btn oms-btn-ghost strategy-engine-btn">
+        <Link
+          href="/app/strategy/workspace"
+          className={`oms-btn oms-btn-ghost strategy-engine-btn ${mobileStagesOpen ? "is-open" : ""}`}
+        >
           فتح محرك التحليل الحالي
         </Link>
       </aside>
@@ -96,6 +112,21 @@ export default function StrategyLayout({
           align-items: center;
           font-size: 12px;
           font-weight: 900;
+        }
+
+        .strategy-mobile-toggle {
+          display: none;
+          min-height: 40px;
+          border-radius: var(--oms-radius-sm);
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(8, 14, 26, 0.84);
+          color: var(--oms-text);
+          font-weight: 800;
+          padding: 0 10px;
+          width: 100%;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
         }
 
         .strategy-stage-list {
@@ -189,13 +220,33 @@ export default function StrategyLayout({
           }
 
           .strategy-stage-list {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: none;
+          }
+
+          .strategy-stage-list.is-open {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .strategy-mobile-toggle {
+            display: inline-flex;
+          }
+
+          .strategy-engine-btn {
+            display: none;
+          }
+
+          .strategy-engine-btn.is-open {
+            display: inline-flex;
           }
         }
 
         @media (max-width: 640px) {
-          .strategy-stage-list {
-            grid-template-columns: 1fr;
+          .strategy-mobile-toggle {
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 8px 10px;
           }
         }
       `}</style>
