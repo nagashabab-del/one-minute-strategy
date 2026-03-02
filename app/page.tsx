@@ -265,6 +265,18 @@ type LoadingContext =
   | "build_dialogue"
   | "run_analysis";
 
+type StageQuickNavAction = {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+  title?: string;
+};
+
+type StageQuickNavModel = {
+  previous?: StageQuickNavAction;
+  next?: StageQuickNavAction;
+};
+
 type MobileSummarySectionKey =
   | "permissions"
   | "session_state"
@@ -361,7 +373,7 @@ function stageLabelCompact(stage?: StageUI) {
     case "advanced_scope":
       return "المتقدم: النطاق";
     case "advanced_boq":
-      return "المتقدم: BOQ";
+      return "المتقدم: جدول الكميات";
     case "advanced_plan":
       return "المتقدم: الخطة";
     default:
@@ -980,7 +992,7 @@ const ORG_ROLE_TEMPLATES: Omit<OrgRole, "enabled" | "assignee">[] = [
     summary: "قيادة الرؤية البصرية والتجربة العامة للفعالية.",
     responsibilities: [
       "اعتماد المفهوم الإبداعي والهوية البصرية",
-      "الإشراف على مخرجات الجرافيك و3D",
+      "الإشراف على مخرجات الجرافيك والنماذج ثلاثية الأبعاد",
       "ضمان تطابق التنفيذ مع الرندر المعتمد",
     ],
     kpis: ["جودة المخرجات", "رضا العميل", "تطابق التنفيذ مع الاعتماد"],
@@ -1634,7 +1646,7 @@ export default function Home() {
       if (!p.canEditAdvancedExecution) {
         hints.push(
           permissionHintText(
-            "تعديل متابعة التنفيذ (Action Tracker)",
+            "تعديل متابعة التنفيذ (متتبع المهام)",
             ["project_manager", "operations_manager"],
             userRole
           )
@@ -2461,7 +2473,7 @@ export default function Home() {
         importProjectsBackup(parsed);
       }
     } catch {
-      showError("تعذر قراءة الملف. تأكد أن الامتداد JSON والملف غير تالف.");
+      showError("تعذر قراءة الملف. تأكد أن الملف بصيغة جيسون وأن الملف غير تالف.");
     }
   }
 
@@ -2838,7 +2850,7 @@ export default function Home() {
         lines,
         ranAt,
       });
-      showSuccess("QA الصلاحيات: الفحص ناجح بدون تعارض.");
+      showSuccess("ضمان الجودة للصلاحيات: الفحص ناجح بدون تعارض.");
       return;
     }
 
@@ -2848,7 +2860,7 @@ export default function Home() {
       lines: mismatches,
       ranAt,
     });
-    showError(`QA الصلاحيات: يوجد ${toArabicDigits(mismatches.length)} تعارض.`);
+    showError(`ضمان الجودة للصلاحيات: يوجد ${toArabicDigits(mismatches.length)} تعارض.`);
   }
 
   async function copyRoleQaReport() {
@@ -2858,7 +2870,7 @@ export default function Home() {
     }
 
     const lines = [
-      "تقرير QA الصلاحيات",
+      "تقرير ضمان الجودة للصلاحيات",
       `النتيجة: ${roleQaReport.status === "pass" ? "ناجح" : "يوجد تعارض"}`,
       `الملخص: ${roleQaReport.summary}`,
       `وقت التشغيل: ${formatDateTimeLabel(roleQaReport.ranAt)}`,
@@ -2868,7 +2880,7 @@ export default function Home() {
     ];
 
     await navigator.clipboard.writeText(lines.join("\n"));
-    showSuccess("تم نسخ تقرير QA الصلاحيات.");
+    showSuccess("تم نسخ تقرير ضمان الجودة للصلاحيات.");
   }
 
   function startLoading(context: LoadingContext) {
@@ -3278,7 +3290,7 @@ export default function Home() {
     ].join("\n");
 
     const fieldChecklist = [
-      "نسخة تشغيل ميدانية (Checklist)",
+      "نسخة تشغيل ميدانية (قائمة التحقق)",
       "",
       `تاريخ التحديث: ${generatedAt}`,
       `رقم النسخة: ${documentRevisionLabel}`,
@@ -3351,17 +3363,17 @@ export default function Home() {
     const safeRevision = escapeHtml(documentRevisionLabel);
     const generatedAt = escapeHtml(formatDateTimeLabel(new Date().toISOString()));
     const stampText = !hasFrozenBaseline
-      ? "DRAFT"
+      ? "مسودة"
       : hasChangesAfterFreeze
-        ? "CHANGED AFTER FREEZE"
-        : "BASELINE FROZEN";
+        ? "تم التعديل بعد التجميد"
+        : "الخط الأساسي مُجمّد";
     const safeStamp = escapeHtml(stampText);
     const freezeMeta =
       hasFrozenBaseline && baselineFreeze
         ? escapeHtml(
-            `Baseline: ${baselineFreeze.id} • ${formatDateTimeLabel(baselineFreeze.frozenAt)}`
+            `الخط الأساسي: ${baselineFreeze.id} • ${formatDateTimeLabel(baselineFreeze.frozenAt)}`
           )
-        : "Baseline: غير مجمّدة";
+        : "الخط الأساسي: غير مُجمّد";
     const safeFreezeMeta = escapeHtml(freezeMeta);
     const printHtml = `
       <!doctype html>
@@ -3474,7 +3486,7 @@ export default function Home() {
           </main>
 
           <div class="footer">
-            <div>One Minute Strategy • Internal Execution Copy</div>
+            <div>One Minute Strategy • نسخة تنفيذ داخلية</div>
             <div>صفحة <span class="page-num"></span></div>
           </div>
         </body>
@@ -3615,7 +3627,7 @@ export default function Home() {
       const depRow = boqFilledMap.get(row.dependsOnBoqId);
       if (!depRow) return "تبعية غير صالحة (راجع جدول الكميات)";
       const depIdx = boqFilledIndexMap.get(depRow.id) ?? 0;
-      return `اكتمال بند في جدول الكميات: ${boqRowLabel(depRow, depIdx)} (${row.dependencyType})`;
+      return `اكتمال بند في جدول الكميات: ${boqRowLabel(depRow, depIdx)} (${row.dependencyType === "FS" ? "نهاية إلى بداية" : row.dependencyType})`;
     };
     const resolveBoqTaskWindow = (
       row: BoqItem,
@@ -3701,7 +3713,7 @@ export default function Home() {
     };
     const activeRoleLines = activeOrgRoles.map((role, idx) => {
       const lead = role.assignee.trim() ? `${role.title} — ${role.assignee.trim()}` : role.title;
-      return `- ${toArabicDigits(idx + 1)}) ${lead} | KPIs: ${role.kpis.join("، ")}`;
+      return `- ${toArabicDigits(idx + 1)}) ${lead} | مؤشرات الأداء: ${role.kpis.join("، ")}`;
     });
 
     type PlanTask = {
@@ -3733,7 +3745,7 @@ export default function Home() {
       {
         phase: "الإعداد",
         stream: "التصاميم والاعتمادات",
-        task: "إنهاء واعتماد مخططات 3D والجرافيك والهوية البصرية",
+        task: "إنهاء واعتماد المخططات ثلاثية الأبعاد والجرافيك والهوية البصرية",
         owner: roleOwner("creative_director", "مدير الإبداع/التصميم"),
         start: fmt(prepStart),
         end: fmt(prepEnd),
@@ -3745,7 +3757,7 @@ export default function Home() {
       {
         phase: "الإعداد",
         stream: "الموقع والتجهيزات",
-        task: "حجز القاعات وتجهيز مناطق التشغيل وVIP والضيافة",
+        task: "حجز القاعات وتجهيز مناطق التشغيل وكبار الشخصيات والضيافة",
         owner: roleOwner("operations_manager", "قائد العمليات"),
         start: fmt(prepStart),
         end: fmt(prepEnd),
@@ -3812,7 +3824,7 @@ export default function Home() {
         duration: "طوال التنفيذ",
         dependsOn: "بدء التشغيل",
         acceptance: "تقارير يومية وإغلاق الملاحظات الحرجة",
-        kpi: "إغلاق %100 من المخاطر الحرجة ضمن SLA",
+        kpi: "إغلاق %100 من المخاطر الحرجة ضمن اتفاقية مستوى الخدمة",
       },
       {
         phase: "الإقفال",
@@ -3932,7 +3944,7 @@ export default function Home() {
 
     const criticalPath = [
       "اعتماد النطاق والتصاميم",
-      "توريد البنود الحرجة (LED/الصوت/الإضاءة)",
+      "توريد البنود الحرجة (شاشة العرض/الصوت/الإضاءة)",
       "الاختبارات الفنية والبروفة النهائية",
       "بدء التنفيذ وفق السيناريو",
       "الإقفال والتسليم",
@@ -3986,7 +3998,7 @@ export default function Home() {
       `- مدة التنفيذ التقديرية: ${execDaysText} يوم`,
       `- مدة الإزالة/الإقفال: ${closureRemovalHours || "6"} ساعة`,
       "",
-      "المعالم الرئيسية (Milestones):",
+      "المعالم الرئيسية (المحطات):",
       ...milestones.map(
         (m, idx) => `- ${toArabicDigits(idx + 1)}) ${m.name}: ${m.at}`
       ),
@@ -4038,7 +4050,7 @@ export default function Home() {
           : "الميزانية غير معرفة"
       }`,
       "",
-      "المسار الحرج (Critical Path):",
+      "المسار الحرج (المسار الحاسم):",
       ...criticalPath.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
       "",
       "بوابات الجاهزية قبل التنفيذ:",
@@ -4060,14 +4072,14 @@ export default function Home() {
         ? riskLines.map((line, idx) => `- ${toArabicDigits(idx + 1)}) ${line}`)
         : ["- لا توجد مخاطر مدخلة بشكل تفصيلي حتى الآن."]),
       "",
-      "سرعة الاستجابة (SLA):",
+      "سرعة الاستجابة (اتفاقية مستوى الخدمة):",
       responseSla || "- غير مدخلة.",
       "",
       "إيقاع المتابعة والتشغيل:",
       ...controlRhythm.map((item, idx) => `- ${toArabicDigits(idx + 1)}) ${item}`),
       "",
       "مصفوفة المهام التشغيلية:",
-      "رقم | المرحلة | المسار | المهمة | المالك | البداية | النهاية | المدة | التبعية | معيار القبول | KPI",
+      "رقم | المرحلة | المسار | المهمة | المالك | البداية | النهاية | المدة | التبعية | معيار القبول | مؤشر الأداء",
       taskRows || "- لا توجد مهام جاهزة.",
       "",
       `إجمالي المهام التشغيليّة: ${toArabicDigits(tasksOrdered.length)} مهمة`,
@@ -4092,7 +4104,7 @@ export default function Home() {
       "حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية قبل التنفيذ."
     );
     setScopeTechnical((prev) =>
-      prev || "شاشة LED، أنظمة صوت، إضاءة فنية، وفريق دعم تقني بالموقع."
+      prev || "شاشة عرض، أنظمة صوت، إضاءة فنية، وفريق دعم تقني بالموقع."
     );
     setScopeProgram((prev) =>
       prev || "تنفيذ السيناريو المعتمد وإدارة الفقرات والالتزام بجدول الحفل."
@@ -4119,7 +4131,7 @@ export default function Home() {
         {
           id: String(Date.now()),
           category: "التجهيزات الفنية",
-          item: "شاشة LED رئيسية",
+          item: "شاشة عرض رئيسية",
           spec: "دقة عالية مع تحكم كامل وتشغيل تجريبي قبل الحدث",
           unit: "قطعة",
           qty: "1",
@@ -4235,7 +4247,7 @@ export default function Home() {
       },
       {
         advisor: "risk_advisor",
-        statement: "يوصى بتفعيل خطة تصعيد فوري للمخاطر الحرجة وربطها بمؤشرات SLA.",
+        statement: "يوصى بتفعيل خطة تصعيد فوري للمخاطر الحرجة وربطها بمؤشرات اتفاقية مستوى الخدمة.",
       },
     ];
 
@@ -4316,7 +4328,7 @@ export default function Home() {
     setReportText(demoAnalysis.report_text || "");
 
     setScopeSite("حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية.");
-    setScopeTechnical("شاشة LED، صوت، إضاءة، وفريق تقني متواجد طوال التشغيل.");
+    setScopeTechnical("شاشة عرض، صوت، إضاءة، وفريق تقني متواجد طوال التشغيل.");
     setScopeProgram("تطبيق السيناريو المعتمد وإدارة فقرات الحفل وفق الجدول.");
     setScopeCeremony("تنظيم المراسم والتوثيق والبث المباشر والتغطية الإعلامية.");
     setExecutionStrategy("اعتماد > تجهيز > اختبار > بروفة > تشغيل > إقفال.");
@@ -4329,7 +4341,7 @@ export default function Home() {
       {
         id: "demo-1",
         category: "التجهيزات الفنية",
-        item: "شاشة LED رئيسية",
+        item: "شاشة عرض رئيسية",
         spec: "دقة عالية مع اختبار تجريبي كامل",
         unit: "قطعة",
         qty: "1",
@@ -5449,18 +5461,17 @@ export default function Home() {
       } as CSSProperties,
       header: {
         display: "flex",
-        justifyContent: "space-between",
-        alignItems: isMobile ? "stretch" : "center",
-        flexDirection: isMobile ? "column" : "row",
-        gap: space.md,
+        justifyContent: "center",
+        alignItems: "center",
         marginBottom: 0,
       } as CSSProperties,
       headerBrand: {
         display: "flex",
         alignItems: "center",
-        justifyContent: isMobile ? "center" : "flex-start",
+        justifyContent: "center",
         gap: isMobile ? space.sm : space.md,
-        width: isMobile ? "100%" : "auto",
+        width: "fit-content",
+        margin: "0 auto",
       } as CSSProperties,
       headerLogoMark: {
         height: isMobile ? 40 : 48,
@@ -5490,18 +5501,18 @@ export default function Home() {
       themeControlBar: {
         marginTop: 12,
         borderRadius: 12,
-        border: palette.infoBorder,
-        background: palette.infoBg,
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
         padding: isMobile ? "9px 10px" : "10px 12px",
-        display: "flex",
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: "space-between",
-        gap: 8,
-        flexDirection: isMobile ? "column" : "row",
+        display: "grid",
+        gap: 7,
+        width: isMobile ? "100%" : "min(420px, 100%)",
+        marginLeft: isMobile ? 0 : "auto",
       } as CSSProperties,
       themeControlInfo: {
         display: "grid",
-        gap: 2,
+        gap: 3,
+        textAlign: "right",
       } as CSSProperties,
       themeControlLabel: {
         fontSize: 11.5,
@@ -5509,9 +5520,20 @@ export default function Home() {
         color: textTone(0.72),
       } as CSSProperties,
       themeControlState: {
-        fontSize: 13,
-        fontWeight: 800,
-        color: textTone(0.95),
+        fontSize: 12.5,
+        fontWeight: 600,
+        color: textTone(0.84),
+        lineHeight: 1.55,
+      } as CSSProperties,
+      themeControlSwitch: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 4,
+        padding: 4,
+        borderRadius: 12,
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
+        width: "100%",
       } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
@@ -5519,19 +5541,28 @@ export default function Home() {
         border: palette.cardBorder,
         background: palette.cardBg,
         padding: isMobile ? "9px" : "10px 12px",
-        display: "flex",
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: "space-between",
-        gap: isMobile ? 8 : 10,
-        flexDirection: isMobile ? "column" : "row",
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      sessionAdminGrid: {
+        display: "grid",
+        gridTemplateColumns: isMobile
+          ? "1fr"
+          : "minmax(260px, 1.35fr) minmax(180px, 1fr) minmax(260px, 1.2fr)",
+        gap: 8,
+        alignItems: "stretch",
+      } as CSSProperties,
+      sessionAdminPanel: {
+        borderRadius: 12,
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
+        padding: isMobile ? "8px 9px" : "9px 10px",
       } as CSSProperties,
       sessionAdminRoleField: {
-        minWidth: isMobile ? "100%" : 170,
-        maxWidth: isMobile ? "100%" : 220,
+        minWidth: 0,
       } as CSSProperties,
       sessionAdminProjectContext: {
-        minWidth: isMobile ? "100%" : 260,
-        flex: isMobile ? "none" : 1,
+        minWidth: 0,
       } as CSSProperties,
       sessionAdminProjectName: {
         minHeight: touchTarget,
@@ -5557,30 +5588,32 @@ export default function Home() {
       sessionAdminActions: {
         display: "flex",
         gap: 8,
-        alignItems: "center",
+        alignItems: isMobile ? "stretch" : "center",
         justifyContent: isMobile ? "stretch" : "flex-end",
         flexWrap: "wrap",
-        width: isMobile ? "100%" : "fit-content",
-        minWidth: isMobile ? "100%" : 260,
+        width: "100%",
+        borderRadius: 12,
+        border: palette.secondaryBorder,
+        background: palette.secondaryBg,
+        padding: isMobile ? "8px" : "8px 10px",
       } as CSSProperties,
       themeSwitchBtn: (active: boolean) =>
         ({
-          minHeight: touchTarget,
-          borderRadius: 12,
-          border: active
-            ? palette.infoBorder
-            : palette.secondaryBorder,
+          minHeight: touchTarget - 6,
+          borderRadius: 10,
+          border: "none",
           background: active
             ? (isCalmTheme
                 ? "#552d80"
                 : "linear-gradient(180deg, rgba(93,53,142,0.24), rgba(122,75,193,0.12))")
-            : palette.secondaryBg,
+            : "transparent",
           color: active ? "white" : isCalmTheme ? textTone(0.95) : "white",
           fontSize: 13,
           fontWeight: active ? 900 : 700,
-          padding: "10px 12px",
+          padding: "8px 10px",
           cursor: "pointer",
-          width: isMobile ? "100%" : "auto",
+          width: "100%",
+          transition: "background 150ms ease, color 150ms ease",
         } as CSSProperties),
       dangerGhostBtn: (disabled: boolean) =>
         ({
@@ -5709,6 +5742,12 @@ export default function Home() {
         fontSize: 12,
         color: textTone(0.74),
       } as CSSProperties,
+      progressQuickNavRow: {
+        marginTop: 9,
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 8,
+      } as CSSProperties,
       grid: {
         display: "grid",
         gridTemplateColumns: isProjectsHub ? "1fr" : isMobile ? "1fr" : "2fr 1fr",
@@ -5734,8 +5773,8 @@ export default function Home() {
       },
       label: {
         fontSize: textScale.small,
-        color: isCalmTheme ? palette.labelText : textTone(0.78),
-        fontWeight: 700,
+        color: isCalmTheme ? palette.labelText : textTone(0.86),
+        fontWeight: isCalmTheme ? 700 : 800,
         marginBottom: space.xs,
       },
       input: {
@@ -8395,15 +8434,26 @@ export default function Home() {
         ({
           fontSize: 11,
           color:
-            tone === "done"
-              ? "rgba(31,108,75,0.92)"
-              : tone === "blocked"
-                ? "rgba(124,45,45,0.90)"
-                : tone === "in_progress"
-                  ? "rgba(74,42,115,0.90)"
-                  : tone === "not_started"
-                    ? "rgba(90,74,120,0.90)"
-                    : textTone(0.70),
+            isCalmTheme
+              ? tone === "done"
+                ? "rgba(31,108,75,0.92)"
+                : tone === "blocked"
+                  ? "rgba(124,45,45,0.90)"
+                  : tone === "in_progress"
+                    ? "rgba(74,42,115,0.90)"
+                    : tone === "not_started"
+                      ? "rgba(90,74,120,0.90)"
+                      : textTone(0.70)
+              : tone === "done"
+                ? "rgba(190,255,229,0.96)"
+                : tone === "blocked"
+                  ? "rgba(255,205,205,0.96)"
+                  : tone === "in_progress"
+                    ? "rgba(196,236,255,0.96)"
+                    : tone === "not_started"
+                      ? "rgba(222,213,255,0.96)"
+                      : "rgba(255,255,255,0.82)",
+          fontWeight: isCalmTheme ? 700 : 800,
         } as CSSProperties),
       actionTrackerStatValue: (
         tone: "total" | "not_started" | "in_progress" | "done" | "blocked"
@@ -8413,15 +8463,25 @@ export default function Home() {
           fontSize: 14,
           fontWeight: 900,
           color:
-            tone === "done"
-              ? "#1F6548"
-              : tone === "blocked"
-                ? "#7C2D2D"
-                : tone === "in_progress"
-                  ? "#4A2A73"
-                  : tone === "not_started"
-                    ? "#5A4A78"
-                    : textTone(0.96),
+            isCalmTheme
+              ? tone === "done"
+                ? "#1F6548"
+                : tone === "blocked"
+                  ? "#7C2D2D"
+                  : tone === "in_progress"
+                    ? "#4A2A73"
+                    : tone === "not_started"
+                      ? "#5A4A78"
+                      : textTone(0.96)
+              : tone === "done"
+                ? "#E6FFF4"
+                : tone === "blocked"
+                  ? "#FFE6E6"
+                  : tone === "in_progress"
+                    ? "#DBF4FF"
+                    : tone === "not_started"
+                      ? "#ECE5FF"
+                      : "rgba(255,255,255,0.98)",
         } as CSSProperties),
       actionTaskCard: (status: ActionTaskStatus) =>
         ({
@@ -8512,13 +8572,21 @@ export default function Home() {
                     ? "rgba(126,110,168,0.13)"
                     : palette.secondaryBg,
           color:
-            status === "مكتمل"
-              ? "#1F6548"
-              : status === "متعثر"
-                ? "#7C2D2D"
-                : status === "جاري"
-                  ? "#4A2A73"
-                  : "#5A4A78",
+            isCalmTheme
+              ? status === "مكتمل"
+                ? "#1F6548"
+                : status === "متعثر"
+                  ? "#7C2D2D"
+                  : status === "جاري"
+                    ? "#4A2A73"
+                    : "#5A4A78"
+              : status === "مكتمل"
+                ? "#E8FFF5"
+                : status === "متعثر"
+                  ? "#FFE7E7"
+                  : status === "جاري"
+                    ? "#DDF5FF"
+                    : "rgba(241,235,255,0.98)",
         } as CSSProperties),
       actionTaskHead: {
         display: "grid",
@@ -8874,13 +8942,21 @@ export default function Home() {
           fontSize: 11.5,
           fontWeight: 800,
           color:
-            status === "مغلق"
-              ? "#1F6548"
-              : status === "مصعّد"
-                ? "#7C2D2D"
-                : status === "قيد المعالجة"
-                  ? "#4A2A73"
-                  : "#5A4A78",
+            isCalmTheme
+              ? status === "مغلق"
+                ? "#1F6548"
+                : status === "مصعّد"
+                  ? "#7C2D2D"
+                  : status === "قيد المعالجة"
+                    ? "#4A2A73"
+                    : "#5A4A78"
+              : status === "مغلق"
+                ? "#E8FFF5"
+                : status === "مصعّد"
+                  ? "#FFE7E7"
+                  : status === "قيد المعالجة"
+                    ? "#DDF5FF"
+                    : "rgba(241,235,255,0.98)",
           width: "fit-content",
         } as CSSProperties),
       riskCardMeta: {
@@ -8965,13 +9041,21 @@ export default function Home() {
                     ? "rgba(126,110,168,0.13)"
                     : palette.secondaryBg,
           color:
-            status === "مغلق"
-              ? "#1F6548"
-              : status === "مصعّد"
-                ? "#7C2D2D"
-                : status === "قيد المعالجة"
-                  ? "#4A2A73"
-                  : "#5A4A78",
+            isCalmTheme
+              ? status === "مغلق"
+                ? "#1F6548"
+                : status === "مصعّد"
+                  ? "#7C2D2D"
+                  : status === "قيد المعالجة"
+                    ? "#4A2A73"
+                    : "#5A4A78"
+              : status === "مغلق"
+                ? "#E8FFF5"
+                : status === "مصعّد"
+                  ? "#FFE7E7"
+                  : status === "قيد المعالجة"
+                    ? "#DDF5FF"
+                    : "rgba(241,235,255,0.98)",
         } as CSSProperties),
       governanceBadge: (tone: "frozen" | "changed" | "idle") =>
         ({
@@ -9039,11 +9123,18 @@ export default function Home() {
         ({
           fontSize: 11,
           color:
-            tone === "approved"
-              ? "rgba(31,108,75,0.92)"
-              : tone === "rejected"
-                ? "rgba(124,45,45,0.90)"
-                : "rgba(74,42,115,0.90)",
+            isCalmTheme
+              ? tone === "approved"
+                ? "rgba(31,108,75,0.92)"
+                : tone === "rejected"
+                  ? "rgba(124,45,45,0.90)"
+                  : "rgba(74,42,115,0.90)"
+              : tone === "approved"
+                ? "rgba(190,255,229,0.96)"
+                : tone === "rejected"
+                  ? "rgba(255,205,205,0.96)"
+                  : "rgba(196,236,255,0.96)",
+          fontWeight: isCalmTheme ? 700 : 800,
         } as CSSProperties),
       governanceStatValue: (tone: "open" | "approved" | "rejected") =>
         ({
@@ -9051,11 +9142,17 @@ export default function Home() {
           fontSize: 14,
           fontWeight: 900,
           color:
-            tone === "approved"
-              ? "#1F6548"
-              : tone === "rejected"
-                ? "#7C2D2D"
-                : "#4A2A73",
+            isCalmTheme
+              ? tone === "approved"
+                ? "#1F6548"
+                : tone === "rejected"
+                  ? "#7C2D2D"
+                  : "#4A2A73"
+              : tone === "approved"
+                ? "#E6FFF4"
+                : tone === "rejected"
+                  ? "#FFE6E6"
+                  : "#DBF4FF",
         } as CSSProperties),
       crCard: (status: ChangeRequestStatus) =>
         ({
@@ -9121,11 +9218,17 @@ export default function Home() {
                   ? "rgba(85,44,128,0.14)"
                   : palette.infoBg,
           color:
-            status === "معتمد"
-              ? "#1F6548"
-              : status === "مرفوض"
-                ? "#7C2D2D"
-                : "#4A2A73",
+            isCalmTheme
+              ? status === "معتمد"
+                ? "#1F6548"
+                : status === "مرفوض"
+                  ? "#7C2D2D"
+                  : "#4A2A73"
+              : status === "معتمد"
+                ? "#E8FFF5"
+                : status === "مرفوض"
+                  ? "#FFE7E7"
+                  : "#DDF5FF",
         } as CSSProperties),
       crTitle: {
         fontSize: 13,
@@ -9609,10 +9712,286 @@ export default function Home() {
   const answerQuality = analyzeAnswerQuality();
   const indicators = projectIndicators();
   const brandLogoSrc = experimentalHubEnabled ? "/logo.svg" : "/logo-basic.svg";
+  const stageQuickNav: StageQuickNavModel = (() => {
+    if (isWelcome || isProjectsHub || isSelectionStep) {
+      return {};
+    }
+
+    if (stage === "init") {
+      if (initStep === "session") {
+        return {
+          next: {
+            label: "التالي: تفاصيل المشروع",
+            onClick: () => setInitStep("project"),
+            disabled: !canMoveToProjectStep || !canEditSessionSetup,
+            title: !canEditSessionSetup
+              ? permissionHintText(
+                  "الانتقال لتفاصيل المشروع",
+                  ["project_manager", "operations_manager"],
+                  userRole
+                )
+              : undefined,
+          },
+        };
+      }
+
+      return {
+        previous: {
+          label: "رجوع: نوع الجلسة والمستشارون",
+          onClick: () => setInitStep("session"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: actionLabel("ابدأ الجلسة", "start_session"),
+          onClick: startSession,
+          disabled: !canStart || isProcessing() || hasInvalidTimeRange() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "بدء الجلسة",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "round1") {
+      return {
+        previous: {
+          label: "رجوع للإعدادات",
+          onClick: () => setStage("init"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: actionLabel("التالي: تدقيق إضافي", "submit_round1"),
+          onClick: submitRound1,
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "متابعة الجولة التالية",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "round2") {
+      return {
+        previous: {
+          label: "رجوع: الجولة الأولى",
+          onClick: () => setStage("round1"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: actionLabel("التالي: حوار المستشارين", "build_dialogue"),
+          onClick: submitRound2,
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "متابعة الحوار",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "dialogue") {
+      return {
+        previous: {
+          label: "رجوع: مراجعة الإجابات",
+          onClick: () => setStage(followupQuestions.length > 0 ? "round2" : "round1"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: "التالي: هل لديك إضافة؟",
+          onClick: () => setStage("addition"),
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "الانتقال لمرحلة الإضافة",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "addition") {
+      return {
+        previous: {
+          label: "رجوع: حوار المستشارين",
+          onClick: () => setStage("dialogue"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis"),
+          onClick: runAnalysis,
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "تشغيل التحليل",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "done") {
+      return {
+        previous: {
+          label: "رجوع: تعديل قبل التحليل",
+          onClick: () => {
+            setStage("addition");
+            setNeedsReanalysisHint(true);
+            showError(UX_MESSAGES.reanalysisRequired);
+          },
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "الرجوع لتعديل المدخلات وإعادة التحليل",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+        next: {
+          label: deliveryTrack === "advanced" ? "التالي: استكمال المسار المتقدم" : "ترقية إلى المسار المتقدم",
+          onClick: openAdvancedTrack,
+          disabled: isProcessing() || (!canEditAdvancedExecution && !canEditGovernance),
+          title: !canEditAdvancedExecution && !canEditGovernance
+            ? permissionHintText(
+                "فتح المسار المتقدم",
+                ["project_manager", "operations_manager", "finance_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "advanced_scope") {
+      if (advancedScopeStep === "scope") {
+        return {
+          previous: {
+            label: "رجوع: التقرير والنتائج",
+            onClick: () => setStage("done"),
+            disabled: isProcessing(),
+          },
+          next: {
+            label: "التالي: الهيكل التشغيلي",
+            onClick: () => setAdvancedScopeStep("org"),
+            disabled: isProcessing(),
+          },
+        };
+      }
+
+      return {
+        previous: {
+          label: "رجوع: النطاق والاستراتيجية",
+          onClick: () => setAdvancedScopeStep("scope"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: "التالي: التخطيط التشغيلي التفصيلي",
+          onClick: () => {
+            setAdvancedBoqStep("boq");
+            setStage("advanced_boq");
+          },
+          disabled: isProcessing() || !canEditAdvancedExecution,
+          title: !canEditAdvancedExecution
+            ? permissionHintText(
+                "الانتقال للتخطيط التشغيلي التفصيلي",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "advanced_boq") {
+      if (advancedBoqStep === "boq") {
+        return {
+          previous: {
+            label: "رجوع: الهيكل التشغيلي",
+            onClick: () => {
+              setAdvancedScopeStep("org");
+              setStage("advanced_scope");
+            },
+            disabled: isProcessing(),
+          },
+          next: {
+            label: "التالي: الجودة والمخاطر",
+            onClick: () => setAdvancedBoqStep("quality_risk"),
+            disabled: isProcessing(),
+          },
+        };
+      }
+
+      if (advancedBoqStep === "quality_risk") {
+        return {
+          previous: {
+            label: "رجوع: جدول الكميات",
+            onClick: () => setAdvancedBoqStep("boq"),
+            disabled: isProcessing(),
+          },
+          next: {
+            label: "التالي: التشغيل والجاهزية",
+            onClick: () => setAdvancedBoqStep("operations"),
+            disabled: isProcessing(),
+          },
+        };
+      }
+
+      return {
+        previous: {
+          label: "رجوع: الجودة والمخاطر",
+          onClick: () => setAdvancedBoqStep("quality_risk"),
+          disabled: isProcessing(),
+        },
+        next: {
+          label: "توليد خطة التنفيذ المتقدمة",
+          onClick: buildAdvancedPlan,
+          disabled: !canBuildAdvancedPlan || isProcessing() || !canEditAdvancedExecution,
+          title: !canEditAdvancedExecution
+            ? permissionHintText(
+                "توليد خطة التنفيذ المتقدمة",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
+      };
+    }
+
+    if (stage === "advanced_plan") {
+      return {
+        previous: {
+          label: "رجوع: جدول الكميات والجودة والمخاطر",
+          onClick: () => {
+            setAdvancedBoqStep("operations");
+            setStage("advanced_boq");
+          },
+          disabled: isProcessing(),
+        },
+      };
+    }
+
+    return {};
+  })();
 
   if (!hasMounted) {
     return (
       <main
+        data-ui-theme={experimentalHubEnabled ? "experimental" : "basic"}
         dir="rtl"
         style={{
           minHeight: "100vh",
@@ -9643,7 +10022,11 @@ export default function Home() {
   }
 
   return (
-    <main style={styles.page} dir="rtl">
+    <main
+      style={styles.page}
+      dir="rtl"
+      data-ui-theme={experimentalHubEnabled ? "experimental" : "basic"}
+    >
       <style>{`
         @keyframes toastSlideUp {
           from {
@@ -9663,6 +10046,12 @@ export default function Home() {
           outline: 2px solid rgba(0, 229, 255, 0.95);
           outline-offset: 2px;
           box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.16);
+        }
+
+        main[data-ui-theme="basic"] input::placeholder,
+        main[data-ui-theme="basic"] textarea::placeholder {
+          color: rgba(255, 255, 255, 0.62);
+          opacity: 1;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -9728,7 +10117,7 @@ export default function Home() {
             <div style={styles.welcomeHero}>
               <Image
                 src={brandLogoSrc}
-                alt="One Minute Strategy"
+                alt="شعار One Minute Strategy"
                 width={420}
                 height={142}
                 style={styles.welcomeLogoMark}
@@ -9814,7 +10203,7 @@ export default function Home() {
               <div style={styles.headerBrand}>
                 <Image
                   src={brandLogoSrc}
-                  alt="One Minute Strategy"
+                  alt="شعار One Minute Strategy"
                   width={180}
                   height={44}
                   style={styles.headerLogoMark}
@@ -9831,43 +10220,56 @@ export default function Home() {
             </header>
           )}
 
-          <div style={styles.themeControlBar}>
-            <div style={styles.themeControlInfo}>
-              <div style={styles.themeControlLabel}>ثيم الواجهة</div>
-              <div style={styles.themeControlState}>
-                {experimentalHubEnabled ? "تجريبي مفعّل" : "أساسي مفعّل"}
-              </div>
-            </div>
-            <button
-              type="button"
-              style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
-              onClick={() => setExperimentalHubEnabled((prev) => !prev)}
-            >
-              {experimentalHubEnabled ? "تعطيل الثيم التجريبي" : "تفعيل الثيم التجريبي"}
-            </button>
-          </div>
-
           {!isWelcome ? (
             <div style={styles.sessionAdminBar}>
-              <div style={styles.sessionAdminProjectContext}>
-                <div style={styles.label}>المشروع الحالي</div>
-                <div style={styles.sessionAdminProjectName}>
-                  {activeProjectName || "مشروع بدون اسم"}
+              <div style={styles.sessionAdminGrid}>
+                <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminProjectContext }}>
+                  <div style={styles.label}>المشروع الحالي</div>
+                  <div style={styles.sessionAdminProjectName}>
+                    {activeProjectName || "مشروع بدون اسم"}
+                  </div>
                 </div>
-              </div>
 
-              <div style={styles.sessionAdminRoleField}>
-                <div style={styles.label}>الدور الحالي</div>
-                <select
-                  value={userRole}
-                  onChange={(e) => setUserRole(e.target.value as UserRole)}
-                  style={styles.input}
-                >
-                  <option value="project_manager">مدير مشروع</option>
-                  <option value="operations_manager">عمليات</option>
-                  <option value="finance_manager">مالي</option>
-                  <option value="viewer">مشاهد فقط</option>
-                </select>
+                <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminRoleField }}>
+                  <div style={styles.label}>الدور الحالي</div>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value as UserRole)}
+                    style={styles.input}
+                  >
+                    <option value="project_manager">مدير مشروع</option>
+                    <option value="operations_manager">عمليات</option>
+                    <option value="finance_manager">مالي</option>
+                    <option value="viewer">مشاهد فقط</option>
+                  </select>
+                </div>
+
+                <div style={styles.sessionAdminPanel}>
+                  <div style={styles.themeControlInfo}>
+                    <div style={styles.themeControlLabel}>نمط الواجهة</div>
+                    <div style={styles.themeControlState}>
+                      اختر بين النمطين حسب تفضيل العرض.
+                    </div>
+                  </div>
+                  <div style={styles.themeControlSwitch}>
+                    <button
+                      type="button"
+                      style={styles.themeSwitchBtn(!experimentalHubEnabled)}
+                      aria-pressed={!experimentalHubEnabled}
+                      onClick={() => setExperimentalHubEnabled(false)}
+                    >
+                      كلاسيكي
+                    </button>
+                    <button
+                      type="button"
+                      style={styles.themeSwitchBtn(experimentalHubEnabled)}
+                      aria-pressed={experimentalHubEnabled}
+                      onClick={() => setExperimentalHubEnabled(true)}
+                    >
+                      حديث
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div style={styles.sessionAdminActions}>
@@ -9924,6 +10326,40 @@ export default function Home() {
               />
             </div>
             <div style={styles.progressFooterText}>{stageStatusText()}</div>
+            {stageQuickNav.previous || stageQuickNav.next ? (
+              <div style={styles.progressQuickNavRow}>
+                {stageQuickNav.previous ? (
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.secondaryBtn(stageQuickNav.previous.disabled),
+                      width: isMobile ? "100%" : "auto",
+                      flex: 1,
+                    }}
+                    disabled={stageQuickNav.previous.disabled}
+                    title={stageQuickNav.previous.title}
+                    onClick={stageQuickNav.previous.onClick}
+                  >
+                    {stageQuickNav.previous.label}
+                  </button>
+                ) : null}
+                {stageQuickNav.next ? (
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.primaryBtn(stageQuickNav.next.disabled),
+                      width: isMobile ? "100%" : "auto",
+                      flex: 1,
+                    }}
+                    disabled={stageQuickNav.next.disabled}
+                    title={stageQuickNav.next.title}
+                    onClick={stageQuickNav.next.onClick}
+                  >
+                    {stageQuickNav.next.label}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -10198,7 +10634,7 @@ export default function Home() {
                                           </span>
                                         </div>
                                         <div style={styles.projectHubExpMetaItem}>
-                                          <span style={styles.projectHubExpMetaLabel}>بنود BOQ</span>
+                                          <span style={styles.projectHubExpMetaLabel}>بنود جدول الكميات</span>
                                           <span style={styles.projectHubExpMetaValue}>{toArabicDigits(item.boqCount)}</span>
                                         </div>
                                         <div style={styles.projectHubExpMetaItem}>
@@ -10466,7 +10902,7 @@ export default function Home() {
                                 </span>
                               </div>
                               <div style={styles.projectHubMetaItem}>
-                                <span style={styles.k}>بنود BOQ</span>
+                                <span style={styles.k}>بنود جدول الكميات</span>
                                 <span style={styles.v}>{toArabicDigits(item.boqCount)}</span>
                               </div>
                               <div style={styles.projectHubMetaItem}>
@@ -11965,7 +12401,7 @@ export default function Home() {
                               </div>
                               <div style={styles.orgRoleMetaBox}>
                                 <div style={styles.orgRoleMetaHead}>
-                                  <div style={styles.orgRoleMetaLabel}>عدد KPIs</div>
+                                  <div style={styles.orgRoleMetaLabel}>عدد مؤشرات الأداء</div>
                                   <button
                                     type="button"
                                     style={styles.orgRoleInfoBtn}
@@ -11987,7 +12423,7 @@ export default function Home() {
                                 <div style={styles.orgRoleDetailsTitle}>
                                   {orgRoleDetailsOpen[role.id] === "tasks"
                                     ? "المهام الكاملة"
-                                    : "KPIs الكاملة"}
+                                    : "مؤشرات الأداء الكاملة"}
                                 </div>
                                 {(orgRoleDetailsOpen[role.id] === "tasks"
                                   ? role.responsibilities
@@ -12537,7 +12973,7 @@ export default function Home() {
                               style={styles.input}
                               disabled={!canEditAdvancedExecution}
                             >
-                              <option value="FS">Finish-to-Start (FS)</option>
+                              <option value="FS">نهاية إلى بداية (يبدأ بعد اكتمال السابق)</option>
                             </select>
                           </div>
                           {dependencyRow ? (
@@ -12971,7 +13407,7 @@ export default function Home() {
 
                 <div style={styles.advancedOpsMetaGrid}>
                   <div style={{ ...styles.qCard, marginTop: 0 }}>
-                    <div style={styles.scopeSectionTitle}>2.7 سرعة الاستجابة (SLA)</div>
+                    <div style={styles.scopeSectionTitle}>2.7 سرعة الاستجابة (اتفاقية مستوى الخدمة)</div>
                     <div style={styles.scopeSectionHint}>
                       حدد زمن الاستجابة التشغيلية والفنية للبلاغات والمستجدات.
                     </div>
@@ -13131,7 +13567,7 @@ export default function Home() {
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
                     <div style={styles.actionTrackerHead}>
-                      <div style={styles.qTitle}>متابعة التنفيذ (Action Tracker)</div>
+                      <div style={styles.qTitle}>متابعة التنفيذ (متتبع المهام)</div>
                       <div style={styles.actionTrackerBadge}>
                         نسبة الإنجاز: %{toArabicDigits(actionTrackerProgress)}
                       </div>
@@ -13301,7 +13737,7 @@ export default function Home() {
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
                     <div style={styles.actionTrackerHead}>
-                      <div style={styles.qTitle}>حوكمة النسخة (Freeze + Change Request)</div>
+                      <div style={styles.qTitle}>حوكمة النسخة (تجميد + طلبات التغيير)</div>
                       <div
                         style={styles.governanceBadge(
                           !hasFrozenBaseline
@@ -13563,7 +13999,7 @@ export default function Home() {
                       </div>
 
                       <div style={styles.outputPackCard}>
-                        <div style={styles.outputPackTitle}>نسخة التشغيل الميداني (Checklist)</div>
+                        <div style={styles.outputPackTitle}>نسخة التشغيل الميداني (قائمة التحقق)</div>
                         <div style={styles.outputPackActions}>
                           <button
                             style={styles.ghostBtn}
@@ -13735,7 +14171,7 @@ export default function Home() {
                       </div>
                       <div style={styles.blockTop8}>
                         <button style={styles.secondaryBtn(false)} onClick={runRolePermissionQACheck}>
-                          تشغيل فحص الصلاحيات (QA)
+                          تشغيل فحص الصلاحيات (ضمان الجودة)
                         </button>
                       </div>
                       <div style={styles.blockTop8}>
@@ -13744,7 +14180,7 @@ export default function Home() {
                           disabled={roleQaReport.status === "idle"}
                           onClick={copyRoleQaReport}
                         >
-                          نسخ تقرير QA
+                          نسخ تقرير ضمان الجودة
                         </button>
                       </div>
                       <div style={styles.textMutedSmallTop8}>
@@ -13754,8 +14190,8 @@ export default function Home() {
                         <div style={roleQaReport.status === "pass" ? styles.successBox : styles.warnBox}>
                           <div style={styles.permissionHintTitle}>
                             {roleQaReport.status === "pass"
-                              ? "نتيجة فحص QA: ناجح"
-                              : "نتيجة فحص QA: يوجد تعارض"}
+                              ? "نتيجة فحص ضمان الجودة: ناجح"
+                              : "نتيجة فحص ضمان الجودة: يوجد تعارض"}
                           </div>
                           <div style={styles.textMutedSmall}>{roleQaReport.summary}</div>
                           <div style={styles.textMutedSmallTop8}>
