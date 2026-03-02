@@ -102,6 +102,9 @@ export default function WorkflowsPage() {
             <Link href="/app/strategy" className="oms-btn oms-btn-primary">
               بدء تحليل جديد
             </Link>
+            <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
+              متابعة الخطة المالية
+            </Link>
             <Link href="/app/reports" className="oms-btn oms-btn-ghost">
               مراجعة التقارير
             </Link>
