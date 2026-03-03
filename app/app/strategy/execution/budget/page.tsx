@@ -11,7 +11,7 @@ type BudgetLine = {
   actual: number;
 };
 
-type AdvanceStatus = "طلب جديد" | "معتمدة" | "مصروفة" | "مسواة";
+type AdvanceStatus = "طلب جديد" | "معتمدة" | "مصروفة" | "مسواة" | "ملغاة";
 
 type BudgetAdvance = {
   id: string;
@@ -205,6 +205,7 @@ export default function StrategyExecutionBudgetPage() {
   });
   const [showIncreaseForm, setShowIncreaseForm] = useState(false);
   const [isIncreaseSectionExpanded, setIsIncreaseSectionExpanded] = useState(false);
+  const [isArchivedAdvancesExpanded, setIsArchivedAdvancesExpanded] = useState(false);
   const [isAuditExpanded, setIsAuditExpanded] = useState(false);
   const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
   const [visibleAuditCount, setVisibleAuditCount] = useState(8);
@@ -295,11 +296,12 @@ export default function StrategyExecutionBudgetPage() {
     const plannedProfit = plannedRevenue - plannedTotal;
     const actualProfit = actualRevenue - actualTotal;
     const tone = resolveBudgetTone(variancePct, remainingAfterCommitment, budgetAlertThreshold);
-    const openAdvancesCount = advances.filter((item) => item.status !== "مسواة").length;
+    const openAdvancesCount = advances.filter((item) => isOpenAdvance(item)).length;
     const overdueAdvances = advances.filter((item) => isOverdue(item)).length;
+    const settlementBaseCount = advances.filter((item) => item.status !== "ملغاة").length;
     const settlementRate =
-      advances.length > 0
-        ? (advances.filter((item) => item.status === "مسواة").length / advances.length) * 100
+      settlementBaseCount > 0
+        ? (advances.filter((item) => item.status === "مسواة").length / settlementBaseCount) * 100
         : null;
     const openIncreaseRequests = budgetIncreases.filter(
       (item) => item.status === "طلب جديد" || item.status === "تحت المراجعة" || item.status === "معتمد"
@@ -340,11 +342,13 @@ export default function StrategyExecutionBudgetPage() {
   const blockedHolders = useMemo(() => {
     const map = new Set<string>();
     for (const item of advances) {
-      if (item.status === "مسواة") continue;
+      if (isClosedAdvance(item)) continue;
       map.add(normalizeKey(item.holder));
     }
     return map;
   }, [advances]);
+  const activeAdvances = useMemo(() => advances.filter((item) => isOpenAdvance(item)), [advances]);
+  const archivedAdvances = useMemo(() => advances.filter((item) => isClosedAdvance(item)), [advances]);
 
   const permissionSummary = [
     permissionFlag("إنشاء طلب عهدة", permissions.request_advance),
@@ -751,10 +755,14 @@ export default function StrategyExecutionBudgetPage() {
         ) : null}
 
         <div className="advance-list">
-          {advances.length === 0 ? (
-            <div className="workflow-empty">لا توجد عهد حاليًا. أضف أول طلب عهدة من النموذج أعلاه.</div>
+          <div className="advance-list-head">
+            <h3 className="advance-list-title">العهد المفتوحة</h3>
+            <div className="advance-list-meta">عددها: {toArabicNumber(activeAdvances.length)}</div>
+          </div>
+          {activeAdvances.length === 0 ? (
+            <div className="workflow-empty">لا توجد عهد مفتوحة حاليًا. أضف أول طلب عهدة من النموذج أعلاه.</div>
           ) : (
-            advances.map((item) => {
+            activeAdvances.map((item) => {
               const lineTitle = lines.find((line) => line.id === item.lineId)?.title || "بند محذوف";
               const overdue = isOverdue(item);
               return (
@@ -842,19 +850,63 @@ export default function StrategyExecutionBudgetPage() {
                         </button>
                       </>
                     ) : null}
-
-                    {item.status === "مسواة" ? (
-                      <div className="advance-settled-note">
-                        تمت التسوية بمبلغ {formatCurrency(item.settledAmount)} · المرتجع{" "}
-                        {formatCurrency(Math.max(0, item.approvedAmount - item.settledAmount))}
-                      </div>
-                    ) : null}
                   </div>
                 </article>
               );
             })
           )}
         </div>
+
+        <button
+          className="budget-subsection-toggle"
+          type="button"
+          aria-expanded={isArchivedAdvancesExpanded}
+          onClick={() => setIsArchivedAdvancesExpanded((prev) => !prev)}
+        >
+          <div className="audit-toggle-main">
+            <h3 className="oms-section-title">العهد المؤرشفة</h3>
+            <div className="audit-toggle-meta">
+              إجمالي المؤرشف: {toArabicNumber(archivedAdvances.length)} · مسواة:{" "}
+              {toArabicNumber(archivedAdvances.filter((item) => item.status === "مسواة").length)} · ملغاة:{" "}
+              {toArabicNumber(archivedAdvances.filter((item) => item.status === "ملغاة").length)}
+            </div>
+          </div>
+          <span className={`audit-chevron ${isArchivedAdvancesExpanded ? "is-open" : ""}`}>⌄</span>
+        </button>
+        {isArchivedAdvancesExpanded ? (
+          <div className="advance-list is-archived">
+            {archivedAdvances.length === 0 ? (
+              <div className="workflow-empty">لا توجد عهد مؤرشفة حتى الآن.</div>
+            ) : (
+              archivedAdvances.map((item) => {
+                const lineTitle = lines.find((line) => line.id === item.lineId)?.title || "بند محذوف";
+                return (
+                  <article key={item.id} className="advance-row is-archived">
+                    <div className="advance-row-head">
+                      <div className="advance-title">{item.holder}</div>
+                      <span className={`advance-status ${advanceStatusClass(item.status)}`}>{item.status}</span>
+                    </div>
+                    <div className="advance-meta">
+                      بند: {lineTitle} · مبلغ الطلب: {formatCurrency(item.requestedAmount)} · المعتمد:{" "}
+                      {formatCurrency(item.approvedAmount)}
+                    </div>
+                    <div className="advance-meta">
+                      الغرض: {item.purpose || "غير مذكور"} · تاريخ التسوية: {item.dueDate || "غير محدد"}
+                    </div>
+                    {item.status === "مسواة" ? (
+                      <div className="advance-settled-note">
+                        تمت التسوية بمبلغ {formatCurrency(item.settledAmount)} · المرتجع{" "}
+                        {formatCurrency(Math.max(0, item.approvedAmount - item.settledAmount))}
+                      </div>
+                    ) : (
+                      <div className="advance-archived-note">تم إلغاء العهدة وأرشفتها بدون تأثير على المصروف الفعلي.</div>
+                    )}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        ) : null}
 
         <button
           className="budget-subsection-toggle"
@@ -1430,6 +1482,30 @@ export default function StrategyExecutionBudgetPage() {
           gap: 6px;
         }
 
+        .advance-list.is-archived {
+          margin-top: 8px;
+        }
+
+        .advance-list-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 2px;
+        }
+
+        .advance-list-title {
+          margin: 0;
+          font-size: 17px;
+          font-weight: 900;
+        }
+
+        .advance-list-meta {
+          color: var(--oms-text-faint);
+          font-size: 12px;
+          font-weight: 700;
+        }
+
         .advance-row {
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-md);
@@ -1442,6 +1518,10 @@ export default function StrategyExecutionBudgetPage() {
         .advance-row.is-overdue {
           border-color: rgba(247, 106, 121, 0.52);
           background: linear-gradient(180deg, rgba(56, 20, 30, 0.52), rgba(22, 13, 20, 0.62));
+        }
+
+        .advance-row.is-archived {
+          background: linear-gradient(180deg, rgba(14, 24, 44, 0.86), rgba(10, 18, 34, 0.86));
         }
 
         .advance-row-head {
@@ -1492,6 +1572,12 @@ export default function StrategyExecutionBudgetPage() {
           background: rgba(14, 56, 45, 0.78);
         }
 
+        .advance-status.is-cancelled {
+          border-color: rgba(174, 187, 206, 0.48);
+          color: #d5deec;
+          background: rgba(24, 32, 45, 0.76);
+        }
+
         .advance-meta {
           color: var(--oms-text-faint);
           font-size: 12px;
@@ -1511,6 +1597,12 @@ export default function StrategyExecutionBudgetPage() {
         }
 
         .advance-settled-note {
+          color: var(--oms-text-muted);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .advance-archived-note {
           color: var(--oms-text-muted);
           font-size: 13px;
           line-height: 1.7;
@@ -1744,7 +1836,7 @@ export default function StrategyExecutionBudgetPage() {
       return;
     }
     const lineTitle = lines.find((row) => row.id === lineId)?.title || "بند غير معروف";
-    const hasOpenAdvance = advances.some((row) => row.lineId === lineId && row.status !== "مسواة");
+    const hasOpenAdvance = advances.some((row) => row.lineId === lineId && isOpenAdvance(row));
     if (hasOpenAdvance) {
       setAlertMessage("لا يمكن حذف بند لديه عهد مفتوحة. قم بتسوية العهد أو إلغائها أولاً.");
       return;
@@ -2147,7 +2239,19 @@ export default function StrategyExecutionBudgetPage() {
     if (!ensurePermission("cancel_advance")) return;
     const current = advances.find((row) => row.id === advanceId);
     if (!current) return;
-    setAdvances((prev) => prev.filter((row) => row.id !== advanceId));
+    if (current.status === "مسواة" || current.status === "ملغاة") return;
+    const now = nowTimeLabel();
+    setAdvances((prev) =>
+      prev.map((row) =>
+        row.id === advanceId
+          ? {
+              ...row,
+              status: "ملغاة",
+              updatedAt: now,
+            }
+          : row
+      )
+    );
     setSettleInputs((prev) => {
       const next = { ...prev };
       delete next[advanceId];
@@ -2158,7 +2262,7 @@ export default function StrategyExecutionBudgetPage() {
       `تم إلغاء عهدة ${current.holder} (حالتها قبل الإلغاء: ${current.status}).`,
       { advanceId: current.id, lineId: current.lineId }
     );
-    setAlertMessage("تم إلغاء العهدة.");
+    setAlertMessage("تم إلغاء العهدة وأرشفتها.");
   }
 
   function lineAvailableExcluding(advanceId: string, lineId: string) {
@@ -2366,7 +2470,7 @@ function asNumber(value: unknown) {
 }
 
 function normalizeAdvanceStatus(value: unknown): AdvanceStatus {
-  if (value === "معتمدة" || value === "مصروفة" || value === "مسواة") return value;
+  if (value === "معتمدة" || value === "مصروفة" || value === "مسواة" || value === "ملغاة") return value;
   return "طلب جديد";
 }
 
@@ -2418,8 +2522,16 @@ function isReservedAdvance(item: BudgetAdvance) {
   return item.status === "معتمدة" || item.status === "مصروفة";
 }
 
+function isClosedAdvance(item: BudgetAdvance) {
+  return item.status === "مسواة" || item.status === "ملغاة";
+}
+
+function isOpenAdvance(item: BudgetAdvance) {
+  return !isClosedAdvance(item);
+}
+
 function isOverdue(item: BudgetAdvance) {
-  if (item.status === "مسواة") return false;
+  if (isClosedAdvance(item)) return false;
   if (!item.dueDate) return false;
   return item.dueDate < todayIso();
 }
@@ -2452,6 +2564,7 @@ function advanceStatusClass(status: AdvanceStatus) {
   if (status === "معتمدة") return "is-approved";
   if (status === "مصروفة") return "is-disbursed";
   if (status === "مسواة") return "is-settled";
+  if (status === "ملغاة") return "is-cancelled";
   return "is-requested";
 }
 
