@@ -2283,5 +2283,7 @@ function randomId() {
 }
 
 function toArabicNumber(value: number) {
-  return new Intl.NumberFormat("ar-SA").format(Math.max(0, Math.round(value)));
+  const safe = Math.max(0, Math.round(value));
+  if (safe === 0) return "0";
+  return new Intl.NumberFormat("ar-SA").format(safe);
 }
