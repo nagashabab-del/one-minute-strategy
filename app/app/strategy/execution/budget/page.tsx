@@ -112,6 +112,7 @@ type BudgetAuditEntry = {
   advanceId?: string;
   lineId?: string;
 };
+type AuditFilter = "all" | "advances" | "increases" | "permissions";
 
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
@@ -203,6 +204,9 @@ export default function StrategyExecutionBudgetPage() {
     reason: "",
   });
   const [showIncreaseForm, setShowIncreaseForm] = useState(false);
+  const [isAuditExpanded, setIsAuditExpanded] = useState(false);
+  const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
+  const [visibleAuditCount, setVisibleAuditCount] = useState(8);
 
   useEffect(() => {
     const context = readProjectContext();
@@ -362,6 +366,19 @@ export default function StrategyExecutionBudgetPage() {
     !isSelectedLineExhausted &&
     !isAdvanceAmountOverLine &&
     !isHolderBlocked;
+  const latestAuditTime = auditTrail[0]?.createdAt ?? "—";
+  const filteredAuditTrail = useMemo(
+    () => auditTrail.filter((entry) => matchesAuditFilter(entry, auditFilter)),
+    [auditTrail, auditFilter]
+  );
+  const visibleAuditEntries = filteredAuditTrail.slice(0, visibleAuditCount);
+  const canLoadMoreAudit = visibleAuditCount < filteredAuditTrail.length;
+  const auditFilterButtons: Array<{ key: AuditFilter; label: string }> = [
+    { key: "all", label: "الكل" },
+    { key: "advances", label: "عهد" },
+    { key: "increases", label: "رفع ميزانية" },
+    { key: "permissions", label: "صلاحيات" },
+  ];
 
   return (
     <main>
@@ -915,26 +932,70 @@ export default function StrategyExecutionBudgetPage() {
       </section>
 
       <section className="oms-panel">
-        <h2 className="oms-section-title">سجل التدقيق المالي</h2>
-        <p className="oms-text">توثيق زمني لكل إجراءات العهد والصلاحيات على مستوى المشروع الحالي.</p>
-        <div className="audit-list">
-          {auditTrail.length === 0 ? (
-            <div className="workflow-empty">لا توجد أحداث تدقيق بعد. سيظهر أي إجراء جديد هنا تلقائيًا.</div>
-          ) : (
-            auditTrail.slice(0, 15).map((entry) => (
-              <article key={entry.id} className="audit-item">
-                <div className="audit-item-head">
-                  <div className="audit-action">{entry.action}</div>
-                  <div className="audit-time">{entry.createdAt}</div>
-                </div>
-                <div className="audit-meta">
-                  بواسطة: {entry.actorLabel} · الدور: {userRoleLabel(entry.actorRole)}
-                </div>
-                <div className="audit-details">{entry.details}</div>
-              </article>
-            ))
-          )}
-        </div>
+        <button
+          className="audit-toggle"
+          type="button"
+          aria-expanded={isAuditExpanded}
+          onClick={() => setIsAuditExpanded((prev) => !prev)}
+        >
+          <div className="audit-toggle-main">
+            <h2 className="oms-section-title">سجل التدقيق المالي</h2>
+            <div className="audit-toggle-meta">
+              عدد الأحداث: {toArabicNumber(auditTrail.length)} · آخر حدث: {latestAuditTime}
+            </div>
+          </div>
+          <span className={`audit-chevron ${isAuditExpanded ? "is-open" : ""}`}>⌄</span>
+        </button>
+
+        {isAuditExpanded ? (
+          <>
+            <p className="oms-text">توثيق زمني لكل إجراءات العهد والصلاحيات على مستوى المشروع الحالي.</p>
+            <div className="audit-filter-row">
+              {auditFilterButtons.map((filter) => (
+                <button
+                  key={filter.key}
+                  className={`audit-filter-btn ${auditFilter === filter.key ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    setAuditFilter(filter.key);
+                    setVisibleAuditCount(8);
+                  }}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <div className="audit-list">
+              {filteredAuditTrail.length === 0 ? (
+                <div className="workflow-empty">لا توجد أحداث ضمن الفلتر الحالي.</div>
+              ) : (
+                visibleAuditEntries.map((entry) => (
+                  <article key={entry.id} className="audit-item">
+                    <div className="audit-item-head">
+                      <div className="audit-action">{entry.action}</div>
+                      <div className="audit-time">{entry.createdAt}</div>
+                    </div>
+                    <div className="audit-meta">
+                      بواسطة: {entry.actorLabel} · الدور: {userRoleLabel(entry.actorRole)}
+                    </div>
+                    <div className="audit-details">{entry.details}</div>
+                  </article>
+                ))
+              )}
+            </div>
+            {canLoadMoreAudit ? (
+              <div className="audit-more">
+                <button
+                  className="oms-btn oms-btn-ghost"
+                  type="button"
+                  onClick={() => setVisibleAuditCount((prev) => prev + 8)}
+                >
+                  عرض المزيد
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </section>
 
       <section className="oms-panel">
@@ -1447,6 +1508,88 @@ export default function StrategyExecutionBudgetPage() {
           gap: 8px;
         }
 
+        .audit-toggle {
+          width: 100%;
+          border: 1px solid var(--oms-border-strong);
+          border-radius: var(--oms-radius-md);
+          background: linear-gradient(180deg, rgba(17, 29, 53, 0.82), rgba(10, 18, 34, 0.82));
+          color: var(--oms-text);
+          padding: 10px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          text-align: inherit;
+        }
+
+        .audit-toggle-main {
+          display: grid;
+          gap: 4px;
+          text-align: inherit;
+        }
+
+        .audit-toggle-main .oms-section-title {
+          margin: 0;
+        }
+
+        .audit-toggle-meta {
+          color: var(--oms-text-faint);
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.7;
+        }
+
+        .audit-chevron {
+          width: 26px;
+          height: 26px;
+          border-radius: 999px;
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(11, 20, 38, 0.84);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          transition: transform 180ms ease;
+        }
+
+        .audit-chevron.is-open {
+          transform: rotate(180deg);
+        }
+
+        .audit-filter-row {
+          margin-top: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .audit-filter-btn {
+          min-height: 32px;
+          border-radius: 999px;
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(10, 18, 34, 0.84);
+          color: var(--oms-text-muted);
+          padding: 0 12px;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .audit-filter-btn.is-active {
+          border-color: rgba(167, 115, 255, 0.72);
+          background: linear-gradient(180deg, rgba(128, 69, 242, 0.92), rgba(101, 55, 198, 0.88));
+          color: #f7f0ff;
+        }
+
+        .audit-more {
+          margin-top: 10px;
+          display: flex;
+          justify-content: center;
+        }
+
         .audit-item {
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-md);
@@ -1523,14 +1666,16 @@ export default function StrategyExecutionBudgetPage() {
           .budget-lines-actions,
           .advance-actions,
           .budget-footer-actions,
-          .increase-actions {
+          .increase-actions,
+          .audit-filter-row {
             display: grid;
           }
 
           .budget-lines-actions .oms-btn,
           .advance-actions .oms-btn,
           .budget-footer-actions .oms-btn,
-          .advance-create-action .oms-btn {
+          .advance-create-action .oms-btn,
+          .audit-filter-btn {
             width: 100%;
             justify-content: center;
           }
@@ -2293,6 +2438,31 @@ function budgetIncreaseStatusClass(status: BudgetIncreaseStatus) {
   if (status === "مرفوض") return "is-rejected";
   if (status === "منفذ") return "is-executed";
   return "is-new";
+}
+
+function matchesAuditFilter(entry: BudgetAuditEntry, filter: AuditFilter) {
+  if (filter === "all") return true;
+  if (filter === "permissions") return entry.action === "رفض إجراء بسبب الصلاحيات";
+  if (filter === "advances") {
+    return (
+      entry.action === "إنشاء طلب عهدة" ||
+      entry.action === "رفض طلب عهدة بسبب عدم كفاية البند" ||
+      entry.action === "اعتماد عهدة" ||
+      entry.action === "صرف عهدة" ||
+      entry.action === "تسوية عهدة" ||
+      entry.action === "إلغاء عهدة"
+    );
+  }
+  if (filter === "increases") {
+    return (
+      entry.action === "إنشاء طلب رفع ميزانية بند" ||
+      entry.action === "بدء مراجعة طلب رفع ميزانية" ||
+      entry.action === "اعتماد طلب رفع ميزانية" ||
+      entry.action === "رفض طلب رفع ميزانية" ||
+      entry.action === "تنفيذ رفع ميزانية بند"
+    );
+  }
+  return true;
 }
 
 function normalizeKey(value: string) {
