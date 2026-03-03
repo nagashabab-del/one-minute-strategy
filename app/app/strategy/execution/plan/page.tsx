@@ -72,6 +72,7 @@ type PlanSnapshot = {
   risks: PlanRisk[];
   templateProfile?: PlanTemplateProfile;
   templatePresets?: PlanTemplatePreset[];
+  regulatoryInsights?: PlanRegulatoryInsights;
   updatedAt: string;
 };
 
@@ -93,6 +94,41 @@ type PlanTemplatePreset = {
   updatedAt: string;
 };
 
+type RegulatoryPathKey = "municipality" | "civil_defense" | "gea" | "traffic" | "insurance";
+type RegulatoryRiskLevel = "low" | "medium" | "high";
+type RegulatoryPathReading = {
+  required: boolean;
+  confidence: number;
+};
+
+type RegulatoryLeadRange = {
+  min: number;
+  max: number;
+};
+
+type PlanRegulatoryInsights = {
+  enabled: boolean;
+  version: "1.0";
+  regulatoryPaths: Record<RegulatoryPathKey, RegulatoryPathReading>;
+  permitLeadTimes: {
+    unit: "weeks";
+    estimates: Record<RegulatoryPathKey, RegulatoryLeadRange>;
+  };
+  minimumLeadTimeWeeks: RegulatoryLeadRange;
+  regulatoryRiskScore: {
+    score0To100: number;
+    level: RegulatoryRiskLevel;
+  };
+  requiredPaths: RegulatoryPathKey[];
+  notesAr: string[];
+  alertsAr: Array<{
+    severity: "info";
+    title: string;
+    message: string;
+  }>;
+  generatedAt: string;
+};
+
 type PlanTaskDefinition = {
   key: string;
   title: string;
@@ -106,6 +142,17 @@ type PlanTaskDefinition = {
 type ProjectContext = {
   id: string;
   name: string;
+};
+
+type ProjectDataSnapshot = {
+  eventType: string;
+  venueType: string;
+  project: string;
+  boqItems: Array<{
+    category: string;
+    item: string;
+    spec: string;
+  }>;
 };
 
 type NewTaskForm = {
@@ -124,6 +171,7 @@ type NewUpdateForm = {
 };
 
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
+const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
 const PLAN_RISK_BRIDGE_PREFIX = "oms_exec_risk_bridge_v1_";
 
@@ -138,6 +186,29 @@ const TEMPLATE_TYPE_OPTIONS: ProjectTemplateType[] = [
   "فعالية داخلية",
 ];
 const TEMPLATE_SCALE_OPTIONS: ProjectScale[] = ["صغير", "متوسط", "كبير"];
+const REGULATORY_PATH_ORDER: RegulatoryPathKey[] = [
+  "municipality",
+  "civil_defense",
+  "gea",
+  "traffic",
+  "insurance",
+];
+
+const REGULATORY_PATH_LABELS: Record<RegulatoryPathKey, string> = {
+  municipality: "البلدية/الأمانة",
+  civil_defense: "الدفاع المدني",
+  gea: "الجهة المنظمة للمحتوى",
+  traffic: "المرور",
+  insurance: "التأمين",
+};
+
+const REGULATORY_LEAD_ESTIMATES: Record<RegulatoryPathKey, RegulatoryLeadRange> = {
+  municipality: { min: 1, max: 3 },
+  civil_defense: { min: 1, max: 3 },
+  gea: { min: 2, max: 4 },
+  traffic: { min: 1, max: 2 },
+  insurance: { min: 1, max: 2 },
+};
 
 export default function StrategyExecutionPlanPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext>({ id: "global", name: "مشروع غير محدد" });
@@ -191,6 +262,10 @@ export default function StrategyExecutionPlanPage() {
   }, []);
 
   const taskViews = useMemo(() => buildTaskViews(tasks), [tasks]);
+  const regulatoryInsights = useMemo(
+    () => buildRegulatoryInsights(projectContext.id, templateProfile),
+    [projectContext.id, templateProfile]
+  );
 
   useEffect(() => {
     if (!isLoaded || !projectContext.id) return;
@@ -210,6 +285,7 @@ export default function StrategyExecutionPlanPage() {
       risks,
       templateProfile,
       templatePresets,
+      regulatoryInsights,
       updatedAt: now,
     };
     localStorage.setItem(planTrackerKey(projectContext.id), JSON.stringify(snapshot));
@@ -221,7 +297,7 @@ export default function StrategyExecutionPlanPage() {
       })
     );
     setLastSavedAt(now);
-  }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile, templatePresets]);
+  }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile, templatePresets, regulatoryInsights]);
 
   useEffect(() => {
     if (templatePresets.length === 0) {
@@ -819,6 +895,61 @@ export default function StrategyExecutionPlanPage() {
             وضع التنفيذ الحالي: {templateProfile.replaceExisting ? "استبدال كامل" : "دمج مع المهام الحالية"}
           </span>
         </div>
+
+        <div className="plan-regulatory-wrap">
+          <div className="plan-regulatory-head">
+            <h3 className="oms-section-title">قراءة تنظيمية إرشادية</h3>
+            <span className="budget-foot-note">إضافة توعوية فقط ولا تغيّر المهام أو التبعيات.</span>
+          </div>
+          <div className="plan-regulatory-kpis">
+            <article className="plan-regulatory-kpi">
+              <div className="plan-head-label">مؤشر المخاطر التنظيمية</div>
+              <div className="plan-health-value">{toArabicNumber(regulatoryInsights.regulatoryRiskScore.score0To100)}</div>
+              <span className={`plan-regulatory-level level-${regulatoryInsights.regulatoryRiskScore.level}`}>
+                {regulatoryRiskLevelLabel(regulatoryInsights.regulatoryRiskScore.level)}
+              </span>
+            </article>
+            <article className="plan-regulatory-kpi">
+              <div className="plan-head-label">المدة التنظيمية الدنيا المتوقعة</div>
+              <div className="plan-regulatory-lead">
+                {formatLeadTimeWeeks(regulatoryInsights.minimumLeadTimeWeeks.min, regulatoryInsights.minimumLeadTimeWeeks.max)}
+              </div>
+              <div className="plan-head-meta">تقدير إرشادي حسب نوع المشروع ومؤشرات الجاهزية الحالية.</div>
+            </article>
+          </div>
+
+          <div className="plan-regulatory-paths">
+            <div className="plan-head-label">المسارات التنظيمية المتوقعة</div>
+            <div className="plan-regulatory-chip-list">
+              {regulatoryInsights.requiredPaths.length === 0 ? (
+                <span className="plan-regulatory-empty">لا يوجد مسار إلزامي متوقع وفق المعطيات الحالية.</span>
+              ) : (
+                regulatoryInsights.requiredPaths.map((path) => (
+                  <span key={path} className="plan-regulatory-chip">
+                    {REGULATORY_PATH_LABELS[path]} · ثقة {toArabicNumber(Math.round(regulatoryInsights.regulatoryPaths[path].confidence * 100))}%
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+
+          {regulatoryInsights.notesAr.length > 0 ? (
+            <ul className="plan-regulatory-notes">
+              {regulatoryInsights.notesAr.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="plan-regulatory-alerts">
+            {regulatoryInsights.alertsAr.map((alert) => (
+              <article key={`${alert.title}-${alert.message}`} className={`plan-regulatory-alert severity-${alert.severity}`}>
+                <strong>{alert.title}</strong>
+                <p>{alert.message}</p>
+              </article>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="oms-panel">
@@ -1053,7 +1184,7 @@ export default function StrategyExecutionPlanPage() {
 
                 {task.blockedByDependency ? (
                   <div className="budget-inline-warning">
-                    هذه المهمة مرتبطة بـ "{task.dependencyTitle}". لا تبدأ قبل اكتمال المهمة السابقة.
+                    {`هذه المهمة مرتبطة بـ "${task.dependencyTitle}". لا تبدأ قبل اكتمال المهمة السابقة.`}
                   </div>
                 ) : null}
                 {task.isInactive ? (
@@ -1316,6 +1447,142 @@ export default function StrategyExecutionPlanPage() {
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
+        }
+
+        .plan-regulatory-wrap {
+          margin-top: 10px;
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: linear-gradient(180deg, rgba(11, 21, 38, 0.82), rgba(9, 17, 32, 0.78));
+          padding: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .plan-regulatory-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .plan-regulatory-kpis {
+          display: grid;
+          gap: 8px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .plan-regulatory-kpi {
+          border: 1px solid var(--oms-border-strong);
+          border-radius: var(--oms-radius-md);
+          background: rgba(8, 16, 31, 0.74);
+          padding: 10px;
+          display: grid;
+          gap: 6px;
+          align-content: start;
+        }
+
+        .plan-regulatory-level {
+          min-height: 24px;
+          width: fit-content;
+          border-radius: 999px;
+          border: 1px solid var(--oms-border-strong);
+          padding: 0 10px;
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .plan-regulatory-level.level-low {
+          border-color: rgba(88, 214, 165, 0.6);
+          color: #78e3b9;
+          background: rgba(16, 62, 48, 0.64);
+        }
+
+        .plan-regulatory-level.level-medium {
+          border-color: rgba(232, 182, 102, 0.62);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.7);
+        }
+
+        .plan-regulatory-level.level-high {
+          border-color: rgba(247, 106, 121, 0.62);
+          color: #ffbcc4;
+          background: rgba(70, 20, 33, 0.72);
+        }
+
+        .plan-regulatory-lead {
+          font-size: 24px;
+          font-weight: 900;
+          line-height: 1.3;
+        }
+
+        .plan-regulatory-paths {
+          display: grid;
+          gap: 6px;
+        }
+
+        .plan-regulatory-chip-list {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .plan-regulatory-chip {
+          min-height: 24px;
+          border-radius: 999px;
+          border: 1px solid rgba(102, 180, 232, 0.52);
+          background: rgba(20, 44, 70, 0.65);
+          color: #cce8ff;
+          padding: 0 10px;
+          font-size: 12px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+
+        .plan-regulatory-empty {
+          color: var(--oms-text-faint);
+          font-size: 13px;
+        }
+
+        .plan-regulatory-notes {
+          margin: 0;
+          padding-inline-start: 18px;
+          color: var(--oms-text-muted);
+          line-height: 1.8;
+          font-size: 13px;
+          display: grid;
+          gap: 2px;
+        }
+
+        .plan-regulatory-alerts {
+          display: grid;
+          gap: 6px;
+        }
+
+        .plan-regulatory-alert {
+          border: 1px solid var(--oms-border-strong);
+          border-radius: var(--oms-radius-sm);
+          background: rgba(9, 16, 29, 0.82);
+          padding: 8px 10px;
+          display: grid;
+          gap: 3px;
+        }
+
+        .plan-regulatory-alert p {
+          margin: 0;
+          color: var(--oms-text-muted);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .plan-regulatory-alert.severity-info {
+          border-color: rgba(102, 180, 232, 0.48);
+          background: rgba(15, 33, 56, 0.66);
         }
 
         .plan-toolbar {
@@ -1650,6 +1917,7 @@ export default function StrategyExecutionPlanPage() {
           .plan-new-task,
           .plan-template-grid,
           .plan-template-preset-grid,
+          .plan-regulatory-kpis,
           .plan-task-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
@@ -1659,6 +1927,7 @@ export default function StrategyExecutionPlanPage() {
           .plan-kpi-grid,
           .plan-template-grid,
           .plan-template-preset-grid,
+          .plan-regulatory-kpis,
           .plan-new-task,
           .plan-task-grid {
             grid-template-columns: 1fr;
@@ -1802,6 +2071,339 @@ function risksEqual(a: PlanRisk[], b: PlanRisk[]) {
   });
 }
 
+type RegulatoryInputSignals = {
+  venueType: "outdoor" | "indoor";
+  siteOwner: "government" | "private";
+  multiSite: boolean;
+  ticketing: "paid_ticketing" | "free_or_unknown";
+  audience: "vip_only" | "general";
+  contentType: "concert" | "stage_show" | "standard";
+  vendors: "none" | "present";
+  liveStream: boolean;
+  temporaryStructures: "none" | "present";
+  powerNeeds: "generators" | "standard";
+  crowdRisk: "low" | "medium" | "high";
+  vipProtocol: boolean;
+};
+
+function buildRegulatoryInsights(projectId: string, profile: PlanTemplateProfile): PlanRegulatoryInsights {
+  const signals = deriveRegulatoryInputSignals(projectId, profile);
+  const regulatoryPaths: Record<RegulatoryPathKey, RegulatoryPathReading> = {
+    municipality: { required: false, confidence: 0.7 },
+    civil_defense: { required: false, confidence: 0.7 },
+    gea: { required: false, confidence: 0.6 },
+    traffic: { required: false, confidence: 0.6 },
+    insurance: { required: false, confidence: 0.6 },
+  };
+
+  if (signals.venueType === "outdoor" || signals.siteOwner === "government") {
+    regulatoryPaths.municipality = { required: true, confidence: 0.9 };
+  }
+  if (
+    signals.temporaryStructures !== "none" ||
+    signals.crowdRisk === "high" ||
+    signals.powerNeeds === "generators"
+  ) {
+    regulatoryPaths.civil_defense = { required: true, confidence: 0.9 };
+  }
+  if (
+    signals.contentType === "concert" ||
+    signals.contentType === "stage_show" ||
+    (signals.ticketing === "paid_ticketing" && signals.audience !== "vip_only")
+  ) {
+    regulatoryPaths.gea = { required: true, confidence: 0.85 };
+  }
+  if (
+    (signals.venueType === "outdoor" && (signals.crowdRisk === "medium" || signals.crowdRisk === "high")) ||
+    signals.multiSite
+  ) {
+    regulatoryPaths.traffic = { required: true, confidence: 0.84 };
+  }
+  if (
+    signals.ticketing === "paid_ticketing" ||
+    signals.crowdRisk === "high" ||
+    signals.siteOwner === "government"
+  ) {
+    regulatoryPaths.insurance = { required: true, confidence: 0.88 };
+  }
+
+  const score0To100 = computeRegulatoryRiskScore(signals);
+  const level: RegulatoryRiskLevel = score0To100 >= 60 ? "high" : score0To100 >= 30 ? "medium" : "low";
+  const requiredPaths = REGULATORY_PATH_ORDER.filter((path) => regulatoryPaths[path].required);
+
+  let minLeadWeeks = 0;
+  let maxLeadWeeks = 0;
+  if (requiredPaths.length > 0) {
+    minLeadWeeks = Math.max(...requiredPaths.map((path) => REGULATORY_LEAD_ESTIMATES[path].min));
+    maxLeadWeeks = Math.max(...requiredPaths.map((path) => REGULATORY_LEAD_ESTIMATES[path].max));
+    if (score0To100 >= 60) maxLeadWeeks += 1;
+  }
+
+  const notesAr: string[] = [];
+  if (regulatoryPaths.municipality.required) {
+    notesAr.push("المشروع Outdoor أو موقع حكومي يرفع احتمالية مسار البلدية/الأمانة.");
+  }
+  if (regulatoryPaths.civil_defense.required) {
+    notesAr.push("وجود هياكل مؤقتة/مولدات/حشود عالية يرفع متطلبات السلامة.");
+  }
+  if (regulatoryPaths.gea.required) {
+    notesAr.push("وجود عروض أو تذاكر مدفوعة قد يرفع متطلبات التصاريح الخاصة بالمحتوى.");
+  }
+  if (regulatoryPaths.traffic.required && notesAr.length < 3) {
+    notesAr.push("تعدد المواقع أو تدفق الحضور الخارجي يستلزم تنسيقًا مبكرًا مع المرور.");
+  }
+  if (regulatoryPaths.insurance.required && notesAr.length < 3) {
+    notesAr.push("إدارة التأمين المبكر تقلل مخاطر المطالبات التشغيلية أثناء التنفيذ.");
+  }
+
+  return {
+    enabled: true,
+    version: "1.0",
+    regulatoryPaths,
+    permitLeadTimes: {
+      unit: "weeks",
+      estimates: REGULATORY_LEAD_ESTIMATES,
+    },
+    minimumLeadTimeWeeks: {
+      min: minLeadWeeks,
+      max: maxLeadWeeks,
+    },
+    regulatoryRiskScore: {
+      score0To100,
+      level,
+    },
+    requiredPaths,
+    notesAr: notesAr.slice(0, 3),
+    alertsAr: [
+      {
+        severity: "info",
+        title: "تنبيه تنظيمي",
+        message:
+          "قد تختلف المتطلبات حسب المدينة والموقع ونوع المحتوى. هذه القراءة إرشادية ولا تغيّر جدول المشروع أو مهامه.",
+      },
+    ],
+    generatedAt: nowDateTimeLabel(),
+  };
+}
+
+function deriveRegulatoryInputSignals(projectId: string, profile: PlanTemplateProfile): RegulatoryInputSignals {
+  const snapshot = readProjectDataSnapshot(projectId);
+  const boqText = snapshot.boqItems
+    .map((item) => `${item.category} ${item.item} ${item.spec}`)
+    .join(" ")
+    .trim();
+  const corpus = `${snapshot.eventType} ${snapshot.project} ${boqText}`.trim();
+  const lowerCorpus = corpus.toLocaleLowerCase("en-US");
+  const lowerEvent = snapshot.eventType.toLocaleLowerCase("en-US");
+
+  const venueType: "outdoor" | "indoor" = snapshot.venueType === "مساحة عامة" ? "outdoor" : "indoor";
+  const siteOwner: "government" | "private" =
+    profile.projectType === "فعالية حكومية" ||
+    containsAny(lowerCorpus, ["حكومي", "وزارة", "هيئة", "بلدية", "أمانة", "government"])
+      ? "government"
+      : "private";
+
+  const ticketing: "paid_ticketing" | "free_or_unknown" = containsAny(lowerEvent, [
+    "مدفوع",
+    "تذاكر",
+    "paid",
+    "ticket",
+  ])
+    ? "paid_ticketing"
+    : "free_or_unknown";
+
+  const audience: "vip_only" | "general" = containsAny(lowerCorpus, ["vip", "كبار الشخصيات", "ضيوف رسميين"])
+    ? "vip_only"
+    : "general";
+
+  const contentType: "concert" | "stage_show" | "standard" = containsAny(lowerCorpus, [
+    "حفلة",
+    "موسيقي",
+    "concert",
+  ])
+    ? "concert"
+    : containsAny(lowerCorpus, ["مسرح", "عرض", "show", "stage"])
+      ? "stage_show"
+      : "standard";
+
+  const vendors: "none" | "present" = snapshot.boqItems.length > 0 ? "present" : "none";
+  const liveStream = containsAny(lowerCorpus, ["بث", "مباشر", "stream", "live"]);
+
+  const temporaryStructures: "none" | "present" =
+    profile.needsPermits ||
+    containsAny(lowerCorpus, ["هيكل", "خيمة", "منصة", "جناح", "بوابة", "ستاند", "temporary", "structure"])
+      ? "present"
+      : "none";
+
+  const powerNeeds: "generators" | "standard" = containsAny(lowerCorpus, ["مولد", "generator", "جينريتر"])
+    ? "generators"
+    : "standard";
+
+  let crowdRisk: "low" | "medium" | "high" =
+    profile.projectScale === "كبير" ? "high" : profile.projectScale === "متوسط" ? "medium" : "low";
+  if (profile.projectType === "موسم" || profile.projectType === "معرض") {
+    crowdRisk = crowdRisk === "low" ? "medium" : crowdRisk;
+  }
+  if (venueType === "outdoor" && ticketing === "paid_ticketing") {
+    crowdRisk = crowdRisk === "low" ? "medium" : crowdRisk;
+  }
+
+  const vipProtocol = containsAny(lowerCorpus, ["vip", "بروتوكول", "كبار الشخصيات", "مراسم"]);
+
+  return {
+    venueType,
+    siteOwner,
+    multiSite: profile.multiVenue,
+    ticketing,
+    audience,
+    contentType,
+    vendors,
+    liveStream,
+    temporaryStructures,
+    powerNeeds,
+    crowdRisk,
+    vipProtocol,
+  };
+}
+
+function computeRegulatoryRiskScore(signals: RegulatoryInputSignals): number {
+  let score = 0;
+  if (signals.venueType === "outdoor") score += 12;
+  if (signals.siteOwner === "government") score += 10;
+  if (signals.ticketing === "paid_ticketing") score += 10;
+  if (signals.contentType === "concert" || signals.contentType === "stage_show") score += 12;
+  if (signals.temporaryStructures !== "none") score += 12;
+  if (signals.crowdRisk === "low") score += 4;
+  if (signals.crowdRisk === "medium") score += 10;
+  if (signals.crowdRisk === "high") score += 18;
+  if (signals.multiSite) score += 10;
+  if (signals.vendors !== "none") score += 6;
+  if (signals.liveStream) score += 4;
+  if (signals.vipProtocol) score += 6;
+  return Math.min(100, score);
+}
+
+function readProjectDataSnapshot(projectId: string): ProjectDataSnapshot {
+  if (typeof window === "undefined") {
+    return { eventType: "", venueType: "", project: "", boqItems: [] };
+  }
+  try {
+    const raw = localStorage.getItem(`${PROJECT_DATA_KEY_PREFIX}${projectId}`);
+    if (!raw) return { eventType: "", venueType: "", project: "", boqItems: [] };
+    const parsed = JSON.parse(raw) as {
+      eventType?: unknown;
+      venueType?: unknown;
+      project?: unknown;
+      boqItems?: unknown;
+    };
+    const boqItems = Array.isArray(parsed.boqItems)
+      ? parsed.boqItems
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const rawItem = item as { category?: unknown; item?: unknown; spec?: unknown };
+            return {
+              category: asString(rawItem.category),
+              item: asString(rawItem.item),
+              spec: asString(rawItem.spec),
+            };
+          })
+          .filter((item): item is { category: string; item: string; spec: string } => item !== null)
+      : [];
+    return {
+      eventType: asString(parsed.eventType),
+      venueType: asString(parsed.venueType),
+      project: asString(parsed.project),
+      boqItems,
+    };
+  } catch {
+    return { eventType: "", venueType: "", project: "", boqItems: [] };
+  }
+}
+
+function normalizeRegulatoryInsights(value: unknown): PlanRegulatoryInsights {
+  const fallback = buildRegulatoryInsights("global", createDefaultTemplateProfile());
+  if (!value || typeof value !== "object") return fallback;
+  const raw = value as Partial<PlanRegulatoryInsights>;
+  const riskScore = asNumber(raw.regulatoryRiskScore?.score0To100);
+  const level = raw.regulatoryRiskScore?.level;
+  const safeLevel: RegulatoryRiskLevel = level === "medium" || level === "high" ? level : "low";
+  const paths = REGULATORY_PATH_ORDER.reduce((acc, path) => {
+    const candidate = raw.regulatoryPaths?.[path];
+    acc[path] = {
+      required: Boolean(candidate?.required),
+      confidence: Math.max(0, Math.min(1, asNumber(candidate?.confidence))),
+    };
+    return acc;
+  }, {} as Record<RegulatoryPathKey, RegulatoryPathReading>);
+
+  const requiredPaths = REGULATORY_PATH_ORDER.filter((path) => paths[path].required);
+  const minLead = Math.max(0, Math.round(asNumber(raw.minimumLeadTimeWeeks?.min)));
+  const maxLead = Math.max(minLead, Math.round(asNumber(raw.minimumLeadTimeWeeks?.max)));
+
+  return {
+    enabled: raw.enabled !== false,
+    version: "1.0",
+    regulatoryPaths: paths,
+    permitLeadTimes: {
+      unit: "weeks",
+      estimates: REGULATORY_LEAD_ESTIMATES,
+    },
+    minimumLeadTimeWeeks: {
+      min: minLead,
+      max: maxLead,
+    },
+    regulatoryRiskScore: {
+      score0To100: Math.max(0, Math.min(100, Math.round(riskScore))),
+      level: safeLevel,
+    },
+    requiredPaths,
+    notesAr: Array.isArray(raw.notesAr) ? raw.notesAr.filter((item): item is string => typeof item === "string") : [],
+    alertsAr: Array.isArray(raw.alertsAr)
+      ? raw.alertsAr
+          .map((alert) => {
+            if (!alert || typeof alert !== "object") return null;
+            const row = alert as { severity?: unknown; title?: unknown; message?: unknown };
+            return {
+              severity: "info" as const,
+              title: asString(row.title) || "تنبيه تنظيمي",
+              message:
+                asString(row.message) ||
+                "قد تختلف المتطلبات حسب المدينة والموقع ونوع المحتوى. هذه القراءة إرشادية ولا تغيّر جدول المشروع أو مهامه.",
+            };
+          })
+          .filter((item): item is { severity: "info"; title: string; message: string } => item !== null)
+      : [
+          {
+            severity: "info" as const,
+            title: "تنبيه تنظيمي",
+            message:
+              "قد تختلف المتطلبات حسب المدينة والموقع ونوع المحتوى. هذه القراءة إرشادية ولا تغيّر جدول المشروع أو مهامه.",
+          },
+        ],
+    generatedAt: typeof raw.generatedAt === "string" && raw.generatedAt.trim() ? raw.generatedAt : nowDateTimeLabel(),
+  };
+}
+
+function regulatoryRiskLevelLabel(level: RegulatoryRiskLevel) {
+  if (level === "high") return "عال";
+  if (level === "medium") return "متوسط";
+  return "منخفض";
+}
+
+function formatLeadTimeWeeks(min: number, max: number) {
+  if (max <= 0) return "لا يوجد";
+  if (min === max) return `${toArabicNumber(min)} أسبوع`;
+  return `${toArabicNumber(min)}–${toArabicNumber(max)} أسبوع`;
+}
+
+function containsAny(source: string, samples: string[]) {
+  return samples.some((sample) => source.includes(sample));
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function readProjectContext(): ProjectContext {
   if (typeof window === "undefined") return { id: "global", name: "مشروع غير محدد" };
   try {
@@ -1881,6 +2483,8 @@ function readPlanSnapshot(projectId: string): PlanSnapshot | null {
       updates,
       risks,
       templateProfile: normalizeTemplateProfile(parsed.templateProfile),
+      templatePresets: normalizeTemplatePresets(parsed.templatePresets),
+      regulatoryInsights: normalizeRegulatoryInsights(parsed.regulatoryInsights),
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
     };
   } catch {
