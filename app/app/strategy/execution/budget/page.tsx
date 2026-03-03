@@ -204,6 +204,7 @@ export default function StrategyExecutionBudgetPage() {
     reason: "",
   });
   const [showIncreaseForm, setShowIncreaseForm] = useState(false);
+  const [isIncreaseSectionExpanded, setIsIncreaseSectionExpanded] = useState(false);
   const [isAuditExpanded, setIsAuditExpanded] = useState(false);
   const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
   const [visibleAuditCount, setVisibleAuditCount] = useState(8);
@@ -855,77 +856,90 @@ export default function StrategyExecutionBudgetPage() {
           )}
         </div>
 
-        <div className="increase-list-head">
-          <h3 className="oms-section-title">طلبات رفع ميزانية البنود</h3>
-          <div className="budget-advance-meta">طلبات مفتوحة: {toArabicNumber(summary.openIncreaseRequests)}</div>
-        </div>
-        <div className="increase-list">
-          {budgetIncreases.length === 0 ? (
-            <div className="workflow-empty">لا توجد طلبات رفع ميزانية حتى الآن.</div>
-          ) : (
-            budgetIncreases.map((request) => {
-              const lineTitle = lines.find((line) => line.id === request.lineId)?.title || "بند محذوف";
-              return (
-                <article key={request.id} className="increase-item">
-                  <div className="increase-item-head">
-                    <div className="increase-item-title">{lineTitle}</div>
-                    <span className={`increase-status ${budgetIncreaseStatusClass(request.status)}`}>
-                      {request.status}
-                    </span>
-                  </div>
-                  <div className="increase-item-meta">
-                    طالب الرفع: {request.requestedBy} · المبلغ المطلوب: {formatCurrency(request.requestedAmount)} ·
-                    المعتمد: {formatCurrency(request.approvedAmount)}
-                  </div>
-                  <div className="increase-item-meta">المبرر: {request.reason}</div>
-                  <div className="increase-item-meta">تاريخ الطلب: {request.requestedAt}</div>
-                  <div className="increase-actions">
-                    {request.status === "طلب جديد" ? (
-                      <button
-                        className="oms-btn oms-btn-ghost"
-                        type="button"
-                        onClick={() => startBudgetIncreaseReview(request.id)}
-                        disabled={!permissions.approve_budget_increase}
-                      >
-                        بدء المراجعة
-                      </button>
-                    ) : null}
-                    {request.status === "تحت المراجعة" ? (
-                      <>
-                        <button
-                          className="oms-btn oms-btn-primary"
-                          type="button"
-                          onClick={() => approveBudgetIncrease(request.id)}
-                          disabled={!permissions.approve_budget_increase}
-                        >
-                          اعتماد طلب الرفع
-                        </button>
+        <button
+          className="budget-subsection-toggle"
+          type="button"
+          aria-expanded={isIncreaseSectionExpanded}
+          onClick={() => setIsIncreaseSectionExpanded((prev) => !prev)}
+        >
+          <div className="audit-toggle-main">
+            <h3 className="oms-section-title">طلبات رفع ميزانية البنود</h3>
+            <div className="audit-toggle-meta">
+              إجمالي الطلبات: {toArabicNumber(budgetIncreases.length)} · طلبات مفتوحة:{" "}
+              {toArabicNumber(summary.openIncreaseRequests)}
+            </div>
+          </div>
+          <span className={`audit-chevron ${isIncreaseSectionExpanded ? "is-open" : ""}`}>⌄</span>
+        </button>
+        {isIncreaseSectionExpanded ? (
+          <div className="increase-list">
+            {budgetIncreases.length === 0 ? (
+              <div className="workflow-empty">لا توجد طلبات رفع ميزانية حتى الآن.</div>
+            ) : (
+              budgetIncreases.map((request) => {
+                const lineTitle = lines.find((line) => line.id === request.lineId)?.title || "بند محذوف";
+                return (
+                  <article key={request.id} className="increase-item">
+                    <div className="increase-item-head">
+                      <div className="increase-item-title">{lineTitle}</div>
+                      <span className={`increase-status ${budgetIncreaseStatusClass(request.status)}`}>
+                        {request.status}
+                      </span>
+                    </div>
+                    <div className="increase-item-meta">
+                      طالب الرفع: {request.requestedBy} · المبلغ المطلوب: {formatCurrency(request.requestedAmount)} ·
+                      المعتمد: {formatCurrency(request.approvedAmount)}
+                    </div>
+                    <div className="increase-item-meta">المبرر: {request.reason}</div>
+                    <div className="increase-item-meta">تاريخ الطلب: {request.requestedAt}</div>
+                    <div className="increase-actions">
+                      {request.status === "طلب جديد" ? (
                         <button
                           className="oms-btn oms-btn-ghost"
                           type="button"
-                          onClick={() => rejectBudgetIncrease(request.id)}
+                          onClick={() => startBudgetIncreaseReview(request.id)}
                           disabled={!permissions.approve_budget_increase}
                         >
-                          رفض الطلب
+                          بدء المراجعة
                         </button>
-                      </>
-                    ) : null}
-                    {request.status === "معتمد" ? (
-                      <button
-                        className="oms-btn oms-btn-primary"
-                        type="button"
-                        onClick={() => executeBudgetIncrease(request.id)}
-                        disabled={!permissions.execute_budget_increase}
-                      >
-                        تنفيذ الرفع على البند
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
+                      ) : null}
+                      {request.status === "تحت المراجعة" ? (
+                        <>
+                          <button
+                            className="oms-btn oms-btn-primary"
+                            type="button"
+                            onClick={() => approveBudgetIncrease(request.id)}
+                            disabled={!permissions.approve_budget_increase}
+                          >
+                            اعتماد طلب الرفع
+                          </button>
+                          <button
+                            className="oms-btn oms-btn-ghost"
+                            type="button"
+                            onClick={() => rejectBudgetIncrease(request.id)}
+                            disabled={!permissions.approve_budget_increase}
+                          >
+                            رفض الطلب
+                          </button>
+                        </>
+                      ) : null}
+                      {request.status === "معتمد" ? (
+                        <button
+                          className="oms-btn oms-btn-primary"
+                          type="button"
+                          onClick={() => executeBudgetIncrease(request.id)}
+                          disabled={!permissions.execute_budget_increase}
+                        >
+                          تنفيذ الرفع على البند
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        ) : null}
         <div className="budget-foot-note">
           {lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي يعمل عند أي تعديل."}
         </div>
@@ -1312,28 +1326,34 @@ export default function StrategyExecutionBudgetPage() {
           justify-content: flex-start;
         }
 
-        .increase-list-head {
+        .budget-subsection-toggle {
+          width: 100%;
           margin-top: 12px;
+          border: 1px solid var(--oms-border-strong);
+          border-radius: var(--oms-radius-md);
+          background: linear-gradient(180deg, rgba(15, 26, 49, 0.8), rgba(9, 18, 35, 0.84));
+          color: var(--oms-text);
+          padding: 8px 12px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          flex-wrap: wrap;
+          text-align: inherit;
         }
 
         .increase-list {
           margin-top: 10px;
           display: grid;
-          gap: 8px;
+          gap: 6px;
         }
 
         .increase-item {
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-md);
           background: var(--oms-bg-card);
-          padding: 10px;
+          padding: 8px 10px;
           display: grid;
-          gap: 6px;
+          gap: 4px;
         }
 
         .increase-item-head {
@@ -1351,8 +1371,8 @@ export default function StrategyExecutionBudgetPage() {
 
         .increase-item-meta {
           color: var(--oms-text-faint);
-          font-size: 13px;
-          line-height: 1.7;
+          font-size: 12px;
+          line-height: 1.55;
         }
 
         .increase-status {
@@ -1407,16 +1427,16 @@ export default function StrategyExecutionBudgetPage() {
         .advance-list {
           margin-top: 10px;
           display: grid;
-          gap: 8px;
+          gap: 6px;
         }
 
         .advance-row {
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-md);
           background: var(--oms-bg-card);
-          padding: 10px;
+          padding: 8px 10px;
           display: grid;
-          gap: 6px;
+          gap: 4px;
         }
 
         .advance-row.is-overdue {
@@ -1474,8 +1494,8 @@ export default function StrategyExecutionBudgetPage() {
 
         .advance-meta {
           color: var(--oms-text-faint);
-          font-size: 13px;
-          line-height: 1.7;
+          font-size: 12px;
+          line-height: 1.55;
         }
 
         .advance-actions {
@@ -1514,7 +1534,8 @@ export default function StrategyExecutionBudgetPage() {
           border-radius: var(--oms-radius-md);
           background: linear-gradient(180deg, rgba(17, 29, 53, 0.82), rgba(10, 18, 34, 0.82));
           color: var(--oms-text);
-          padding: 10px 12px;
+          padding: 8px 12px;
+          min-height: 54px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1540,6 +1561,8 @@ export default function StrategyExecutionBudgetPage() {
         }
 
         .audit-chevron {
+          flex: 0 0 26px;
+          align-self: center;
           width: 26px;
           height: 26px;
           border-radius: 999px;
