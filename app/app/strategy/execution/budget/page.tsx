@@ -178,6 +178,8 @@ export default function StrategyExecutionBudgetPage() {
     available: lineAvailable(line.id),
   }));
 
+  const selectedAdvanceLine = lineOptions.find((line) => line.id === newAdvance.lineId) ?? null;
+
   const blockedHolders = useMemo(() => {
     const map = new Set<string>();
     for (const item of advances) {
@@ -382,10 +384,15 @@ export default function StrategyExecutionBudgetPage() {
               <option value="">اختر البند</option>
               {lineOptions.map((line) => (
                 <option key={line.id} value={line.id}>
-                  {line.title} (متاح: {formatCurrency(line.available)})
+                  {line.title}
                 </option>
               ))}
             </select>
+            <span className="budget-field-hint">
+              {selectedAdvanceLine
+                ? `المتاح لهذا البند: ${formatCurrency(selectedAdvanceLine.available)}`
+                : "اختر بندًا لعرض المبلغ المتاح"}
+            </span>
           </label>
           <label className="budget-field">
             <span className="budget-field-label">صاحب العهدة</span>
@@ -631,12 +638,19 @@ export default function StrategyExecutionBudgetPage() {
         .budget-field {
           display: grid;
           gap: 6px;
+          min-width: 0;
         }
 
         .budget-field-label {
           font-size: 12px;
           font-weight: 800;
           color: var(--oms-text-faint);
+        }
+
+        .budget-field-hint {
+          color: var(--oms-text-faint);
+          font-size: 12px;
+          line-height: 1.6;
         }
 
         .budget-input {
@@ -647,6 +661,12 @@ export default function StrategyExecutionBudgetPage() {
           color: var(--oms-text);
           padding: 0 10px;
           font-size: 14px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .budget-profit-box {
@@ -737,7 +757,13 @@ export default function StrategyExecutionBudgetPage() {
         .advance-create {
           margin-top: 10px;
           display: grid;
-          grid-template-columns: repeat(6, minmax(0, 1fr));
+          grid-template-columns:
+            minmax(180px, 1.2fr)
+            minmax(170px, 1fr)
+            minmax(220px, 1.4fr)
+            minmax(140px, 0.9fr)
+            minmax(170px, 1fr)
+            minmax(190px, 1fr);
           gap: 8px;
           align-items: end;
         }
@@ -745,6 +771,12 @@ export default function StrategyExecutionBudgetPage() {
         .advance-create-action {
           display: flex;
           justify-content: flex-end;
+          min-width: 0;
+        }
+
+        .advance-create-action .oms-btn {
+          width: 100%;
+          white-space: nowrap;
         }
 
         .advance-list {
