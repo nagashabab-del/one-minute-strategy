@@ -71,6 +71,7 @@ type PlanSnapshot = {
   updates: DailyUpdate[];
   risks: PlanRisk[];
   templateProfile?: PlanTemplateProfile;
+  templatePresets?: PlanTemplatePreset[];
   updatedAt: string;
 };
 
@@ -82,6 +83,14 @@ type PlanTemplateProfile = {
   needsPermits: boolean;
   replaceExisting: boolean;
   lastGeneratedAt: string;
+};
+
+type PlanTemplatePreset = {
+  id: string;
+  name: string;
+  profile: PlanTemplateProfile;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type PlanTaskDefinition = {
@@ -155,6 +164,9 @@ export default function StrategyExecutionPlanPage() {
     note: "",
   });
   const [templateProfile, setTemplateProfile] = useState<PlanTemplateProfile>(createDefaultTemplateProfile());
+  const [templatePresets, setTemplatePresets] = useState<PlanTemplatePreset[]>([]);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState("");
 
   useEffect(() => {
     const context = readProjectContext();
@@ -165,12 +177,14 @@ export default function StrategyExecutionPlanPage() {
       setUpdates(snapshot.updates ?? []);
       setRisks(snapshot.risks ?? []);
       setTemplateProfile(normalizeTemplateProfile(snapshot.templateProfile));
+      setTemplatePresets(normalizeTemplatePresets(snapshot.templatePresets));
       setLastSavedAt(snapshot.updatedAt || null);
     } else {
       setTasks(buildDefaultTasks());
       setUpdates([]);
       setRisks([]);
       setTemplateProfile(createDefaultTemplateProfile());
+      setTemplatePresets([]);
       setLastSavedAt(null);
     }
     setIsLoaded(true);
@@ -195,6 +209,7 @@ export default function StrategyExecutionPlanPage() {
       updates,
       risks,
       templateProfile,
+      templatePresets,
       updatedAt: now,
     };
     localStorage.setItem(planTrackerKey(projectContext.id), JSON.stringify(snapshot));
@@ -206,7 +221,18 @@ export default function StrategyExecutionPlanPage() {
       })
     );
     setLastSavedAt(now);
-  }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile]);
+  }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile, templatePresets]);
+
+  useEffect(() => {
+    if (templatePresets.length === 0) {
+      if (selectedPresetId) setSelectedPresetId("");
+      return;
+    }
+    const exists = templatePresets.some((item) => item.id === selectedPresetId);
+    if (!exists) {
+      setSelectedPresetId(templatePresets[0].id);
+    }
+  }, [templatePresets, selectedPresetId]);
 
   const filteredTaskViews = useMemo(() => {
     return taskViews
@@ -285,6 +311,87 @@ export default function StrategyExecutionPlanPage() {
       ...prev,
       lastGeneratedAt: generatedAt,
     }));
+  }
+
+  function saveCurrentTemplatePreset() {
+    const name = newPresetName.trim();
+    if (name.length < 2) {
+      setAlertMessage("اكتب اسمًا واضحًا للقالب المخصص (حرفين على الأقل).");
+      return;
+    }
+    const now = nowDateTimeLabel();
+    const normalizedName = normalizeTemplateTitle(name);
+    let savedId = "";
+    setTemplatePresets((prev) => {
+      const existing = prev.find((item) => normalizeTemplateTitle(item.name) === normalizedName);
+      if (existing) {
+        savedId = existing.id;
+        return prev
+          .map((item) =>
+            item.id === existing.id
+              ? {
+                  ...item,
+                  name,
+                  profile: {
+                    ...templateProfile,
+                    lastGeneratedAt: "",
+                  },
+                  updatedAt: now,
+                }
+              : item
+          )
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      }
+      savedId = randomId();
+      return [
+        {
+          id: savedId,
+          name,
+          profile: {
+            ...templateProfile,
+            lastGeneratedAt: "",
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+        ...prev,
+      ];
+    });
+    setSelectedPresetId(savedId);
+    setNewPresetName("");
+    setAlertMessage("تم حفظ القالب المخصص ويمكن تطبيقه لأي مشروع مشابه.");
+  }
+
+  function applySelectedTemplatePreset() {
+    if (!selectedPresetId) {
+      setAlertMessage("اختر قالبًا محفوظًا أولًا لتطبيقه.");
+      return;
+    }
+    const preset = templatePresets.find((item) => item.id === selectedPresetId);
+    if (!preset) {
+      setAlertMessage("القالب المحدد غير موجود.");
+      return;
+    }
+    setTemplateProfile((prev) => ({
+      ...normalizeTemplateProfile(preset.profile),
+      lastGeneratedAt: prev.lastGeneratedAt,
+    }));
+    setAlertMessage(`تم تطبيق القالب "${preset.name}" على إعدادات المولد الذكي.`);
+  }
+
+  function removeSelectedTemplatePreset() {
+    if (!selectedPresetId) {
+      setAlertMessage("اختر قالبًا محفوظًا للحذف.");
+      return;
+    }
+    const preset = templatePresets.find((item) => item.id === selectedPresetId);
+    if (!preset) {
+      setAlertMessage("القالب المحدد غير موجود.");
+      return;
+    }
+    setTemplatePresets((prev) => prev.filter((item) => item.id !== selectedPresetId));
+    setSelectedPresetId("");
+    setAlertMessage(`تم حذف القالب "${preset.name}" من القوالب المخصصة.`);
   }
 
   function updateTask(taskId: string, patch: Partial<PlanTask>) {
@@ -659,6 +766,49 @@ export default function StrategyExecutionPlanPage() {
             />
             <span>استبدال المهام الحالية بدل الدمج</span>
           </label>
+        </div>
+
+        <div className="plan-template-preset-wrap">
+          <div className="plan-template-preset-grid">
+            <label className="budget-field">
+              <span className="budget-field-label">القوالب المخصصة المحفوظة</span>
+              <select
+                className="budget-input"
+                value={selectedPresetId}
+                onChange={(event) => setSelectedPresetId(event.target.value)}
+              >
+                <option value="">اختر قالبًا محفوظًا</option>
+                {templatePresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+              <span className="budget-field-hint">
+                إجمالي القوالب: {toArabicNumber(templatePresets.length)}
+              </span>
+            </label>
+            <label className="budget-field">
+              <span className="budget-field-label">اسم قالب جديد</span>
+              <input
+                className="budget-input"
+                value={newPresetName}
+                onChange={(event) => setNewPresetName(event.target.value)}
+                placeholder="مثال: معرض متوسط مع رعاة"
+              />
+            </label>
+          </div>
+          <div className="plan-template-preset-actions">
+            <button className="oms-btn oms-btn-ghost" type="button" onClick={saveCurrentTemplatePreset}>
+              حفظ كقالب مخصص
+            </button>
+            <button className="oms-btn oms-btn-ghost" type="button" onClick={applySelectedTemplatePreset}>
+              تطبيق القالب المحدد
+            </button>
+            <button className="oms-btn oms-btn-ghost" type="button" onClick={removeSelectedTemplatePreset}>
+              حذف القالب المحدد
+            </button>
+          </div>
         </div>
 
         <div className="plan-template-actions">
@@ -1137,6 +1287,28 @@ export default function StrategyExecutionPlanPage() {
           padding: 10px;
         }
 
+        .plan-template-preset-wrap {
+          margin-top: 8px;
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: rgba(9, 16, 29, 0.68);
+          padding: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .plan-template-preset-grid {
+          display: grid;
+          gap: 8px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .plan-template-preset-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .plan-template-actions {
           margin-top: 10px;
           display: flex;
@@ -1477,6 +1649,7 @@ export default function StrategyExecutionPlanPage() {
 
           .plan-new-task,
           .plan-template-grid,
+          .plan-template-preset-grid,
           .plan-task-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
@@ -1485,6 +1658,7 @@ export default function StrategyExecutionPlanPage() {
         @media (max-width: 760px) {
           .plan-kpi-grid,
           .plan-template-grid,
+          .plan-template-preset-grid,
           .plan-new-task,
           .plan-task-grid {
             grid-template-columns: 1fr;
@@ -1500,7 +1674,8 @@ export default function StrategyExecutionPlanPage() {
           .plan-new-task-action .oms-btn,
           .plan-task-actions .oms-btn,
           .plan-risk-actions .oms-btn,
-          .plan-footer-actions .oms-btn {
+          .plan-footer-actions .oms-btn,
+          .plan-template-preset-actions .oms-btn {
             width: 100%;
             justify-content: center;
           }
@@ -1742,6 +1917,24 @@ function normalizeTemplateProfile(value: unknown): PlanTemplateProfile {
     replaceExisting: Boolean(raw.replaceExisting),
     lastGeneratedAt: typeof raw.lastGeneratedAt === "string" ? raw.lastGeneratedAt : "",
   };
+}
+
+function normalizeTemplatePresets(value: unknown): PlanTemplatePreset[] {
+  if (!Array.isArray(value)) return [];
+  const normalized = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const raw = item as Partial<PlanTemplatePreset>;
+      return {
+        id: typeof raw.id === "string" && raw.id.trim() ? raw.id : randomId(),
+        name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : "قالب بدون اسم",
+        profile: normalizeTemplateProfile(raw.profile),
+        createdAt: typeof raw.createdAt === "string" ? raw.createdAt : nowDateTimeLabel(),
+        updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : nowDateTimeLabel(),
+      } as PlanTemplatePreset;
+    })
+    .filter((item): item is PlanTemplatePreset => item !== null);
+  return normalized.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 function buildTemplateDefinitions(profile: PlanTemplateProfile): PlanTaskDefinition[] {
