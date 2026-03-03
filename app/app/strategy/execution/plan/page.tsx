@@ -6,6 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 type TaskStatus = "لم تبدأ" | "جارية" | "مكتملة" | "متأخرة";
 type TaskPhase = "التخطيط" | "التجهيز" | "التنفيذ" | "الإغلاق";
 type DependencyType = "FS";
+type ProjectTemplateType =
+  | "مؤتمر"
+  | "معرض"
+  | "موسم"
+  | "فعالية حكومية"
+  | "تفعيل تسويقي"
+  | "فعالية داخلية";
+type ProjectScale = "صغير" | "متوسط" | "كبير";
 
 type PlanTask = {
   id: string;
@@ -57,7 +65,28 @@ type PlanSnapshot = {
   tasks: PlanTask[];
   updates: DailyUpdate[];
   risks: PlanRisk[];
+  templateProfile?: PlanTemplateProfile;
   updatedAt: string;
+};
+
+type PlanTemplateProfile = {
+  projectType: ProjectTemplateType;
+  projectScale: ProjectScale;
+  multiVenue: boolean;
+  hasSponsors: boolean;
+  needsPermits: boolean;
+  replaceExisting: boolean;
+  lastGeneratedAt: string;
+};
+
+type PlanTaskDefinition = {
+  key: string;
+  title: string;
+  owner: string;
+  phase: TaskPhase;
+  durationDays: number;
+  critical: boolean;
+  dependencyKey: string;
 };
 
 type ProjectContext = {
@@ -86,6 +115,15 @@ const PLAN_RISK_BRIDGE_PREFIX = "oms_exec_risk_bridge_v1_";
 
 const PHASE_OPTIONS: TaskPhase[] = ["التخطيط", "التجهيز", "التنفيذ", "الإغلاق"];
 const STATUS_OPTIONS: TaskStatus[] = ["لم تبدأ", "جارية", "مكتملة", "متأخرة"];
+const TEMPLATE_TYPE_OPTIONS: ProjectTemplateType[] = [
+  "مؤتمر",
+  "معرض",
+  "موسم",
+  "فعالية حكومية",
+  "تفعيل تسويقي",
+  "فعالية داخلية",
+];
+const TEMPLATE_SCALE_OPTIONS: ProjectScale[] = ["صغير", "متوسط", "كبير"];
 
 export default function StrategyExecutionPlanPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext>({ id: "global", name: "مشروع غير محدد" });
@@ -110,6 +148,7 @@ export default function StrategyExecutionPlanPage() {
     author: "",
     note: "",
   });
+  const [templateProfile, setTemplateProfile] = useState<PlanTemplateProfile>(createDefaultTemplateProfile());
 
   useEffect(() => {
     const context = readProjectContext();
@@ -119,11 +158,13 @@ export default function StrategyExecutionPlanPage() {
       setTasks(snapshot.tasks.length > 0 ? snapshot.tasks : buildDefaultTasks());
       setUpdates(snapshot.updates ?? []);
       setRisks(snapshot.risks ?? []);
+      setTemplateProfile(normalizeTemplateProfile(snapshot.templateProfile));
       setLastSavedAt(snapshot.updatedAt || null);
     } else {
       setTasks(buildDefaultTasks());
       setUpdates([]);
       setRisks([]);
+      setTemplateProfile(createDefaultTemplateProfile());
       setLastSavedAt(null);
     }
     setIsLoaded(true);
@@ -147,6 +188,7 @@ export default function StrategyExecutionPlanPage() {
       tasks,
       updates,
       risks,
+      templateProfile,
       updatedAt: now,
     };
     localStorage.setItem(planTrackerKey(projectContext.id), JSON.stringify(snapshot));
@@ -158,7 +200,7 @@ export default function StrategyExecutionPlanPage() {
       })
     );
     setLastSavedAt(now);
-  }, [isLoaded, projectContext.id, tasks, updates, risks]);
+  }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile]);
 
   const filteredTaskViews = useMemo(() => {
     return taskViews
@@ -198,8 +240,42 @@ export default function StrategyExecutionPlanPage() {
     const today = todayIso();
     return updates.filter((item) => item.createdAt.startsWith(today)).length;
   }, [updates]);
+  const templateTaskDefinitions = useMemo(() => buildTemplateDefinitions(templateProfile), [templateProfile]);
 
   const firstTaskId = taskViews[0]?.id ?? "";
+
+  function generateSmartTemplateTasks() {
+    const result = materializeTemplateTasks(
+      templateTaskDefinitions,
+      templateProfile.replaceExisting ? [] : tasks
+    );
+    const generatedAt = nowDateTimeLabel();
+
+    if (templateProfile.replaceExisting) {
+      setTasks(result.tasks);
+      setUpdates([]);
+      setRisks([]);
+      setAlertMessage(
+        `تم استبدال الخطة الحالية بقالب ذكي جديد (${toArabicNumber(result.addedCount)} مهمة).`
+      );
+    } else {
+      setTasks(result.tasks);
+      if (result.addedCount === 0) {
+        setAlertMessage("جميع مهام القالب موجودة مسبقًا، لم تتم إضافة مهام جديدة.");
+      } else {
+        setAlertMessage(
+          `تم دمج القالب الذكي: تمت إضافة ${toArabicNumber(result.addedCount)} مهمة وتجاوز ${toArabicNumber(
+            result.skippedCount
+          )} مهمة موجودة مسبقًا.`
+        );
+      }
+    }
+
+    setTemplateProfile((prev) => ({
+      ...prev,
+      lastGeneratedAt: generatedAt,
+    }));
+  }
 
   function updateTask(taskId: string, patch: Partial<PlanTask>) {
     setTasks((prev) =>
@@ -408,6 +484,127 @@ export default function StrategyExecutionPlanPage() {
           <div className="oms-kpi-label">تعارض تبعيات</div>
           <div className="oms-kpi-value">{toArabicNumber(summary.dependencyBlocked)}</div>
         </article>
+      </section>
+
+      <section className="oms-panel">
+        <div className="plan-template-head">
+          <div>
+            <h2 className="oms-section-title">مولد المهام الذكي</h2>
+            <p className="oms-text">
+              يولد حزمة مهام تشغيل مناسبة لنوع المشروع وحجمه، مع تبعيات FS جاهزة للتنفيذ.
+            </p>
+          </div>
+          <div className="plan-template-meta">
+            <div>عدد مهام القالب: {toArabicNumber(templateTaskDefinitions.length)}</div>
+            <div>
+              آخر توليد:{" "}
+              {templateProfile.lastGeneratedAt.trim() ? templateProfile.lastGeneratedAt : "لم يتم التوليد بعد"}
+            </div>
+          </div>
+        </div>
+
+        <div className="plan-template-grid">
+          <label className="budget-field">
+            <span className="budget-field-label">نوع المشروع</span>
+            <select
+              className="budget-input"
+              value={templateProfile.projectType}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  projectType: event.target.value as ProjectTemplateType,
+                }))
+              }
+            >
+              {TEMPLATE_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="budget-field">
+            <span className="budget-field-label">حجم المشروع</span>
+            <select
+              className="budget-input"
+              value={templateProfile.projectScale}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  projectScale: event.target.value as ProjectScale,
+                }))
+              }
+            >
+              {TEMPLATE_SCALE_OPTIONS.map((scale) => (
+                <option key={scale} value={scale}>
+                  {scale}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="plan-critical-check">
+            <input
+              type="checkbox"
+              checked={templateProfile.multiVenue}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  multiVenue: event.target.checked,
+                }))
+              }
+            />
+            <span>فعالية متعددة المواقع</span>
+          </label>
+          <label className="plan-critical-check">
+            <input
+              type="checkbox"
+              checked={templateProfile.hasSponsors}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  hasSponsors: event.target.checked,
+                }))
+              }
+            />
+            <span>يشمل رعاة وشركاء</span>
+          </label>
+          <label className="plan-critical-check">
+            <input
+              type="checkbox"
+              checked={templateProfile.needsPermits}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  needsPermits: event.target.checked,
+                }))
+              }
+            />
+            <span>يتطلب تصاريح وموافقات</span>
+          </label>
+          <label className="plan-critical-check">
+            <input
+              type="checkbox"
+              checked={templateProfile.replaceExisting}
+              onChange={(event) =>
+                setTemplateProfile((prev) => ({
+                  ...prev,
+                  replaceExisting: event.target.checked,
+                }))
+              }
+            />
+            <span>استبدال المهام الحالية بدل الدمج</span>
+          </label>
+        </div>
+
+        <div className="plan-template-actions">
+          <button className="oms-btn oms-btn-primary" type="button" onClick={generateSmartTemplateTasks}>
+            توليد المهام من القالب
+          </button>
+          <span className="budget-foot-note">
+            وضع التنفيذ الحالي: {templateProfile.replaceExisting ? "استبدال كامل" : "دمج مع المهام الحالية"}
+          </span>
+        </div>
       </section>
 
       <section className="oms-panel">
@@ -819,6 +1016,45 @@ export default function StrategyExecutionPlanPage() {
           gap: 8px;
         }
 
+        .plan-template-head {
+          display: flex;
+          align-items: start;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .plan-template-meta {
+          min-width: 220px;
+          border: 1px solid var(--oms-border-strong);
+          border-radius: var(--oms-radius-md);
+          background: rgba(10, 19, 35, 0.78);
+          padding: 8px 10px;
+          font-size: 12px;
+          line-height: 1.8;
+          color: var(--oms-text-muted);
+        }
+
+        .plan-template-grid {
+          margin-top: 10px;
+          display: grid;
+          gap: 8px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+        }
+
+        .plan-template-actions {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+        }
+
         .plan-toolbar {
           display: flex;
           align-items: center;
@@ -1113,6 +1349,7 @@ export default function StrategyExecutionPlanPage() {
           }
 
           .plan-new-task,
+          .plan-template-grid,
           .plan-task-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
@@ -1120,6 +1357,7 @@ export default function StrategyExecutionPlanPage() {
 
         @media (max-width: 760px) {
           .plan-kpi-grid,
+          .plan-template-grid,
           .plan-new-task,
           .plan-task-grid {
             grid-template-columns: 1fr;
@@ -1329,11 +1567,180 @@ function readPlanSnapshot(projectId: string): PlanSnapshot | null {
       tasks,
       updates,
       risks,
+      templateProfile: normalizeTemplateProfile(parsed.templateProfile),
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
     };
   } catch {
     return null;
   }
+}
+
+function createDefaultTemplateProfile(): PlanTemplateProfile {
+  return {
+    projectType: "مؤتمر",
+    projectScale: "متوسط",
+    multiVenue: false,
+    hasSponsors: false,
+    needsPermits: false,
+    replaceExisting: false,
+    lastGeneratedAt: "",
+  };
+}
+
+function normalizeTemplateProfile(value: unknown): PlanTemplateProfile {
+  const defaults = createDefaultTemplateProfile();
+  if (!value || typeof value !== "object") return defaults;
+  const raw = value as Partial<PlanTemplateProfile>;
+  return {
+    projectType: TEMPLATE_TYPE_OPTIONS.includes(raw.projectType as ProjectTemplateType)
+      ? (raw.projectType as ProjectTemplateType)
+      : defaults.projectType,
+    projectScale: TEMPLATE_SCALE_OPTIONS.includes(raw.projectScale as ProjectScale)
+      ? (raw.projectScale as ProjectScale)
+      : defaults.projectScale,
+    multiVenue: Boolean(raw.multiVenue),
+    hasSponsors: Boolean(raw.hasSponsors),
+    needsPermits: Boolean(raw.needsPermits),
+    replaceExisting: Boolean(raw.replaceExisting),
+    lastGeneratedAt: typeof raw.lastGeneratedAt === "string" ? raw.lastGeneratedAt : "",
+  };
+}
+
+function buildTemplateDefinitions(profile: PlanTemplateProfile): PlanTaskDefinition[] {
+  const definitions: PlanTaskDefinition[] = [];
+  const pushDefinition = (
+    key: string,
+    title: string,
+    owner: string,
+    phase: TaskPhase,
+    durationDays: number,
+    critical: boolean
+  ) => {
+    definitions.push({
+      key,
+      title,
+      owner,
+      phase,
+      durationDays,
+      critical,
+      dependencyKey: definitions.length > 0 ? definitions[definitions.length - 1].key : "",
+    });
+  };
+
+  pushDefinition("kickoff", "اعتماد ميثاق المشروع ونطاقه التنفيذي", "مدير المشروع", "التخطيط", 2, true);
+  pushDefinition("stakeholders", "اعتماد أصحاب المصلحة ومسار الحوكمة", "مدير المشروع", "التخطيط", 2, true);
+  pushDefinition("baseline", "إقرار خط الأساس الزمني والمالي", "مدير التخطيط", "التخطيط", 2, true);
+  pushDefinition("vendors", "حصر الموردين الأساسيين واعتماد التعاقد", "قائد المشتريات", "التجهيز", 3, true);
+  pushDefinition("ops-readiness", "تجهيز الجاهزية التشغيلية للموقع", "مدير التشغيل", "التجهيز", 3, true);
+
+  if (profile.projectType === "مؤتمر") {
+    pushDefinition("conference-agenda", "اعتماد برنامج المؤتمر والمتحدثين", "مدير المحتوى", "التخطيط", 2, true);
+    pushDefinition("conference-registration", "تجهيز التسجيل والاستقبال والتدفق", "مدير التشغيل", "التجهيز", 2, true);
+  }
+  if (profile.projectType === "معرض") {
+    pushDefinition("expo-booths", "اعتماد مخططات الأجنحة ومسارات الزوار", "مدير المعرض", "التخطيط", 2, true);
+    pushDefinition("expo-exhibitors", "تثبيت العارضين وخطط التسليم", "مدير العلاقات", "التجهيز", 3, true);
+  }
+  if (profile.projectType === "موسم") {
+    pushDefinition("season-calendar", "اعتماد تقويم الموسم وموجات التشغيل", "مدير الموسم", "التخطيط", 3, true);
+    pushDefinition("season-rotation", "خطة تدوير الفرق والتغطية الممتدة", "مدير التشغيل", "التجهيز", 3, true);
+  }
+  if (profile.projectType === "فعالية حكومية") {
+    pushDefinition("gov-protocol", "اعتماد البروتوكول الرسمي ومسارات الضيوف", "مدير البروتوكول", "التخطيط", 3, true);
+    pushDefinition("gov-permits", "إقفال الموافقات الحكومية والأمنية", "مدير العلاقات الحكومية", "التجهيز", 3, true);
+  }
+  if (profile.projectType === "تفعيل تسويقي") {
+    pushDefinition("activation-concept", "اعتماد الرسالة التسويقية وتجربة الجمهور", "مدير التسويق", "التخطيط", 2, true);
+    pushDefinition("activation-leads", "تجهيز آلية جمع العملاء المحتملين", "قائد التسويق", "التجهيز", 2, false);
+  }
+  if (profile.projectType === "فعالية داخلية") {
+    pushDefinition("internal-comms", "مواءمة التواصل الداخلي وخطة المشاركة", "مدير الموارد البشرية", "التخطيط", 2, false);
+    pushDefinition("internal-logistics", "تجهيز متطلبات الضيافة والخدمات الداخلية", "مدير الخدمات", "التجهيز", 2, false);
+  }
+
+  if (profile.needsPermits && profile.projectType !== "فعالية حكومية") {
+    pushDefinition("permits", "متابعة التصاريح النظامية والتشغيلية", "منسق التراخيص", "التجهيز", 2, true);
+  }
+  if (profile.hasSponsors) {
+    pushDefinition("sponsors", "اعتماد حقوق الرعاة وخطة التسليم", "مدير الرعاة", "التجهيز", 2, true);
+  }
+  if (profile.multiVenue) {
+    pushDefinition("multi-venue", "توحيد جاهزية المواقع المتعددة", "مدير التشغيل", "التجهيز", 3, true);
+  }
+
+  if (profile.projectScale === "متوسط") {
+    pushDefinition("qa-checkpoint", "تنفيذ نقطة فحص جودة قبل التشغيل", "ضابط الجودة", "التنفيذ", 1, false);
+  }
+  if (profile.projectScale === "كبير") {
+    pushDefinition("command-center", "تشغيل مركز قيادة ميداني متعدد الفرق", "مدير المشروع", "التنفيذ", 2, true);
+    pushDefinition("backup-plan", "تفعيل خطة بدائل للموردين والكوادر الحرجة", "مدير التشغيل", "التنفيذ", 2, true);
+  }
+
+  pushDefinition("live-run", "تشغيل الفعالية ومراقبة الأداء المباشر", "مدير التشغيل", "التنفيذ", 2, true);
+  pushDefinition("closeout", "إغلاق الالتزامات وإصدار التقرير الختامي", "مدير المشروع", "الإغلاق", 2, false);
+  return definitions;
+}
+
+function materializeTemplateTasks(
+  definitions: PlanTaskDefinition[],
+  existingTasks: PlanTask[]
+): {
+  tasks: PlanTask[];
+  addedCount: number;
+  skippedCount: number;
+} {
+  const existingByTitle = new Map<string, PlanTask>();
+  for (const task of existingTasks) {
+    const key = normalizeTemplateTitle(task.title);
+    if (!existingByTitle.has(key)) existingByTitle.set(key, task);
+  }
+
+  const keyToTaskRef = new Map<string, { id: string; dueDate: string }>();
+  const newTasks: PlanTask[] = [];
+  const baseDate = todayIso();
+  let skippedCount = 0;
+
+  definitions.forEach((definition, index) => {
+    const existing = existingByTitle.get(normalizeTemplateTitle(definition.title));
+    if (existing) {
+      keyToTaskRef.set(definition.key, {
+        id: existing.id,
+        dueDate: existing.dueDate || baseDate,
+      });
+      skippedCount += 1;
+      return;
+    }
+
+    const dependencyRef = definition.dependencyKey ? keyToTaskRef.get(definition.dependencyKey) : undefined;
+    const startDate = dependencyRef ? addDaysIso(dependencyRef.dueDate, 1) : addDaysIso(baseDate, index);
+    const dueDate = addDaysIso(startDate, Math.max(1, definition.durationDays));
+    const task: PlanTask = {
+      id: randomId(),
+      title: definition.title,
+      owner: definition.owner,
+      phase: definition.phase,
+      status: "لم تبدأ",
+      progress: 0,
+      startDate,
+      dueDate,
+      dependencyTaskId: dependencyRef?.id ?? "",
+      dependencyType: "FS",
+      critical: definition.critical,
+      updatedAt: nowDateTimeLabel(),
+    };
+    newTasks.push(task);
+    keyToTaskRef.set(definition.key, { id: task.id, dueDate: task.dueDate });
+  });
+
+  return {
+    tasks: [...existingTasks, ...newTasks],
+    addedCount: newTasks.length,
+    skippedCount,
+  };
+}
+
+function normalizeTemplateTitle(value: string) {
+  return value.trim().toLocaleLowerCase("ar-SA");
 }
 
 function buildDefaultTasks(): PlanTask[] {
