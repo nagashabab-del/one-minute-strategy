@@ -44,10 +44,25 @@ type BudgetIncreaseRequest = {
   updatedAt: string;
 };
 
+type RegulatoryPathKey = "municipality" | "civil_defense" | "gea" | "traffic" | "insurance";
+type RegulatoryRiskLevel = "low" | "medium" | "high";
+type RegulatoryCommitmentStatus = "غير مطلوب" | "مطلوب" | "قيد الإجراء" | "مكتمل";
+type RegulatoryCommitment = {
+  path: RegulatoryPathKey;
+  required: boolean;
+  status: RegulatoryCommitmentStatus;
+  owner: string;
+  reference: string;
+  expiryDate: string;
+  notes: string;
+  updatedAt: string;
+};
+
 type BudgetSnapshot = {
   lines: BudgetLine[];
   advances: BudgetAdvance[];
   budgetIncreases: BudgetIncreaseRequest[];
+  regulatoryCommitments: RegulatoryCommitment[];
   auditTrail: BudgetAuditEntry[];
   plannedRevenue: number;
   actualRevenue: number;
@@ -114,10 +129,38 @@ type BudgetAuditEntry = {
 };
 type AuditFilter = "all" | "advances" | "increases" | "permissions";
 
+type ProjectDataSnapshot = {
+  eventType: string;
+  venueType: string;
+  project: string;
+  boqItems: Array<{
+    category?: string;
+    item?: string;
+    spec?: string;
+  }>;
+};
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const SETTINGS_STORAGE_KEY = "oms_exec_settings_v1";
 const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
+const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
+
+const REGULATORY_PATH_ORDER: RegulatoryPathKey[] = [
+  "municipality",
+  "civil_defense",
+  "gea",
+  "traffic",
+  "insurance",
+];
+
+const REGULATORY_PATH_LABELS: Record<RegulatoryPathKey, string> = {
+  municipality: "البلدية/الأمانة",
+  civil_defense: "الدفاع المدني",
+  gea: "الجهة المنظمة للمحتوى",
+  traffic: "المرور",
+  insurance: "التأمين",
+};
 
 const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
   project_manager: {
@@ -183,6 +226,8 @@ export default function StrategyExecutionBudgetPage() {
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [advances, setAdvances] = useState<BudgetAdvance[]>([]);
   const [budgetIncreases, setBudgetIncreases] = useState<BudgetIncreaseRequest[]>([]);
+  const [regulatoryCommitments, setRegulatoryCommitments] = useState<RegulatoryCommitment[]>([]);
+  const [regulatoryRiskLevel, setRegulatoryRiskLevel] = useState<RegulatoryRiskLevel>("low");
   const [auditTrail, setAuditTrail] = useState<BudgetAuditEntry[]>([]);
   const [plannedRevenue, setPlannedRevenue] = useState(0);
   const [actualRevenue, setActualRevenue] = useState(0);
@@ -204,6 +249,7 @@ export default function StrategyExecutionBudgetPage() {
     reason: "",
   });
   const [showIncreaseForm, setShowIncreaseForm] = useState(false);
+  const [isRegulatorySectionExpanded, setIsRegulatorySectionExpanded] = useState(true);
   const [isIncreaseSectionExpanded, setIsIncreaseSectionExpanded] = useState(false);
   const [isArchivedAdvancesExpanded, setIsArchivedAdvancesExpanded] = useState(false);
   const [isAuditExpanded, setIsAuditExpanded] = useState(false);
@@ -214,6 +260,7 @@ export default function StrategyExecutionBudgetPage() {
     const context = readProjectContext();
     setProjectContext(context);
     setBudgetAlertThreshold(readBudgetAlertThreshold());
+    const regulatorySeed = readRegulatorySeed(context.id);
 
     const snapshot = readBudgetSnapshot(context.id);
     if (snapshot) {
@@ -221,6 +268,10 @@ export default function StrategyExecutionBudgetPage() {
       setLines(nextLines);
       setAdvances(snapshot.advances ?? []);
       setBudgetIncreases(snapshot.budgetIncreases ?? []);
+      setRegulatoryCommitments(
+        mergeRegulatoryCommitments(snapshot.regulatoryCommitments, regulatorySeed.requiredPaths)
+      );
+      setRegulatoryRiskLevel(regulatorySeed.riskLevel);
       setAuditTrail(snapshot.auditTrail ?? []);
       setPlannedRevenue(snapshot.plannedRevenue);
       setActualRevenue(snapshot.actualRevenue);
@@ -238,6 +289,8 @@ export default function StrategyExecutionBudgetPage() {
       setLines(fallbackLines);
       setAdvances([]);
       setBudgetIncreases([]);
+      setRegulatoryCommitments(mergeRegulatoryCommitments([], regulatorySeed.requiredPaths));
+      setRegulatoryRiskLevel(regulatorySeed.riskLevel);
       setAuditTrail([]);
       setPlannedRevenue(0);
       setActualRevenue(0);
@@ -262,6 +315,7 @@ export default function StrategyExecutionBudgetPage() {
       lines,
       advances,
       budgetIncreases,
+      regulatoryCommitments,
       auditTrail,
       plannedRevenue,
       actualRevenue,
@@ -269,7 +323,17 @@ export default function StrategyExecutionBudgetPage() {
     };
     localStorage.setItem(budgetTrackerKey(projectContext.id), JSON.stringify(payload));
     setLastSavedAt(nowText);
-  }, [isLoaded, projectContext, lines, advances, budgetIncreases, auditTrail, plannedRevenue, actualRevenue]);
+  }, [
+    isLoaded,
+    projectContext,
+    lines,
+    advances,
+    budgetIncreases,
+    regulatoryCommitments,
+    auditTrail,
+    plannedRevenue,
+    actualRevenue,
+  ]);
 
   const activeReservedByLine = useMemo(() => {
     const map: Record<string, number> = {};
@@ -327,6 +391,10 @@ export default function StrategyExecutionBudgetPage() {
 
   const projectName = projectContext?.name ?? "مشروع غير محدد";
   const projectBudget = projectContext?.budgetTarget ?? 0;
+  const regulatorySummary = useMemo(
+    () => buildRegulatorySummary(regulatoryCommitments, regulatoryRiskLevel),
+    [regulatoryCommitments, regulatoryRiskLevel]
+  );
 
   const lineOptions = lines.map((line) => ({
     id: line.id,
@@ -338,6 +406,7 @@ export default function StrategyExecutionBudgetPage() {
   const currentRole = projectContext?.role ?? "project_manager";
   const currentRoleLabel = userRoleLabel(currentRole);
   const permissions = ROLE_PERMISSIONS[currentRole];
+  const canEditRegulatoryCommitments = currentRole !== "viewer";
 
   const blockedHolders = useMemo(() => {
     const map = new Set<string>();
@@ -371,6 +440,11 @@ export default function StrategyExecutionBudgetPage() {
     !isSelectedLineExhausted &&
     !isAdvanceAmountOverLine &&
     !isHolderBlocked;
+  const regulatoryComplianceWarning = regulatorySummary.pendingRequired.length
+    ? `تنبيه تنظيمي (غير مانع): توجد مسارات مطلوبة غير مكتملة: ${regulatorySummary.pendingRequired
+        .map((path) => REGULATORY_PATH_LABELS[path])
+        .join("، ")}.`
+    : "";
   const latestAuditTime = auditTrail[0]?.createdAt ?? "—";
   const filteredAuditTrail = useMemo(
     () => auditTrail.filter((entry) => matchesAuditFilter(entry, auditFilter)),
@@ -409,6 +483,15 @@ export default function StrategyExecutionBudgetPage() {
             <div className="budget-health-title">{summary.tone.label}</div>
             <div className="budget-health-meta">
               الحد التنبيهي الحالي: {formatPercent(budgetAlertThreshold)} من المخطط
+            </div>
+          </div>
+          <div className={`budget-health ${regulatorySummary.className}`}>
+            <div className="budget-health-label">الجاهزية التنظيمية</div>
+            <div className="budget-health-title">{regulatorySummary.label}</div>
+            <div className="budget-health-meta">
+              مكتمل: {toArabicNumber(regulatorySummary.completedRequired)} /{" "}
+              {toArabicNumber(regulatorySummary.requiredCount)} · متطلبات مفتوحة:{" "}
+              {toArabicNumber(regulatorySummary.pendingRequired.length)}
             </div>
           </div>
         </div>
@@ -590,6 +673,124 @@ export default function StrategyExecutionBudgetPage() {
             {formatPercent(summary.settlementRate)} · {permissionSummary}
           </div>
         </div>
+
+        <button
+          className="budget-subsection-toggle"
+          type="button"
+          aria-expanded={isRegulatorySectionExpanded}
+          onClick={() => setIsRegulatorySectionExpanded((prev) => !prev)}
+        >
+          <div className="audit-toggle-main">
+            <h3 className="oms-section-title">سجل الالتزامات التنظيمية</h3>
+            <div className="audit-toggle-meta">
+              الجاهزية: {regulatorySummary.label} · المسارات المطلوبة: {toArabicNumber(regulatorySummary.requiredCount)} ·
+              مكتملة: {toArabicNumber(regulatorySummary.completedRequired)} · مفتوحة:{" "}
+              {toArabicNumber(regulatorySummary.pendingRequired.length)}
+            </div>
+          </div>
+          <span className={`audit-chevron ${isRegulatorySectionExpanded ? "is-open" : ""}`}>
+            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+              <path
+                d="M4 6.5 L8 10.5 L12 6.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </button>
+        {isRegulatorySectionExpanded ? (
+          <div className="regulatory-list">
+            {regulatoryCommitments.map((commitment) => {
+              const overdue = isCommitmentOverdue(commitment);
+              return (
+                <article key={commitment.path} className={`regulatory-row ${overdue ? "is-overdue" : ""}`}>
+                  <div className="regulatory-row-head">
+                    <div className="regulatory-title">{REGULATORY_PATH_LABELS[commitment.path]}</div>
+                    <div className="regulatory-badges">
+                      <span className={`regulatory-required ${commitment.required ? "is-required" : "is-not-required"}`}>
+                        {commitment.required ? "مطلوب" : "غير مطلوب"}
+                      </span>
+                      <span className={`regulatory-status ${regulatoryStatusClass(commitment.status)}`}>
+                        {commitment.status}
+                      </span>
+                      {overdue ? <span className="regulatory-required is-overdue">متأخر</span> : null}
+                    </div>
+                  </div>
+
+                  <div className="regulatory-fields">
+                    <label className="budget-field">
+                      <span className="budget-field-label">الحالة</span>
+                      <select
+                        className="budget-input"
+                        value={commitment.status}
+                        disabled={!canEditRegulatoryCommitments}
+                        onChange={(event) =>
+                          updateRegulatoryCommitment(commitment.path, {
+                            status: normalizeRegulatoryCommitmentStatus(event.target.value, commitment.required),
+                          })
+                        }
+                      >
+                        <option value="غير مطلوب">غير مطلوب</option>
+                        <option value="مطلوب">مطلوب</option>
+                        <option value="قيد الإجراء">قيد الإجراء</option>
+                        <option value="مكتمل">مكتمل</option>
+                      </select>
+                    </label>
+                    <label className="budget-field">
+                      <span className="budget-field-label">المسؤول</span>
+                      <input
+                        className="budget-input"
+                        value={commitment.owner}
+                        disabled={!canEditRegulatoryCommitments}
+                        onChange={(event) =>
+                          updateRegulatoryCommitment(commitment.path, {
+                            owner: event.target.value,
+                          })
+                        }
+                        placeholder="اسم المسؤول"
+                      />
+                    </label>
+                    <label className="budget-field">
+                      <span className="budget-field-label">مرجع/رقم التصريح</span>
+                      <input
+                        className="budget-input"
+                        value={commitment.reference}
+                        disabled={!canEditRegulatoryCommitments}
+                        onChange={(event) =>
+                          updateRegulatoryCommitment(commitment.path, {
+                            reference: event.target.value,
+                          })
+                        }
+                        placeholder="مثال: PERMIT-2026-001"
+                      />
+                    </label>
+                    <label className="budget-field">
+                      <span className="budget-field-label">تاريخ الانتهاء</span>
+                      <input
+                        className="budget-input"
+                        type="date"
+                        value={commitment.expiryDate}
+                        disabled={!canEditRegulatoryCommitments}
+                        onChange={(event) =>
+                          updateRegulatoryCommitment(commitment.path, {
+                            expiryDate: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {regulatoryComplianceWarning ? (
+          <div className="budget-inline-warning is-soft">{regulatoryComplianceWarning}</div>
+        ) : null}
 
         <div className="advance-create">
           <label className="budget-field">
@@ -1127,7 +1328,7 @@ export default function StrategyExecutionBudgetPage() {
 
         .budget-top-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
           gap: 10px;
           align-items: stretch;
         }
@@ -1372,6 +1573,113 @@ export default function StrategyExecutionBudgetPage() {
           padding: 10px;
           font-size: 13px;
           line-height: 1.7;
+        }
+
+        .budget-inline-warning.is-soft {
+          border-color: rgba(232, 182, 102, 0.55);
+          background: linear-gradient(180deg, rgba(53, 39, 14, 0.72), rgba(28, 20, 10, 0.72));
+          color: #ffd996;
+        }
+
+        .regulatory-list {
+          margin-top: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .regulatory-row {
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .regulatory-row.is-overdue {
+          border-color: rgba(247, 106, 121, 0.52);
+          background: linear-gradient(180deg, rgba(56, 20, 30, 0.52), rgba(22, 13, 20, 0.62));
+        }
+
+        .regulatory-row-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .regulatory-title {
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .regulatory-badges {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .regulatory-required,
+        .regulatory-status {
+          min-height: 24px;
+          border-radius: 999px;
+          padding: 0 9px;
+          border: 1px solid var(--oms-border-strong);
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+
+        .regulatory-required.is-required {
+          border-color: rgba(232, 182, 102, 0.58);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.72);
+        }
+
+        .regulatory-required.is-not-required {
+          border-color: rgba(174, 187, 206, 0.48);
+          color: #d5deec;
+          background: rgba(24, 32, 45, 0.76);
+        }
+
+        .regulatory-required.is-overdue {
+          border-color: rgba(247, 106, 121, 0.58);
+          color: #ffbcc4;
+          background: rgba(70, 20, 33, 0.74);
+        }
+
+        .regulatory-status.is-not-required {
+          border-color: rgba(174, 187, 206, 0.48);
+          color: #d5deec;
+          background: rgba(24, 32, 45, 0.76);
+        }
+
+        .regulatory-status.is-required {
+          border-color: rgba(232, 182, 102, 0.58);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.72);
+        }
+
+        .regulatory-status.is-progress {
+          border-color: rgba(130, 164, 255, 0.58);
+          color: #bfd3ff;
+          background: rgba(20, 34, 65, 0.72);
+        }
+
+        .regulatory-status.is-complete {
+          border-color: rgba(88, 214, 165, 0.62);
+          color: #78e3b9;
+          background: rgba(14, 56, 45, 0.78);
+        }
+
+        .regulatory-fields {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
         }
 
         .budget-increase-cta {
@@ -1786,7 +2094,7 @@ export default function StrategyExecutionBudgetPage() {
 
         @media (max-width: 1220px) {
           .budget-top-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
           .budget-kpi-grid {
@@ -1801,6 +2109,10 @@ export default function StrategyExecutionBudgetPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
+          .regulatory-fields {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .budget-row {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: stretch;
@@ -1812,7 +2124,9 @@ export default function StrategyExecutionBudgetPage() {
           .budget-revenue-grid,
           .budget-row,
           .advance-create,
-          .increase-request-form {
+          .increase-request-form,
+          .regulatory-fields,
+          .budget-top-grid {
             grid-template-columns: 1fr;
           }
 
@@ -1922,6 +2236,23 @@ export default function StrategyExecutionBudgetPage() {
     return positive(line.planned) - positive(line.actual) - reserved;
   }
 
+  function updateRegulatoryCommitment(path: RegulatoryPathKey, patch: Partial<RegulatoryCommitment>) {
+    setRegulatoryCommitments((prev) =>
+      prev.map((item) => {
+        if (item.path !== path) return item;
+        const required = patch.required ?? item.required;
+        const requestedStatus = patch.status ?? item.status;
+        return {
+          ...item,
+          ...patch,
+          required,
+          status: normalizeRegulatoryCommitmentStatus(requestedStatus, required),
+          updatedAt: nowDateTimeLabel(),
+        };
+      })
+    );
+  }
+
   function createBudgetIncreaseRequest() {
     if (!ensurePermission("request_budget_increase")) return;
     const lineId = newIncrease.lineId;
@@ -1962,7 +2293,9 @@ export default function StrategyExecutionBudgetPage() {
     );
     setShowIncreaseForm(false);
     setNewIncrease((prev) => ({ ...prev, amount: 0, reason: "" }));
-    setAlertMessage("تم تسجيل طلب رفع ميزانية البند وبانتظار المراجعة.");
+    setAlertMessage(
+      `تم تسجيل طلب رفع ميزانية البند وبانتظار المراجعة.${regulatoryComplianceWarning ? ` ${regulatoryComplianceWarning}` : ""}`
+    );
   }
 
   function startBudgetIncreaseReview(requestId: string) {
@@ -2157,7 +2490,9 @@ export default function StrategyExecutionBudgetPage() {
       `تم إنشاء طلب عهدة لصاحب العهدة ${holderName} بقيمة ${formatCurrency(record.requestedAmount)}.`,
       { advanceId: record.id, lineId: record.lineId }
     );
-    setAlertMessage("تم تسجيل طلب العهدة. يلزم الاعتماد قبل الصرف.");
+    setAlertMessage(
+      `تم تسجيل طلب العهدة. يلزم الاعتماد قبل الصرف.${regulatoryComplianceWarning ? ` ${regulatoryComplianceWarning}` : ""}`
+    );
     setNewAdvance((prev) => ({
       ...prev,
       holder: "",
@@ -2349,6 +2684,209 @@ function readProjectContext(): ProjectContext {
   }
 }
 
+function readRegulatorySeed(projectId: string): {
+  requiredPaths: RegulatoryPathKey[];
+  riskLevel: RegulatoryRiskLevel;
+} {
+  const fromPlan = readPlanRegulatoryInsights(projectId);
+  if (fromPlan.requiredPaths.length > 0 || fromPlan.riskLevel !== "low") {
+    return fromPlan;
+  }
+  return {
+    requiredPaths: deriveRequiredRegulatoryPathsFromProjectData(projectId),
+    riskLevel: fromPlan.riskLevel,
+  };
+}
+
+function readPlanRegulatoryInsights(projectId: string): {
+  requiredPaths: RegulatoryPathKey[];
+  riskLevel: RegulatoryRiskLevel;
+} {
+  if (typeof window === "undefined") return { requiredPaths: [], riskLevel: "low" };
+  try {
+    const raw = localStorage.getItem(planTrackerKey(projectId));
+    if (!raw) return { requiredPaths: [], riskLevel: "low" };
+    const parsed = JSON.parse(raw) as {
+      regulatoryInsights?: {
+        requiredPaths?: unknown;
+        regulatoryRiskScore?: { level?: unknown };
+      };
+    };
+    const requiredPaths = Array.isArray(parsed.regulatoryInsights?.requiredPaths)
+      ? parsed.regulatoryInsights?.requiredPaths.filter((item): item is RegulatoryPathKey => isRegulatoryPathKey(item))
+      : [];
+    const levelRaw = parsed.regulatoryInsights?.regulatoryRiskScore?.level;
+    const riskLevel: RegulatoryRiskLevel = levelRaw === "medium" || levelRaw === "high" ? levelRaw : "low";
+    return { requiredPaths, riskLevel };
+  } catch {
+    return { requiredPaths: [], riskLevel: "low" };
+  }
+}
+
+function deriveRequiredRegulatoryPathsFromProjectData(projectId: string): RegulatoryPathKey[] {
+  const snapshot = readProjectDataSnapshot(projectId);
+  const corpus = `${snapshot.eventType} ${snapshot.venueType} ${snapshot.project} ${snapshot.boqItems
+    .map((item) => `${item.category ?? ""} ${item.item ?? ""} ${item.spec ?? ""}`)
+    .join(" ")}`.toLocaleLowerCase("en-US");
+
+  const paths = new Set<RegulatoryPathKey>();
+  if (snapshot.venueType === "مساحة عامة" || containsAny(corpus, ["بلدية", "أمانة", "حكومي", "government"])) {
+    paths.add("municipality");
+  }
+  if (containsAny(corpus, ["خيمة", "منصة", "هيكل", "مولد", "generator", "حشود", "سلامة"])) {
+    paths.add("civil_defense");
+  }
+  if (containsAny(corpus, ["حفلة", "مسرح", "عرض", "concert", "show", "stage"])) {
+    paths.add("gea");
+  }
+  if (containsAny(corpus, ["مساحة عامة", "ازدحام", "مواقف", "مرور", "traffic"])) {
+    paths.add("traffic");
+  }
+  if (containsAny(corpus, ["تذاكر", "ticket", "تأمين", "insurance", "رعاة", "sponsor"])) {
+    paths.add("insurance");
+  }
+  return REGULATORY_PATH_ORDER.filter((path) => paths.has(path));
+}
+
+function readProjectDataSnapshot(projectId: string): ProjectDataSnapshot {
+  if (typeof window === "undefined") return { eventType: "", venueType: "", project: "", boqItems: [] };
+  try {
+    const raw = localStorage.getItem(`${PROJECT_DATA_KEY_PREFIX}${projectId}`);
+    if (!raw) return { eventType: "", venueType: "", project: "", boqItems: [] };
+    const parsed = JSON.parse(raw) as Partial<ProjectDataSnapshot>;
+    return {
+      eventType: typeof parsed.eventType === "string" ? parsed.eventType : "",
+      venueType: typeof parsed.venueType === "string" ? parsed.venueType : "",
+      project: typeof parsed.project === "string" ? parsed.project : "",
+      boqItems: Array.isArray(parsed.boqItems) ? parsed.boqItems : [],
+    };
+  } catch {
+    return { eventType: "", venueType: "", project: "", boqItems: [] };
+  }
+}
+
+function mergeRegulatoryCommitments(
+  current: RegulatoryCommitment[] | undefined,
+  requiredPaths: RegulatoryPathKey[]
+): RegulatoryCommitment[] {
+  const requiredSet = new Set(requiredPaths);
+  const map = new Map((current ?? []).map((item) => [item.path, item]));
+  return REGULATORY_PATH_ORDER.map((path) => {
+    const existing = map.get(path);
+    const required = requiredSet.has(path);
+    const status = normalizeRegulatoryCommitmentStatus(existing?.status, required);
+    return {
+      path,
+      required,
+      status,
+      owner: existing?.owner ?? "",
+      reference: existing?.reference ?? "",
+      expiryDate: existing?.expiryDate ?? "",
+      notes: existing?.notes ?? "",
+      updatedAt: existing?.updatedAt ?? nowDateTimeLabel(),
+    };
+  });
+}
+
+function buildRegulatorySummary(
+  commitments: RegulatoryCommitment[],
+  riskLevel: RegulatoryRiskLevel
+): {
+  label: string;
+  className: "is-good" | "is-warning" | "is-risk";
+  requiredCount: number;
+  completedRequired: number;
+  pendingRequired: RegulatoryPathKey[];
+  overdueRequired: number;
+  riskLevel: RegulatoryRiskLevel;
+} {
+  const required = commitments.filter((item) => item.required);
+  const completedRequired = required.filter((item) => item.status === "مكتمل").length;
+  const pendingRequired = required
+    .filter((item) => item.status !== "مكتمل")
+    .map((item) => item.path);
+  const overdueRequired = required.filter((item) => isCommitmentOverdue(item)).length;
+
+  if (required.length === 0) {
+    return {
+      label: "جاهز",
+      className: "is-good",
+      requiredCount: 0,
+      completedRequired: 0,
+      pendingRequired: [],
+      overdueRequired: 0,
+      riskLevel,
+    };
+  }
+  if (overdueRequired > 0 || (pendingRequired.length > 0 && riskLevel === "high")) {
+    return {
+      label: "خطر",
+      className: "is-risk",
+      requiredCount: required.length,
+      completedRequired,
+      pendingRequired,
+      overdueRequired,
+      riskLevel,
+    };
+  }
+  if (pendingRequired.length > 0) {
+    return {
+      label: "جزئي",
+      className: "is-warning",
+      requiredCount: required.length,
+      completedRequired,
+      pendingRequired,
+      overdueRequired,
+      riskLevel,
+    };
+  }
+  return {
+    label: "جاهز",
+    className: "is-good",
+    requiredCount: required.length,
+    completedRequired,
+    pendingRequired: [],
+    overdueRequired,
+    riskLevel,
+  };
+}
+
+function isRegulatoryPathKey(value: unknown): value is RegulatoryPathKey {
+  return (
+    value === "municipality" ||
+    value === "civil_defense" ||
+    value === "gea" ||
+    value === "traffic" ||
+    value === "insurance"
+  );
+}
+
+function normalizeRegulatoryCommitmentStatus(
+  value: unknown,
+  required: boolean
+): RegulatoryCommitmentStatus {
+  if (!required) return "غير مطلوب";
+  if (value === "قيد الإجراء" || value === "مكتمل") return value;
+  return "مطلوب";
+}
+
+function regulatoryStatusClass(status: RegulatoryCommitmentStatus) {
+  if (status === "مكتمل") return "is-complete";
+  if (status === "قيد الإجراء") return "is-progress";
+  if (status === "مطلوب") return "is-required";
+  return "is-not-required";
+}
+
+function isCommitmentOverdue(item: RegulatoryCommitment) {
+  if (!item.required || item.status === "مكتمل") return false;
+  if (!item.expiryDate) return false;
+  return item.expiryDate < todayIso();
+}
+
+function planTrackerKey(projectId: string) {
+  return `${PLAN_TRACKER_PREFIX}${projectId}`;
+}
+
 function readBudgetAlertThreshold() {
   if (typeof window === "undefined") return 10;
   try {
@@ -2411,6 +2949,27 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
         }))
       : [];
 
+    const normalizedRegulatoryCommitments = Array.isArray(parsed.regulatoryCommitments)
+      ? parsed.regulatoryCommitments
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const row = item as Partial<RegulatoryCommitment>;
+            if (!isRegulatoryPathKey(row.path)) return null;
+            const required = Boolean(row.required);
+            return {
+              path: row.path,
+              required,
+              status: normalizeRegulatoryCommitmentStatus(row.status, required),
+              owner: typeof row.owner === "string" ? row.owner : "",
+              reference: typeof row.reference === "string" ? row.reference : "",
+              expiryDate: typeof row.expiryDate === "string" ? row.expiryDate : "",
+              notes: typeof row.notes === "string" ? row.notes : "",
+              updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : nowDateTimeLabel(),
+            } as RegulatoryCommitment;
+          })
+          .filter((item): item is RegulatoryCommitment => item !== null)
+      : [];
+
     const normalizedAuditTrail = Array.isArray(parsed.auditTrail)
       ? parsed.auditTrail.map((entry) => ({
           id: typeof entry.id === "string" ? entry.id : randomId(),
@@ -2428,6 +2987,7 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
       lines: normalizedLines,
       advances: normalizedAdvances,
       budgetIncreases: normalizedBudgetIncreases,
+      regulatoryCommitments: normalizedRegulatoryCommitments,
       auditTrail: normalizedAuditTrail,
       plannedRevenue: Number.isFinite(parsed.plannedRevenue) ? Number(parsed.plannedRevenue) : 0,
       actualRevenue: Number.isFinite(parsed.actualRevenue) ? Number(parsed.actualRevenue) : 0,
@@ -2641,6 +3201,10 @@ function matchesAuditFilter(entry: BudgetAuditEntry, filter: AuditFilter) {
 
 function normalizeKey(value: string) {
   return value.trim().toLowerCase();
+}
+
+function containsAny(source: string, samples: string[]) {
+  return samples.some((sample) => source.includes(sample));
 }
 
 function todayIso() {

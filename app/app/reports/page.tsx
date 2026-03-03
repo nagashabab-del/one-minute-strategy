@@ -136,6 +136,16 @@ export default function ReportsPage() {
                     </div>
                     <div className="reports-card-meta">تاريخ التحديث: {report.date}</div>
                     <p className="reports-card-preview">{truncate(report.executiveDecision, 130)}</p>
+                    {report.regulatoryCompliance ? (
+                      <div className="reports-card-compliance">
+                        <span className={`reports-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
+                          امتثال تنظيمي: {report.regulatoryCompliance.readiness}
+                        </span>
+                        <span className="reports-card-meta">
+                          مكتمل {report.regulatoryCompliance.completedCount}/{report.regulatoryCompliance.requiredCount}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="reports-card-actions">
                     <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
@@ -259,6 +269,44 @@ export default function ReportsPage() {
               justify-content: flex-start;
             }
 
+            .reports-card-compliance {
+              margin-top: 8px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+
+            .reports-compliance-badge {
+              min-height: 24px;
+              border-radius: 999px;
+              padding: 0 9px;
+              border: 1px solid var(--oms-border-strong);
+              font-size: 12px;
+              font-weight: 800;
+              display: inline-flex;
+              align-items: center;
+              white-space: nowrap;
+            }
+
+            .reports-compliance-badge.is-good {
+              border-color: rgba(88, 214, 165, 0.62);
+              color: #78e3b9;
+              background: rgba(14, 56, 45, 0.78);
+            }
+
+            .reports-compliance-badge.is-warning {
+              border-color: rgba(232, 182, 102, 0.58);
+              color: #ffd996;
+              background: rgba(66, 47, 20, 0.72);
+            }
+
+            .reports-compliance-badge.is-risk {
+              border-color: rgba(247, 106, 121, 0.58);
+              color: #ffbcc4;
+              background: rgba(70, 20, 33, 0.74);
+            }
+
             .reports-open-btn {
               white-space: nowrap;
             }
@@ -303,6 +351,12 @@ function statusClass(status: StrategyReport["status"]) {
   if (status === "معتمد") return "is-approved";
   if (status === "مكتمل") return "is-complete";
   return "is-draft";
+}
+
+function complianceClass(readiness: NonNullable<StrategyReport["regulatoryCompliance"]>["readiness"]) {
+  if (readiness === "جاهز") return "is-good";
+  if (readiness === "جزئي") return "is-warning";
+  return "is-risk";
 }
 
 function statusRank(status: StrategyReport["status"]) {

@@ -71,6 +71,27 @@ export default function ReportDetailsPage() {
         <p className="oms-text">{report.executiveDecision}</p>
       </section>
 
+      {report.regulatoryCompliance ? (
+        <section className="oms-panel">
+          <div className="report-risk-head">
+            <h2 className="oms-section-title">الالتزام التنظيمي</h2>
+            <span className={`report-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
+              {report.regulatoryCompliance.readiness}
+            </span>
+          </div>
+          <div className="oms-text">
+            مكتمل {report.regulatoryCompliance.completedCount} من {report.regulatoryCompliance.requiredCount} مسار مطلوب.
+          </div>
+          {report.regulatoryCompliance.pendingPaths.length > 0 ? (
+            <div className="oms-list-line">
+              • مسارات مفتوحة: {report.regulatoryCompliance.pendingPaths.join("، ")}
+            </div>
+          ) : (
+            <div className="oms-list-line">• لا توجد مسارات تنظيمية مفتوحة حاليًا.</div>
+          )}
+        </section>
+      ) : null}
+
       <section className="report-sections">
         <section className="oms-panel" style={{ marginTop: 0 }}>
           <h2 className="oms-section-title">أبرز ملاحظات المستشارين</h2>
@@ -184,6 +205,36 @@ export default function ReportDetailsPage() {
           font-weight: 800;
         }
 
+        .report-compliance-badge {
+          min-height: 24px;
+          border-radius: 999px;
+          padding: 0 9px;
+          border: 1px solid var(--oms-border-strong);
+          display: inline-flex;
+          align-items: center;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .report-compliance-badge.is-good {
+          border-color: rgba(88, 214, 165, 0.62);
+          color: #78e3b9;
+          background: rgba(14, 56, 45, 0.78);
+        }
+
+        .report-compliance-badge.is-warning {
+          border-color: rgba(232, 182, 102, 0.58);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.72);
+        }
+
+        .report-compliance-badge.is-risk {
+          border-color: rgba(247, 106, 121, 0.58);
+          color: #ffbcc4;
+          background: rgba(70, 20, 33, 0.74);
+        }
+
         @media (max-width: 980px) {
           .report-overview {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -212,4 +263,10 @@ function statusClass(status: StrategyReport["status"]) {
   if (status === "معتمد") return "is-approved";
   if (status === "مكتمل") return "is-complete";
   return "is-draft";
+}
+
+function complianceClass(readiness: NonNullable<StrategyReport["regulatoryCompliance"]>["readiness"]) {
+  if (readiness === "جاهز") return "is-good";
+  if (readiness === "جزئي") return "is-warning";
+  return "is-risk";
 }

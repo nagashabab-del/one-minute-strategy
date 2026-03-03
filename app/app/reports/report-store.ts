@@ -7,6 +7,12 @@ export type StrategyReport = {
   advisorsHighlights: string[];
   risks: string[];
   recommendations: string[];
+  regulatoryCompliance?: {
+    readiness: "جاهز" | "جزئي" | "خطر";
+    requiredCount: number;
+    completedCount: number;
+    pendingPaths: string[];
+  };
 };
 
 type ProjectsRegistry = {
@@ -40,8 +46,36 @@ type ProjectSnapshot = {
   };
 };
 
+type BudgetCommitmentSnapshot = {
+  path?: string;
+  required?: boolean;
+  status?: string;
+  expiryDate?: string;
+};
+
+type BudgetSnapshot = {
+  regulatoryCommitments?: BudgetCommitmentSnapshot[];
+};
+
+type PlanSnapshot = {
+  regulatoryInsights?: {
+    regulatoryRiskScore?: {
+      level?: string;
+    };
+  };
+};
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
+const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
+const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
+const REGULATORY_PATH_LABELS: Record<string, string> = {
+  municipality: "البلدية/الأمانة",
+  civil_defense: "الدفاع المدني",
+  gea: "الجهة المنظمة للمحتوى",
+  traffic: "المرور",
+  insurance: "التأمين",
+};
 const ADVISOR_LABELS: Record<string, string> = {
   financial_advisor: "المستشار المالي",
   regulatory_advisor: "المستشار التنظيمي",
@@ -52,6 +86,14 @@ const ADVISOR_LABELS: Record<string, string> = {
 
 function projectDataKey(projectId: string) {
   return `${PROJECT_DATA_KEY_PREFIX}${projectId}`;
+}
+
+function budgetTrackerKey(projectId: string) {
+  return `${BUDGET_TRACKER_PREFIX}${projectId}`;
+}
+
+function planTrackerKey(projectId: string) {
+  return `${PLAN_TRACKER_PREFIX}${projectId}`;
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -126,6 +168,40 @@ function deriveRecommendations(snapshot: ProjectSnapshot): string[] {
   return recs.length ? recs.slice(0, 5) : ["لا توجد توصيات منشورة بعد."];
 }
 
+function deriveRegulatoryCompliance(projectId: string): StrategyReport["regulatoryCompliance"] | undefined {
+  const budgetSnapshot = safeParse<BudgetSnapshot>(localStorage.getItem(budgetTrackerKey(projectId)), {});
+  const planSnapshot = safeParse<PlanSnapshot>(localStorage.getItem(planTrackerKey(projectId)), {});
+  const items = Array.isArray(budgetSnapshot.regulatoryCommitments) ? budgetSnapshot.regulatoryCommitments : [];
+  if (items.length === 0) return undefined;
+
+  const required = items.filter((item) => item.required);
+  const completed = required.filter((item) => item.status === "مكتمل");
+  const pending = required.filter((item) => item.status !== "مكتمل");
+  const overdue = pending.filter((item) => {
+    if (!item.expiryDate) return false;
+    return item.expiryDate < new Date().toISOString().slice(0, 10);
+  });
+  const riskLevel = planSnapshot.regulatoryInsights?.regulatoryRiskScore?.level;
+
+  const readiness: "جاهز" | "جزئي" | "خطر" =
+    required.length === 0
+      ? "جاهز"
+      : overdue.length > 0 || (pending.length > 0 && riskLevel === "high")
+        ? "خطر"
+        : pending.length > 0
+          ? "جزئي"
+          : "جاهز";
+
+  return {
+    readiness,
+    requiredCount: required.length,
+    completedCount: completed.length,
+    pendingPaths: pending
+      .map((item) => (item.path ? REGULATORY_PATH_LABELS[item.path] ?? item.path : "مسار غير محدد"))
+      .slice(0, 3),
+  };
+}
+
 export function readReports(): StrategyReport[] {
   if (typeof window === "undefined") return [];
 
@@ -152,6 +228,7 @@ export function readReports(): StrategyReport[] {
         advisorsHighlights: deriveAdvisorHighlights(snapshot),
         risks: deriveRisks(snapshot),
         recommendations: deriveRecommendations(snapshot),
+        regulatoryCompliance: deriveRegulatoryCompliance(project.id),
       };
     })
     .filter((item): item is StrategyReport => item !== null);
