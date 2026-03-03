@@ -27,9 +27,27 @@ type BudgetAdvance = {
   updatedAt: string;
 };
 
+type BudgetIncreaseStatus = "طلب جديد" | "تحت المراجعة" | "معتمد" | "مرفوض" | "منفذ";
+
+type BudgetIncreaseRequest = {
+  id: string;
+  lineId: string;
+  requestedBy: string;
+  requestedAmount: number;
+  approvedAmount: number;
+  reason: string;
+  status: BudgetIncreaseStatus;
+  requestedAt: string;
+  reviewedAt: string;
+  reviewedBy: string;
+  notes: string;
+  updatedAt: string;
+};
+
 type BudgetSnapshot = {
   lines: BudgetLine[];
   advances: BudgetAdvance[];
+  budgetIncreases: BudgetIncreaseRequest[];
   auditTrail: BudgetAuditEntry[];
   plannedRevenue: number;
   actualRevenue: number;
@@ -51,6 +69,12 @@ type NewAdvanceForm = {
   dueDate: string;
 };
 
+type BudgetIncreaseForm = {
+  lineId: string;
+  amount: number;
+  reason: string;
+};
+
 type UserRole = "project_manager" | "operations_manager" | "finance_manager" | "viewer";
 type PermissionScope =
   | "edit_budget_lines"
@@ -58,13 +82,22 @@ type PermissionScope =
   | "approve_advance"
   | "disburse_advance"
   | "settle_advance"
-  | "cancel_advance";
+  | "cancel_advance"
+  | "request_budget_increase"
+  | "approve_budget_increase"
+  | "execute_budget_increase";
 type BudgetAuditAction =
   | "إنشاء طلب عهدة"
+  | "رفض طلب عهدة بسبب عدم كفاية البند"
   | "اعتماد عهدة"
   | "صرف عهدة"
   | "تسوية عهدة"
   | "إلغاء عهدة"
+  | "إنشاء طلب رفع ميزانية بند"
+  | "بدء مراجعة طلب رفع ميزانية"
+  | "اعتماد طلب رفع ميزانية"
+  | "رفض طلب رفع ميزانية"
+  | "تنفيذ رفع ميزانية بند"
   | "إضافة بند ميزانية"
   | "حذف بند ميزانية"
   | "توزيع تلقائي لبنود الميزانية"
@@ -93,6 +126,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
     disburse_advance: true,
     settle_advance: true,
     cancel_advance: true,
+    request_budget_increase: true,
+    approve_budget_increase: true,
+    execute_budget_increase: true,
   },
   operations_manager: {
     edit_budget_lines: false,
@@ -101,6 +137,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
     disburse_advance: false,
     settle_advance: false,
     cancel_advance: false,
+    request_budget_increase: true,
+    approve_budget_increase: false,
+    execute_budget_increase: false,
   },
   finance_manager: {
     edit_budget_lines: true,
@@ -109,6 +148,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
     disburse_advance: true,
     settle_advance: true,
     cancel_advance: true,
+    request_budget_increase: true,
+    approve_budget_increase: true,
+    execute_budget_increase: true,
   },
   viewer: {
     edit_budget_lines: false,
@@ -117,6 +159,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
     disburse_advance: false,
     settle_advance: false,
     cancel_advance: false,
+    request_budget_increase: false,
+    approve_budget_increase: false,
+    execute_budget_increase: false,
   },
 };
 
@@ -127,12 +172,16 @@ const PERMISSION_SCOPE_LABELS: Record<PermissionScope, string> = {
   disburse_advance: "تأكيد صرف العهدة",
   settle_advance: "تسوية العهدة",
   cancel_advance: "إلغاء العهدة",
+  request_budget_increase: "إنشاء طلب رفع ميزانية البند",
+  approve_budget_increase: "اعتماد/رفض طلب رفع الميزانية",
+  execute_budget_increase: "تنفيذ رفع الميزانية المعتمد",
 };
 
 export default function StrategyExecutionBudgetPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [advances, setAdvances] = useState<BudgetAdvance[]>([]);
+  const [budgetIncreases, setBudgetIncreases] = useState<BudgetIncreaseRequest[]>([]);
   const [auditTrail, setAuditTrail] = useState<BudgetAuditEntry[]>([]);
   const [plannedRevenue, setPlannedRevenue] = useState(0);
   const [actualRevenue, setActualRevenue] = useState(0);
@@ -148,6 +197,12 @@ export default function StrategyExecutionBudgetPage() {
     amount: 0,
     dueDate: addDaysIso(todayIso(), 7),
   });
+  const [newIncrease, setNewIncrease] = useState<BudgetIncreaseForm>({
+    lineId: "",
+    amount: 0,
+    reason: "",
+  });
+  const [showIncreaseForm, setShowIncreaseForm] = useState(false);
 
   useEffect(() => {
     const context = readProjectContext();
@@ -159,6 +214,7 @@ export default function StrategyExecutionBudgetPage() {
       const nextLines = snapshot.lines.length ? snapshot.lines : defaultLines(context.budgetTarget);
       setLines(nextLines);
       setAdvances(snapshot.advances ?? []);
+      setBudgetIncreases(snapshot.budgetIncreases ?? []);
       setAuditTrail(snapshot.auditTrail ?? []);
       setPlannedRevenue(snapshot.plannedRevenue);
       setActualRevenue(snapshot.actualRevenue);
@@ -167,15 +223,24 @@ export default function StrategyExecutionBudgetPage() {
         ...prev,
         lineId: nextLines[0]?.id ?? "",
       }));
+      setNewIncrease((prev) => ({
+        ...prev,
+        lineId: nextLines[0]?.id ?? "",
+      }));
     } else {
       const fallbackLines = defaultLines(context.budgetTarget);
       setLines(fallbackLines);
       setAdvances([]);
+      setBudgetIncreases([]);
       setAuditTrail([]);
       setPlannedRevenue(0);
       setActualRevenue(0);
       setLastSavedAt(null);
       setNewAdvance((prev) => ({
+        ...prev,
+        lineId: fallbackLines[0]?.id ?? "",
+      }));
+      setNewIncrease((prev) => ({
         ...prev,
         lineId: fallbackLines[0]?.id ?? "",
       }));
@@ -190,6 +255,7 @@ export default function StrategyExecutionBudgetPage() {
     const payload: BudgetSnapshot = {
       lines,
       advances,
+      budgetIncreases,
       auditTrail,
       plannedRevenue,
       actualRevenue,
@@ -197,7 +263,7 @@ export default function StrategyExecutionBudgetPage() {
     };
     localStorage.setItem(budgetTrackerKey(projectContext.id), JSON.stringify(payload));
     setLastSavedAt(nowText);
-  }, [isLoaded, projectContext, lines, advances, auditTrail, plannedRevenue, actualRevenue]);
+  }, [isLoaded, projectContext, lines, advances, budgetIncreases, auditTrail, plannedRevenue, actualRevenue]);
 
   const activeReservedByLine = useMemo(() => {
     const map: Record<string, number> = {};
@@ -230,6 +296,9 @@ export default function StrategyExecutionBudgetPage() {
       advances.length > 0
         ? (advances.filter((item) => item.status === "مسواة").length / advances.length) * 100
         : null;
+    const openIncreaseRequests = budgetIncreases.filter(
+      (item) => item.status === "طلب جديد" || item.status === "تحت المراجعة" || item.status === "معتمد"
+    ).length;
 
     return {
       plannedTotal,
@@ -245,8 +314,9 @@ export default function StrategyExecutionBudgetPage() {
       openAdvancesCount,
       overdueAdvances,
       settlementRate,
+      openIncreaseRequests,
     };
-  }, [lines, advances, plannedRevenue, actualRevenue, projectContext, budgetAlertThreshold]);
+  }, [lines, advances, budgetIncreases, plannedRevenue, actualRevenue, projectContext, budgetAlertThreshold]);
 
   const projectName = projectContext?.name ?? "مشروع غير محدد";
   const projectBudget = projectContext?.budgetTarget ?? 0;
@@ -276,7 +346,22 @@ export default function StrategyExecutionBudgetPage() {
     permissionFlag("اعتماد", permissions.approve_advance),
     permissionFlag("صرف", permissions.disburse_advance),
     permissionFlag("تسوية", permissions.settle_advance),
+    permissionFlag("رفع ميزانية", permissions.request_budget_increase),
   ].join(" · ");
+
+  const selectedLineAvailable = selectedAdvanceLine?.available ?? 0;
+  const isSelectedLineExhausted = Boolean(selectedAdvanceLine && selectedLineAvailable <= 0);
+  const isAdvanceAmountOverLine = Boolean(selectedAdvanceLine && newAdvance.amount > selectedLineAvailable);
+  const isHolderBlocked =
+    newAdvance.holder.trim().length > 0 && blockedHolders.has(normalizeKey(newAdvance.holder.trim()));
+  const canSubmitAdvance =
+    permissions.request_advance &&
+    !!newAdvance.lineId &&
+    !!newAdvance.dueDate &&
+    newAdvance.amount > 0 &&
+    !isSelectedLineExhausted &&
+    !isAdvanceAmountOverLine &&
+    !isHolderBlocked;
 
   return (
     <main>
@@ -491,7 +576,11 @@ export default function StrategyExecutionBudgetPage() {
               className="budget-input"
               value={newAdvance.lineId}
               disabled={!permissions.request_advance}
-              onChange={(event) => setNewAdvance((prev) => ({ ...prev, lineId: event.target.value }))}
+              onChange={(event) => {
+                const lineId = event.target.value;
+                setNewAdvance((prev) => ({ ...prev, lineId }));
+                setNewIncrease((prev) => ({ ...prev, lineId }));
+              }}
             >
               <option value="">اختر البند</option>
               {lineOptions.map((line) => (
@@ -505,6 +594,9 @@ export default function StrategyExecutionBudgetPage() {
                 ? `المتاح لهذا البند: ${formatCurrency(selectedAdvanceLine.available)}`
                 : "اختر بندًا لعرض المبلغ المتاح"}
             </span>
+            {isSelectedLineExhausted ? (
+              <span className="budget-field-alert">تم استنفاذ المبلغ المخطط للبند.</span>
+            ) : null}
           </label>
           <label className="budget-field">
             <span className="budget-field-label">صاحب العهدة</span>
@@ -552,12 +644,93 @@ export default function StrategyExecutionBudgetPage() {
               className="oms-btn oms-btn-primary"
               type="button"
               onClick={handleCreateAdvance}
-              disabled={!permissions.request_advance}
+              disabled={!canSubmitAdvance}
             >
               تسجيل طلب عهدة
             </button>
           </div>
         </div>
+
+        {isAdvanceAmountOverLine ? (
+          <div className="budget-inline-warning">
+            المبلغ المطلوب أعلى من المتاح في البند. المتاح الحالي: {formatCurrency(Math.max(0, selectedLineAvailable))}.
+          </div>
+        ) : null}
+
+        {isSelectedLineExhausted || isAdvanceAmountOverLine ? (
+          <div className="budget-increase-cta">
+            <div className="budget-increase-cta-text">
+              {isSelectedLineExhausted
+                ? "تم استنفاذ المبلغ المخطط للبند. يمكنك رفع طلب زيادة ميزانية لهذا البند."
+                : "لا يمكن إنشاء عهدة بهذا المبلغ قبل اعتماد زيادة على ميزانية البند."}
+            </div>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => setShowIncreaseForm((prev) => !prev)}
+              disabled={!permissions.request_budget_increase}
+            >
+              {showIncreaseForm ? "إخفاء طلب رفع الميزانية" : "طلب رفع ميزانية البند"}
+            </button>
+          </div>
+        ) : null}
+
+        {showIncreaseForm ? (
+          <div className="increase-request-form">
+            <label className="budget-field">
+              <span className="budget-field-label">البند</span>
+              <select
+                className="budget-input"
+                value={newIncrease.lineId}
+                disabled={!permissions.request_budget_increase}
+                onChange={(event) => setNewIncrease((prev) => ({ ...prev, lineId: event.target.value }))}
+              >
+                <option value="">اختر البند</option>
+                {lineOptions.map((line) => (
+                  <option key={line.id} value={line.id}>
+                    {line.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="budget-field">
+              <span className="budget-field-label">مقدار الزيادة المطلوبة</span>
+              <input
+                className="budget-input"
+                type="number"
+                min={0}
+                value={newIncrease.amount}
+                disabled={!permissions.request_budget_increase}
+                onChange={(event) => setNewIncrease((prev) => ({ ...prev, amount: toNumber(event.target.value) }))}
+              />
+            </label>
+            <label className="budget-field">
+              <span className="budget-field-label">مبرر الطلب</span>
+              <input
+                className="budget-input"
+                value={newIncrease.reason}
+                disabled={!permissions.request_budget_increase}
+                onChange={(event) => setNewIncrease((prev) => ({ ...prev, reason: event.target.value }))}
+                placeholder="ارتفاع أسعار/بند إضافي/تعديل نطاق..."
+              />
+            </label>
+            <div className="increase-request-actions">
+              <button
+                className="oms-btn oms-btn-primary"
+                type="button"
+                onClick={createBudgetIncreaseRequest}
+                disabled={
+                  !permissions.request_budget_increase ||
+                  !newIncrease.lineId ||
+                  newIncrease.amount <= 0 ||
+                  newIncrease.reason.trim().length < 6
+                }
+              >
+                تسجيل طلب رفع الميزانية
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="advance-list">
           {advances.length === 0 ? (
@@ -657,6 +830,78 @@ export default function StrategyExecutionBudgetPage() {
                         تمت التسوية بمبلغ {formatCurrency(item.settledAmount)} · المرتجع{" "}
                         {formatCurrency(Math.max(0, item.approvedAmount - item.settledAmount))}
                       </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        <div className="increase-list-head">
+          <h3 className="oms-section-title">طلبات رفع ميزانية البنود</h3>
+          <div className="budget-advance-meta">طلبات مفتوحة: {toArabicNumber(summary.openIncreaseRequests)}</div>
+        </div>
+        <div className="increase-list">
+          {budgetIncreases.length === 0 ? (
+            <div className="workflow-empty">لا توجد طلبات رفع ميزانية حتى الآن.</div>
+          ) : (
+            budgetIncreases.map((request) => {
+              const lineTitle = lines.find((line) => line.id === request.lineId)?.title || "بند محذوف";
+              return (
+                <article key={request.id} className="increase-item">
+                  <div className="increase-item-head">
+                    <div className="increase-item-title">{lineTitle}</div>
+                    <span className={`increase-status ${budgetIncreaseStatusClass(request.status)}`}>
+                      {request.status}
+                    </span>
+                  </div>
+                  <div className="increase-item-meta">
+                    طالب الرفع: {request.requestedBy} · المبلغ المطلوب: {formatCurrency(request.requestedAmount)} ·
+                    المعتمد: {formatCurrency(request.approvedAmount)}
+                  </div>
+                  <div className="increase-item-meta">المبرر: {request.reason}</div>
+                  <div className="increase-item-meta">تاريخ الطلب: {request.requestedAt}</div>
+                  <div className="increase-actions">
+                    {request.status === "طلب جديد" ? (
+                      <button
+                        className="oms-btn oms-btn-ghost"
+                        type="button"
+                        onClick={() => startBudgetIncreaseReview(request.id)}
+                        disabled={!permissions.approve_budget_increase}
+                      >
+                        بدء المراجعة
+                      </button>
+                    ) : null}
+                    {request.status === "تحت المراجعة" ? (
+                      <>
+                        <button
+                          className="oms-btn oms-btn-primary"
+                          type="button"
+                          onClick={() => approveBudgetIncrease(request.id)}
+                          disabled={!permissions.approve_budget_increase}
+                        >
+                          اعتماد طلب الرفع
+                        </button>
+                        <button
+                          className="oms-btn oms-btn-ghost"
+                          type="button"
+                          onClick={() => rejectBudgetIncrease(request.id)}
+                          disabled={!permissions.approve_budget_increase}
+                        >
+                          رفض الطلب
+                        </button>
+                      </>
+                    ) : null}
+                    {request.status === "معتمد" ? (
+                      <button
+                        className="oms-btn oms-btn-primary"
+                        type="button"
+                        onClick={() => executeBudgetIncrease(request.id)}
+                        disabled={!permissions.execute_budget_increase}
+                      >
+                        تنفيذ الرفع على البند
+                      </button>
                     ) : null}
                   </div>
                 </article>
@@ -823,6 +1068,13 @@ export default function StrategyExecutionBudgetPage() {
           line-height: 1.6;
         }
 
+        .budget-field-alert {
+          color: #ffb8a4;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.6;
+        }
+
         .budget-input {
           min-height: 40px;
           border-radius: var(--oms-radius-sm);
@@ -949,6 +1201,146 @@ export default function StrategyExecutionBudgetPage() {
           width: auto;
           min-width: 220px;
           white-space: nowrap;
+        }
+
+        .budget-inline-warning {
+          margin-top: 8px;
+          border: 1px solid rgba(247, 106, 121, 0.55);
+          border-radius: var(--oms-radius-sm);
+          background: linear-gradient(180deg, rgba(56, 20, 30, 0.72), rgba(29, 14, 20, 0.72));
+          color: #ffd6d9;
+          padding: 10px;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .budget-increase-cta {
+          margin-top: 8px;
+          border: 1px solid rgba(232, 182, 102, 0.55);
+          border-radius: var(--oms-radius-md);
+          background: linear-gradient(180deg, rgba(53, 39, 14, 0.62), rgba(26, 19, 10, 0.62));
+          padding: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .budget-increase-cta-text {
+          color: #ffd996;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .increase-request-form {
+          margin-top: 10px;
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          align-items: end;
+        }
+
+        .increase-request-actions {
+          display: flex;
+          grid-column: 1 / -1;
+          justify-content: flex-start;
+        }
+
+        .increase-list-head {
+          margin-top: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .increase-list {
+          margin-top: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .increase-item {
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+          display: grid;
+          gap: 6px;
+        }
+
+        .increase-item-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .increase-item-title {
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .increase-item-meta {
+          color: var(--oms-text-faint);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        .increase-status {
+          min-height: 24px;
+          border-radius: 999px;
+          padding: 0 9px;
+          border: 1px solid var(--oms-border-strong);
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+
+        .increase-status.is-new {
+          border-color: rgba(130, 164, 255, 0.58);
+          color: #bfd3ff;
+          background: rgba(20, 34, 65, 0.72);
+        }
+
+        .increase-status.is-review {
+          border-color: rgba(232, 182, 102, 0.58);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.72);
+        }
+
+        .increase-status.is-approved {
+          border-color: rgba(165, 120, 255, 0.58);
+          color: #efe2ff;
+          background: rgba(61, 27, 112, 0.72);
+        }
+
+        .increase-status.is-rejected {
+          border-color: rgba(247, 106, 121, 0.58);
+          color: #ffbcc4;
+          background: rgba(70, 20, 33, 0.72);
+        }
+
+        .increase-status.is-executed {
+          border-color: rgba(88, 214, 165, 0.62);
+          color: #78e3b9;
+          background: rgba(14, 56, 45, 0.78);
+        }
+
+        .increase-actions {
+          margin-top: 2px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
         }
 
         .advance-list {
@@ -1109,6 +1501,10 @@ export default function StrategyExecutionBudgetPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
+          .increase-request-form {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .budget-row {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: stretch;
@@ -1119,13 +1515,15 @@ export default function StrategyExecutionBudgetPage() {
           .budget-kpi-grid,
           .budget-revenue-grid,
           .budget-row,
-          .advance-create {
+          .advance-create,
+          .increase-request-form {
             grid-template-columns: 1fr;
           }
 
           .budget-lines-actions,
           .advance-actions,
-          .budget-footer-actions {
+          .budget-footer-actions,
+          .increase-actions {
             display: grid;
           }
 
@@ -1183,6 +1581,15 @@ export default function StrategyExecutionBudgetPage() {
       setAlertMessage("لا يمكن حذف بند لديه عهد مفتوحة. قم بتسوية العهد أو إلغائها أولاً.");
       return;
     }
+    const hasOpenIncreaseRequest = budgetIncreases.some(
+      (row) =>
+        row.lineId === lineId &&
+        (row.status === "طلب جديد" || row.status === "تحت المراجعة" || row.status === "معتمد")
+    );
+    if (hasOpenIncreaseRequest) {
+      setAlertMessage("لا يمكن حذف بند لديه طلبات رفع ميزانية مفتوحة أو معتمدة غير منفذة.");
+      return;
+    }
     setLines((prev) => prev.filter((row) => row.id !== lineId));
     appendAudit("حذف بند ميزانية", `تم حذف بند الميزانية: ${lineTitle}.`, { lineId });
   }
@@ -1217,6 +1624,164 @@ export default function StrategyExecutionBudgetPage() {
     return positive(line.planned) - positive(line.actual) - reserved;
   }
 
+  function createBudgetIncreaseRequest() {
+    if (!ensurePermission("request_budget_increase")) return;
+    const lineId = newIncrease.lineId;
+    if (!lineId) {
+      setAlertMessage("اختر البند قبل تسجيل طلب رفع الميزانية.");
+      return;
+    }
+    if (newIncrease.amount <= 0) {
+      setAlertMessage("قيمة رفع الميزانية يجب أن تكون أكبر من صفر.");
+      return;
+    }
+    if (newIncrease.reason.trim().length < 6) {
+      setAlertMessage("اكتب مبررًا واضحًا لطلب رفع الميزانية.");
+      return;
+    }
+
+    const lineTitle = lines.find((row) => row.id === lineId)?.title || "بند غير معروف";
+    const request: BudgetIncreaseRequest = {
+      id: randomId(),
+      lineId,
+      requestedBy: currentRoleLabel,
+      requestedAmount: newIncrease.amount,
+      approvedAmount: 0,
+      reason: newIncrease.reason.trim(),
+      status: "طلب جديد",
+      requestedAt: nowDateTimeLabel(),
+      reviewedAt: "",
+      reviewedBy: "",
+      notes: "",
+      updatedAt: nowDateTimeLabel(),
+    };
+
+    setBudgetIncreases((prev) => [request, ...prev]);
+    appendAudit(
+      "إنشاء طلب رفع ميزانية بند",
+      `تم إنشاء طلب رفع ميزانية للبند ${lineTitle} بقيمة ${formatCurrency(request.requestedAmount)}.`,
+      { lineId, advanceId: request.id }
+    );
+    setShowIncreaseForm(false);
+    setNewIncrease((prev) => ({ ...prev, amount: 0, reason: "" }));
+    setAlertMessage("تم تسجيل طلب رفع ميزانية البند وبانتظار المراجعة.");
+  }
+
+  function startBudgetIncreaseReview(requestId: string) {
+    if (!ensurePermission("approve_budget_increase")) return;
+    const request = budgetIncreases.find((item) => item.id === requestId);
+    if (!request || request.status !== "طلب جديد") return;
+    const now = nowDateTimeLabel();
+    setBudgetIncreases((prev) =>
+      prev.map((item) =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: "تحت المراجعة",
+              reviewedAt: now,
+              reviewedBy: currentRoleLabel,
+              updatedAt: now,
+            }
+          : item
+      )
+    );
+    appendAudit("بدء مراجعة طلب رفع ميزانية", `تم فتح مراجعة طلب رفع الميزانية رقم ${requestId}.`, {
+      lineId: request.lineId,
+      advanceId: request.id,
+    });
+    setAlertMessage("تم تحويل طلب رفع الميزانية إلى تحت المراجعة.");
+  }
+
+  function approveBudgetIncrease(requestId: string) {
+    if (!ensurePermission("approve_budget_increase")) return;
+    const request = budgetIncreases.find((item) => item.id === requestId);
+    if (!request || request.status !== "تحت المراجعة") return;
+    const now = nowDateTimeLabel();
+    setBudgetIncreases((prev) =>
+      prev.map((item) =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: "معتمد",
+              approvedAmount: item.requestedAmount,
+              reviewedAt: now,
+              reviewedBy: currentRoleLabel,
+              updatedAt: now,
+            }
+          : item
+      )
+    );
+    appendAudit(
+      "اعتماد طلب رفع ميزانية",
+      `تم اعتماد رفع ميزانية بقيمة ${formatCurrency(request.requestedAmount)}.`,
+      { lineId: request.lineId, advanceId: request.id }
+    );
+    setAlertMessage("تم اعتماد طلب رفع الميزانية. نفّذ الرفع لتحديث البند.");
+  }
+
+  function rejectBudgetIncrease(requestId: string) {
+    if (!ensurePermission("approve_budget_increase")) return;
+    const request = budgetIncreases.find((item) => item.id === requestId);
+    if (!request || request.status !== "تحت المراجعة") return;
+    const now = nowDateTimeLabel();
+    setBudgetIncreases((prev) =>
+      prev.map((item) =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: "مرفوض",
+              reviewedAt: now,
+              reviewedBy: currentRoleLabel,
+              notes: "تم الرفض أثناء المراجعة.",
+              updatedAt: now,
+            }
+          : item
+      )
+    );
+    appendAudit("رفض طلب رفع ميزانية", `تم رفض طلب رفع ميزانية رقم ${requestId}.`, {
+      lineId: request.lineId,
+      advanceId: request.id,
+    });
+    setAlertMessage("تم رفض طلب رفع الميزانية.");
+  }
+
+  function executeBudgetIncrease(requestId: string) {
+    if (!ensurePermission("execute_budget_increase")) return;
+    const request = budgetIncreases.find((item) => item.id === requestId);
+    if (!request || request.status !== "معتمد" || request.approvedAmount <= 0) return;
+
+    setLines((prev) =>
+      prev.map((line) =>
+        line.id === request.lineId
+          ? {
+              ...line,
+              planned: positive(line.planned) + positive(request.approvedAmount),
+            }
+          : line
+      )
+    );
+
+    const now = nowDateTimeLabel();
+    setBudgetIncreases((prev) =>
+      prev.map((item) =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: "منفذ",
+              updatedAt: now,
+              notes: "تم التنفيذ وإضافة الرفع على الميزانية المخططة للبند.",
+            }
+          : item
+      )
+    );
+    appendAudit(
+      "تنفيذ رفع ميزانية بند",
+      `تم تنفيذ رفع ميزانية بقيمة ${formatCurrency(request.approvedAmount)} على بند المشروع.`,
+      { lineId: request.lineId, advanceId: request.id }
+    );
+    setAlertMessage("تم تنفيذ رفع الميزانية وتحديث المبلغ المخطط للبند.");
+  }
+
   function handleCreateAdvance() {
     if (!ensurePermission("request_advance")) return;
     const holderName = newAdvance.holder.trim();
@@ -1245,10 +1810,31 @@ export default function StrategyExecutionBudgetPage() {
     }
 
     const lineBudgetAvailable = lineAvailable(newAdvance.lineId);
+    if (lineBudgetAvailable <= 0) {
+      const message = "تم استنفاذ المبلغ المخطط للبند. ارفع طلب زيادة ميزانية أولًا.";
+      setAlertMessage(message);
+      appendAudit("رفض طلب عهدة بسبب عدم كفاية البند", message, { lineId: newAdvance.lineId });
+      setShowIncreaseForm(true);
+      setNewIncrease((prev) => ({
+        ...prev,
+        lineId: newAdvance.lineId,
+        amount: prev.amount > 0 ? prev.amount : Math.max(1000, newAdvance.amount),
+      }));
+      return;
+    }
     if (newAdvance.amount > lineBudgetAvailable) {
-      setAlertMessage(
-        `المبلغ المطلوب يتجاوز المتاح في البند. المتاح الحالي: ${formatCurrency(Math.max(0, lineBudgetAvailable))}.`
-      );
+      const message = `المبلغ المطلوب يتجاوز المتاح في البند. المتاح الحالي: ${formatCurrency(Math.max(
+        0,
+        lineBudgetAvailable
+      ))}.`;
+      setAlertMessage(message);
+      appendAudit("رفض طلب عهدة بسبب عدم كفاية البند", message, { lineId: newAdvance.lineId });
+      setShowIncreaseForm(true);
+      setNewIncrease((prev) => ({
+        ...prev,
+        lineId: newAdvance.lineId,
+        amount: prev.amount > 0 ? prev.amount : Math.max(1000, newAdvance.amount - lineBudgetAvailable),
+      }));
       return;
     }
 
@@ -1498,6 +2084,23 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
         }))
       : [];
 
+    const normalizedBudgetIncreases = Array.isArray(parsed.budgetIncreases)
+      ? parsed.budgetIncreases.map((item) => ({
+          id: typeof item.id === "string" ? item.id : randomId(),
+          lineId: typeof item.lineId === "string" ? item.lineId : "",
+          requestedBy: typeof item.requestedBy === "string" ? item.requestedBy : userRoleLabel("project_manager"),
+          requestedAmount: asNumber(item.requestedAmount),
+          approvedAmount: asNumber(item.approvedAmount),
+          reason: typeof item.reason === "string" ? item.reason : "",
+          status: normalizeIncreaseStatus(item.status),
+          requestedAt: typeof item.requestedAt === "string" ? item.requestedAt : nowDateTimeLabel(),
+          reviewedAt: typeof item.reviewedAt === "string" ? item.reviewedAt : "",
+          reviewedBy: typeof item.reviewedBy === "string" ? item.reviewedBy : "",
+          notes: typeof item.notes === "string" ? item.notes : "",
+          updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : nowDateTimeLabel(),
+        }))
+      : [];
+
     const normalizedAuditTrail = Array.isArray(parsed.auditTrail)
       ? parsed.auditTrail.map((entry) => ({
           id: typeof entry.id === "string" ? entry.id : randomId(),
@@ -1514,6 +2117,7 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
     return {
       lines: normalizedLines,
       advances: normalizedAdvances,
+      budgetIncreases: normalizedBudgetIncreases,
       auditTrail: normalizedAuditTrail,
       plannedRevenue: Number.isFinite(parsed.plannedRevenue) ? Number(parsed.plannedRevenue) : 0,
       actualRevenue: Number.isFinite(parsed.actualRevenue) ? Number(parsed.actualRevenue) : 0,
@@ -1598,13 +2202,24 @@ function normalizeAdvanceStatus(value: unknown): AdvanceStatus {
   return "طلب جديد";
 }
 
+function normalizeIncreaseStatus(value: unknown): BudgetIncreaseStatus {
+  if (value === "تحت المراجعة" || value === "معتمد" || value === "مرفوض" || value === "منفذ") return value;
+  return "طلب جديد";
+}
+
 function normalizeAuditAction(value: unknown): BudgetAuditAction {
   if (
     value === "إنشاء طلب عهدة" ||
+    value === "رفض طلب عهدة بسبب عدم كفاية البند" ||
     value === "اعتماد عهدة" ||
     value === "صرف عهدة" ||
     value === "تسوية عهدة" ||
     value === "إلغاء عهدة" ||
+    value === "إنشاء طلب رفع ميزانية بند" ||
+    value === "بدء مراجعة طلب رفع ميزانية" ||
+    value === "اعتماد طلب رفع ميزانية" ||
+    value === "رفض طلب رفع ميزانية" ||
+    value === "تنفيذ رفع ميزانية بند" ||
     value === "إضافة بند ميزانية" ||
     value === "حذف بند ميزانية" ||
     value === "توزيع تلقائي لبنود الميزانية" ||
@@ -1670,6 +2285,14 @@ function advanceStatusClass(status: AdvanceStatus) {
   if (status === "مصروفة") return "is-disbursed";
   if (status === "مسواة") return "is-settled";
   return "is-requested";
+}
+
+function budgetIncreaseStatusClass(status: BudgetIncreaseStatus) {
+  if (status === "تحت المراجعة") return "is-review";
+  if (status === "معتمد") return "is-approved";
+  if (status === "مرفوض") return "is-rejected";
+  if (status === "منفذ") return "is-executed";
+  return "is-new";
 }
 
 function normalizeKey(value: string) {
