@@ -871,7 +871,18 @@ export default function StrategyExecutionBudgetPage() {
               {toArabicNumber(archivedAdvances.filter((item) => item.status === "ملغاة").length)}
             </div>
           </div>
-          <span className={`audit-chevron ${isArchivedAdvancesExpanded ? "is-open" : ""}`}>⌄</span>
+          <span className={`audit-chevron ${isArchivedAdvancesExpanded ? "is-open" : ""}`}>
+            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+              <path
+                d="M4 6.5 L8 10.5 L12 6.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </button>
         {isArchivedAdvancesExpanded ? (
           <div className="advance-list is-archived">
@@ -921,7 +932,18 @@ export default function StrategyExecutionBudgetPage() {
               {toArabicNumber(summary.openIncreaseRequests)}
             </div>
           </div>
-          <span className={`audit-chevron ${isIncreaseSectionExpanded ? "is-open" : ""}`}>⌄</span>
+          <span className={`audit-chevron ${isIncreaseSectionExpanded ? "is-open" : ""}`}>
+            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+              <path
+                d="M4 6.5 L8 10.5 L12 6.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </button>
         {isIncreaseSectionExpanded ? (
           <div className="increase-list">
@@ -1010,7 +1032,18 @@ export default function StrategyExecutionBudgetPage() {
               عدد الأحداث: {toArabicNumber(auditTrail.length)} · آخر حدث: {latestAuditTime}
             </div>
           </div>
-          <span className={`audit-chevron ${isAuditExpanded ? "is-open" : ""}`}>⌄</span>
+          <span className={`audit-chevron ${isAuditExpanded ? "is-open" : ""}`}>
+            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+              <path
+                d="M4 6.5 L8 10.5 L12 6.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </button>
 
         {isAuditExpanded ? (
@@ -1663,8 +1696,13 @@ export default function StrategyExecutionBudgetPage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 16px;
           transition: transform 180ms ease;
+        }
+
+        .audit-chevron-icon {
+          width: 13px;
+          height: 13px;
+          display: block;
         }
 
         .audit-chevron.is-open {
