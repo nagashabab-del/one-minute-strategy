@@ -757,25 +757,21 @@ export default function StrategyExecutionBudgetPage() {
         .advance-create {
           margin-top: 10px;
           display: grid;
-          grid-template-columns:
-            minmax(180px, 1.2fr)
-            minmax(170px, 1fr)
-            minmax(220px, 1.4fr)
-            minmax(140px, 0.9fr)
-            minmax(170px, 1fr)
-            minmax(190px, 1fr);
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 8px;
           align-items: end;
         }
 
         .advance-create-action {
           display: flex;
-          justify-content: flex-end;
+          grid-column: 1 / -1;
+          justify-content: flex-start;
           min-width: 0;
         }
 
         .advance-create-action .oms-btn {
-          width: 100%;
+          width: auto;
+          min-width: 220px;
           white-space: nowrap;
         }
 
