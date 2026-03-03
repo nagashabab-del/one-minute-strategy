@@ -116,6 +116,8 @@ type BudgetAuditAction =
   | "إضافة بند ميزانية"
   | "حذف بند ميزانية"
   | "توزيع تلقائي لبنود الميزانية"
+  | "تفعيل استثناء إداري لمسار تنظيمي"
+  | "رفض استثناء إداري لمسار تنظيمي"
   | "رفض إجراء بسبب الصلاحيات";
 type BudgetAuditEntry = {
   id: string;
@@ -227,6 +229,7 @@ export default function StrategyExecutionBudgetPage() {
   const [advances, setAdvances] = useState<BudgetAdvance[]>([]);
   const [budgetIncreases, setBudgetIncreases] = useState<BudgetIncreaseRequest[]>([]);
   const [regulatoryCommitments, setRegulatoryCommitments] = useState<RegulatoryCommitment[]>([]);
+  const [regulatoryBaselineRequiredPaths, setRegulatoryBaselineRequiredPaths] = useState<RegulatoryPathKey[]>([]);
   const [regulatoryRiskLevel, setRegulatoryRiskLevel] = useState<RegulatoryRiskLevel>("low");
   const [auditTrail, setAuditTrail] = useState<BudgetAuditEntry[]>([]);
   const [plannedRevenue, setPlannedRevenue] = useState(0);
@@ -271,6 +274,7 @@ export default function StrategyExecutionBudgetPage() {
       setRegulatoryCommitments(
         mergeRegulatoryCommitments(snapshot.regulatoryCommitments, regulatorySeed.requiredPaths)
       );
+      setRegulatoryBaselineRequiredPaths(regulatorySeed.requiredPaths);
       setRegulatoryRiskLevel(regulatorySeed.riskLevel);
       setAuditTrail(snapshot.auditTrail ?? []);
       setPlannedRevenue(snapshot.plannedRevenue);
@@ -290,6 +294,7 @@ export default function StrategyExecutionBudgetPage() {
       setAdvances([]);
       setBudgetIncreases([]);
       setRegulatoryCommitments(mergeRegulatoryCommitments([], regulatorySeed.requiredPaths));
+      setRegulatoryBaselineRequiredPaths(regulatorySeed.requiredPaths);
       setRegulatoryRiskLevel(regulatorySeed.riskLevel);
       setAuditTrail([]);
       setPlannedRevenue(0);
@@ -705,6 +710,8 @@ export default function StrategyExecutionBudgetPage() {
           <div className="regulatory-list">
             {regulatoryCommitments.map((commitment) => {
               const overdue = isCommitmentOverdue(commitment);
+              const baselineRequired = regulatoryBaselineRequiredPaths.includes(commitment.path);
+              const hasAdminException = baselineRequired && !commitment.required && commitment.status === "غير مطلوب";
               return (
                 <article key={commitment.path} className={`regulatory-row ${overdue ? "is-overdue" : ""}`}>
                   <div className="regulatory-row-head">
@@ -716,6 +723,7 @@ export default function StrategyExecutionBudgetPage() {
                       <span className={`regulatory-status ${regulatoryStatusClass(commitment.status)}`}>
                         {commitment.status}
                       </span>
+                      {hasAdminException ? <span className="regulatory-required is-exception">استثناء إداري</span> : null}
                       {overdue ? <span className="regulatory-required is-overdue">متأخر</span> : null}
                     </div>
                   </div>
@@ -727,11 +735,7 @@ export default function StrategyExecutionBudgetPage() {
                         className="budget-input"
                         value={commitment.status}
                         disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) =>
-                          updateRegulatoryCommitment(commitment.path, {
-                            status: normalizeRegulatoryCommitmentStatus(event.target.value, commitment.required),
-                          })
-                        }
+                        onChange={(event) => handleRegulatoryStatusChange(commitment.path, event.target.value)}
                       >
                         <option value="غير مطلوب">غير مطلوب</option>
                         <option value="مطلوب">مطلوب</option>
@@ -780,6 +784,23 @@ export default function StrategyExecutionBudgetPage() {
                           })
                         }
                       />
+                    </label>
+                    <label className="budget-field regulatory-reason-field">
+                      <span className="budget-field-label">سبب الاستثناء الإداري</span>
+                      <input
+                        className="budget-input"
+                        value={commitment.notes}
+                        disabled={!canEditRegulatoryCommitments}
+                        onChange={(event) =>
+                          updateRegulatoryCommitment(commitment.path, {
+                            notes: event.target.value,
+                          })
+                        }
+                        placeholder="إلزامي عند التحويل إلى غير مطلوب لمسار مطلوب"
+                      />
+                      <span className="budget-field-hint">
+                        متاح لمدير المشروع فقط عند تحويل المسار المطلوب إلى غير مطلوب.
+                      </span>
                     </label>
                   </div>
                 </article>
@@ -1652,6 +1673,12 @@ export default function StrategyExecutionBudgetPage() {
           background: rgba(70, 20, 33, 0.74);
         }
 
+        .regulatory-required.is-exception {
+          border-color: rgba(167, 115, 255, 0.72);
+          color: #f1e5ff;
+          background: rgba(66, 35, 118, 0.76);
+        }
+
         .regulatory-status.is-not-required {
           border-color: rgba(174, 187, 206, 0.48);
           color: #d5deec;
@@ -1678,8 +1705,12 @@ export default function StrategyExecutionBudgetPage() {
 
         .regulatory-fields {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 8px;
+        }
+
+        .regulatory-reason-field {
+          grid-column: span 2;
         }
 
         .budget-increase-cta {
@@ -2113,6 +2144,10 @@ export default function StrategyExecutionBudgetPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
+          .regulatory-reason-field {
+            grid-column: span 2;
+          }
+
           .budget-row {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: stretch;
@@ -2128,6 +2163,10 @@ export default function StrategyExecutionBudgetPage() {
           .regulatory-fields,
           .budget-top-grid {
             grid-template-columns: 1fr;
+          }
+
+          .regulatory-reason-field {
+            grid-column: span 1;
           }
 
           .budget-lines-actions,
@@ -2251,6 +2290,46 @@ export default function StrategyExecutionBudgetPage() {
         };
       })
     );
+  }
+
+  function handleRegulatoryStatusChange(path: RegulatoryPathKey, nextValue: string) {
+    const item = regulatoryCommitments.find((row) => row.path === path);
+    if (!item) return;
+    const baselineRequired = regulatoryBaselineRequiredPaths.includes(path);
+    const nextStatus = normalizeRegulatoryCommitmentStatus(nextValue, item.required);
+
+    if (nextStatus === "غير مطلوب" && baselineRequired) {
+      if (currentRole !== "project_manager") {
+        const message = `غير مسموح: تحويل المسار "${REGULATORY_PATH_LABELS[path]}" إلى غير مطلوب يتطلب صلاحية مدير المشروع.`;
+        setAlertMessage(message);
+        appendAudit("رفض استثناء إداري لمسار تنظيمي", message);
+        return;
+      }
+      const reason = item.notes.trim();
+      if (reason.length < 6) {
+        const message = "لا يمكن تطبيق الاستثناء الإداري بدون سبب واضح (6 أحرف على الأقل).";
+        setAlertMessage(message);
+        appendAudit("رفض استثناء إداري لمسار تنظيمي", `${message} المسار: ${REGULATORY_PATH_LABELS[path]}.`);
+        return;
+      }
+      updateRegulatoryCommitment(path, {
+        status: "غير مطلوب",
+        required: false,
+        notes: reason,
+      });
+      appendAudit(
+        "تفعيل استثناء إداري لمسار تنظيمي",
+        `تم تحويل المسار "${REGULATORY_PATH_LABELS[path]}" إلى غير مطلوب بواسطة مدير المشروع. السبب: ${reason}.`
+      );
+      setAlertMessage("تم تطبيق الاستثناء الإداري وتوثيقه في سجل التدقيق.");
+      return;
+    }
+
+    const shouldBeRequired = baselineRequired || nextStatus !== "غير مطلوب";
+    updateRegulatoryCommitment(path, {
+      status: normalizeRegulatoryCommitmentStatus(nextStatus, shouldBeRequired),
+      required: shouldBeRequired,
+    });
   }
 
   function createBudgetIncreaseRequest() {
@@ -2773,7 +2852,13 @@ function mergeRegulatoryCommitments(
   const map = new Map((current ?? []).map((item) => [item.path, item]));
   return REGULATORY_PATH_ORDER.map((path) => {
     const existing = map.get(path);
-    const required = requiredSet.has(path);
+    const baselineRequired = requiredSet.has(path);
+    const hasPersistedAdminException =
+      baselineRequired &&
+      existing?.status === "غير مطلوب" &&
+      existing?.required === false &&
+      (existing?.notes?.trim().length ?? 0) >= 6;
+    const required = hasPersistedAdminException ? false : baselineRequired;
     const status = normalizeRegulatoryCommitmentStatus(existing?.status, required);
     return {
       path,
@@ -3093,6 +3178,8 @@ function normalizeAuditAction(value: unknown): BudgetAuditAction {
     value === "إضافة بند ميزانية" ||
     value === "حذف بند ميزانية" ||
     value === "توزيع تلقائي لبنود الميزانية" ||
+    value === "تفعيل استثناء إداري لمسار تنظيمي" ||
+    value === "رفض استثناء إداري لمسار تنظيمي" ||
     value === "رفض إجراء بسبب الصلاحيات"
   ) {
     return value;
