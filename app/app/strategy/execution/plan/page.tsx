@@ -20,6 +20,10 @@ type PlanTask = {
   title: string;
   owner: string;
   phase: TaskPhase;
+  source: "قالب" | "يدوية";
+  templateKey: string;
+  inactive: boolean;
+  inactiveReason: string;
   status: TaskStatus;
   progress: number;
   startDate: string;
@@ -34,6 +38,7 @@ type TaskView = PlanTask & {
   effectiveStatus: TaskStatus;
   blockedByDependency: boolean;
   dependencyTitle: string;
+  isInactive: boolean;
 };
 
 type DailyUpdate = {
@@ -132,6 +137,7 @@ export default function StrategyExecutionPlanPage() {
   const [risks, setRisks] = useState<PlanRisk[]>([]);
   const [phaseFilter, setPhaseFilter] = useState<TaskPhase | "الكل">("الكل");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "الكل">("الكل");
+  const [showInactive, setShowInactive] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -204,27 +210,31 @@ export default function StrategyExecutionPlanPage() {
 
   const filteredTaskViews = useMemo(() => {
     return taskViews
+      .filter((item) => (showInactive ? true : !item.isInactive))
       .filter((item) => (phaseFilter === "الكل" ? true : item.phase === phaseFilter))
       .filter((item) => (statusFilter === "الكل" ? true : item.effectiveStatus === statusFilter))
       .sort((a, b) => {
         if (a.phase !== b.phase) return PHASE_OPTIONS.indexOf(a.phase) - PHASE_OPTIONS.indexOf(b.phase);
         return a.dueDate.localeCompare(b.dueDate);
       });
-  }, [taskViews, phaseFilter, statusFilter]);
+  }, [taskViews, showInactive, phaseFilter, statusFilter]);
 
   const summary = useMemo(() => {
-    const notStarted = taskViews.filter((item) => item.effectiveStatus === "لم تبدأ").length;
-    const inProgress = taskViews.filter((item) => item.effectiveStatus === "جارية").length;
-    const completed = taskViews.filter((item) => item.effectiveStatus === "مكتملة").length;
-    const delayed = taskViews.filter((item) => item.effectiveStatus === "متأخرة").length;
-    const dependencyBlocked = taskViews.filter((item) => item.blockedByDependency).length;
-    const completionRatio = taskViews.length > 0 ? (completed / taskViews.length) * 100 : 0;
+    const activeTasks = taskViews.filter((item) => !item.isInactive);
+    const inactive = taskViews.length - activeTasks.length;
+    const notStarted = activeTasks.filter((item) => item.effectiveStatus === "لم تبدأ").length;
+    const inProgress = activeTasks.filter((item) => item.effectiveStatus === "جارية").length;
+    const completed = activeTasks.filter((item) => item.effectiveStatus === "مكتملة").length;
+    const delayed = activeTasks.filter((item) => item.effectiveStatus === "متأخرة").length;
+    const dependencyBlocked = activeTasks.filter((item) => item.blockedByDependency).length;
+    const completionRatio = activeTasks.length > 0 ? (completed / activeTasks.length) * 100 : 0;
     const openRisks = risks.filter((item) => item.state === "مفتوح").length;
-    const criticalDelayed = taskViews.filter(
+    const criticalDelayed = activeTasks.filter(
       (item) => item.effectiveStatus === "متأخرة" && item.critical
     ).length;
     return {
-      total: taskViews.length,
+      total: activeTasks.length,
+      inactive,
       notStarted,
       inProgress,
       completed,
@@ -242,7 +252,7 @@ export default function StrategyExecutionPlanPage() {
   }, [updates]);
   const templateTaskDefinitions = useMemo(() => buildTemplateDefinitions(templateProfile), [templateProfile]);
 
-  const firstTaskId = taskViews[0]?.id ?? "";
+  const firstTaskId = taskViews.find((item) => !item.isInactive)?.id ?? taskViews[0]?.id ?? "";
 
   function generateSmartTemplateTasks() {
     const result = materializeTemplateTasks(
@@ -260,13 +270,13 @@ export default function StrategyExecutionPlanPage() {
       );
     } else {
       setTasks(result.tasks);
-      if (result.addedCount === 0) {
-        setAlertMessage("جميع مهام القالب موجودة مسبقًا، لم تتم إضافة مهام جديدة.");
+      if (result.addedCount === 0 && result.reactivatedCount === 0) {
+        setAlertMessage("جميع مهام القالب موجودة مسبقًا ولا توجد مهام معطلة لإعادة تفعيلها.");
       } else {
         setAlertMessage(
-          `تم دمج القالب الذكي: تمت إضافة ${toArabicNumber(result.addedCount)} مهمة وتجاوز ${toArabicNumber(
-            result.skippedCount
-          )} مهمة موجودة مسبقًا.`
+          `تم دمج القالب الذكي: تمت إضافة ${toArabicNumber(result.addedCount)} مهمة، وإعادة تفعيل ${toArabicNumber(
+            result.reactivatedCount
+          )} مهمة، وتجاوز ${toArabicNumber(result.skippedCount)} مهمة موجودة مسبقًا.`
         );
       }
     }
@@ -295,6 +305,10 @@ export default function StrategyExecutionPlanPage() {
   function applyStatus(taskId: string, requested: TaskStatus) {
     const current = taskViews.find((item) => item.id === taskId);
     if (!current) return;
+    if (current.isInactive) {
+      setAlertMessage("هذه المهمة غير منطبقة على المشروع الحالي. فعّلها أولًا قبل التحديث.");
+      return;
+    }
     if ((requested === "جارية" || requested === "مكتملة") && current.blockedByDependency) {
       setAlertMessage("لا يمكن بدء المهمة قبل اكتمال مهمتها السابقة (تبعية نهاية إلى بداية).");
       return;
@@ -322,6 +336,10 @@ export default function StrategyExecutionPlanPage() {
   function applyProgress(taskId: string, value: number) {
     const current = taskViews.find((item) => item.id === taskId);
     if (!current) return;
+    if (current.isInactive) {
+      setAlertMessage("لا يمكن تحديث إنجاز مهمة غير منطبقة. فعّلها أولًا.");
+      return;
+    }
     const nextProgress = normalizeProgress(value);
     if (nextProgress >= 100) {
       updateTask(taskId, { progress: 100, status: "مكتملة" });
@@ -357,6 +375,10 @@ export default function StrategyExecutionPlanPage() {
       title,
       owner,
       phase: newTask.phase,
+      source: "يدوية",
+      templateKey: "",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: todayIso(),
@@ -389,11 +411,49 @@ export default function StrategyExecutionPlanPage() {
     setRisks((prev) => prev.filter((item) => item.taskId !== taskId));
   }
 
+  function deactivateTask(taskId: string) {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              inactive: true,
+              inactiveReason: task.inactiveReason || "غير منطبقة على المشروع الحالي",
+              status: "لم تبدأ",
+              progress: 0,
+              updatedAt: nowDateTimeLabel(),
+            }
+          : task
+      )
+    );
+    setAlertMessage("تم نقل المهمة إلى المهام غير المنطبقة لهذا المشروع ويمكن إرجاعها لاحقًا.");
+  }
+
+  function activateTask(taskId: string) {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              inactive: false,
+              inactiveReason: "",
+              updatedAt: nowDateTimeLabel(),
+            }
+          : task
+      )
+    );
+    setAlertMessage("تمت إعادة تفعيل المهمة داخل الخطة التنفيذية.");
+  }
+
   function submitDailyUpdate() {
     const taskId = newUpdate.taskId || firstTaskId;
     const task = taskViews.find((item) => item.id === taskId);
     if (!task) {
       setAlertMessage("اختر مهمة صحيحة لتسجيل التحديث.");
+      return;
+    }
+    if (task.isInactive) {
+      setAlertMessage("لا يمكن تسجيل تحديث على مهمة غير منطبقة. فعّلها أولًا.");
       return;
     }
     const author = newUpdate.author.trim();
@@ -483,6 +543,10 @@ export default function StrategyExecutionPlanPage() {
         <article className="oms-kpi-card">
           <div className="oms-kpi-label">تعارض تبعيات</div>
           <div className="oms-kpi-value">{toArabicNumber(summary.dependencyBlocked)}</div>
+        </article>
+        <article className="oms-kpi-card">
+          <div className="oms-kpi-label">غير منطبقة</div>
+          <div className="oms-kpi-value">{toArabicNumber(summary.inactive)}</div>
         </article>
       </section>
 
@@ -641,6 +705,14 @@ export default function StrategyExecutionPlanPage() {
                 ))}
               </select>
             </label>
+            <label className="plan-critical-check">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(event) => setShowInactive(event.target.checked)}
+              />
+              <span>إظهار المهام غير المنطبقة</span>
+            </label>
           </div>
         </div>
 
@@ -699,7 +771,7 @@ export default function StrategyExecutionPlanPage() {
               }
             >
               <option value="none">بدون تبعية</option>
-              {taskViews.map((task) => (
+              {taskViews.filter((task) => !task.isInactive).map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title}
                 </option>
@@ -727,7 +799,12 @@ export default function StrategyExecutionPlanPage() {
             <div className="workflow-empty">لا توجد مهام مطابقة للفلتر الحالي.</div>
           ) : (
             filteredTaskViews.map((task) => (
-              <article key={task.id} className={`plan-task-card status-${statusClass(task.effectiveStatus)}`}>
+              <article
+                key={task.id}
+                className={`plan-task-card status-${statusClass(task.effectiveStatus)} ${
+                  task.isInactive ? "task-inactive" : ""
+                }`}
+              >
                 <div className="plan-task-head">
                   <div>
                     <div className="plan-task-title">{task.title}</div>
@@ -736,6 +813,10 @@ export default function StrategyExecutionPlanPage() {
                     </div>
                   </div>
                   <div className="plan-status-badges">
+                    <span className={`plan-source-badge source-${task.source === "قالب" ? "template" : "manual"}`}>
+                      {task.source === "قالب" ? "قالب ذكي" : "يدوية"}
+                    </span>
+                    {task.isInactive ? <span className="plan-source-badge source-inactive">غير منطبقة</span> : null}
                     <span className={`plan-status-badge status-${statusClass(task.effectiveStatus)}`}>
                       {task.effectiveStatus}
                     </span>
@@ -804,7 +885,7 @@ export default function StrategyExecutionPlanPage() {
                     >
                       <option value="none">بدون تبعية</option>
                       {taskViews
-                        .filter((candidate) => candidate.id !== task.id)
+                        .filter((candidate) => candidate.id !== task.id && !candidate.isInactive)
                         .map((candidate) => (
                           <option key={candidate.id} value={candidate.id}>
                             {candidate.title}
@@ -825,8 +906,18 @@ export default function StrategyExecutionPlanPage() {
                     هذه المهمة مرتبطة بـ "{task.dependencyTitle}". لا تبدأ قبل اكتمال المهمة السابقة.
                   </div>
                 ) : null}
+                {task.isInactive ? (
+                  <div className="budget-foot-note">سبب التعطيل: {task.inactiveReason || "غير محدد"}</div>
+                ) : null}
 
                 <div className="plan-task-actions">
+                  <button
+                    className="oms-btn oms-btn-ghost"
+                    type="button"
+                    onClick={() => (task.isInactive ? activateTask(task.id) : deactivateTask(task.id))}
+                  >
+                    {task.isInactive ? "إعادة تفعيل" : "تعطيل لهذه النسخة"}
+                  </button>
                   <button className="oms-btn oms-btn-ghost" type="button" onClick={() => removeTask(task.id)}>
                     حذف المهمة
                   </button>
@@ -850,7 +941,7 @@ export default function StrategyExecutionPlanPage() {
                 value={newUpdate.taskId || firstTaskId}
                 onChange={(event) => setNewUpdate((prev) => ({ ...prev, taskId: event.target.value }))}
               >
-                {taskViews.map((task) => (
+                {taskViews.filter((task) => !task.isInactive).map((task) => (
                   <option key={task.id} value={task.id}>
                     {task.title}
                   </option>
@@ -1128,6 +1219,11 @@ export default function StrategyExecutionPlanPage() {
           background: linear-gradient(180deg, rgba(52, 18, 30, 0.7), rgba(23, 12, 20, 0.72));
         }
 
+        .plan-task-card.task-inactive {
+          border-color: rgba(232, 182, 102, 0.46);
+          background: linear-gradient(180deg, rgba(56, 44, 18, 0.55), rgba(22, 18, 10, 0.62));
+        }
+
         .plan-task-head {
           display: flex;
           align-items: start;
@@ -1165,6 +1261,37 @@ export default function StrategyExecutionPlanPage() {
           display: inline-flex;
           align-items: center;
           white-space: nowrap;
+        }
+
+        .plan-source-badge {
+          min-height: 24px;
+          border-radius: 999px;
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(9, 16, 29, 0.82);
+          padding: 0 9px;
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+
+        .plan-source-badge.source-template {
+          border-color: rgba(154, 82, 255, 0.6);
+          color: #e6d4ff;
+          background: rgba(62, 30, 114, 0.64);
+        }
+
+        .plan-source-badge.source-manual {
+          border-color: rgba(102, 180, 232, 0.56);
+          color: #cce8ff;
+          background: rgba(20, 44, 70, 0.7);
+        }
+
+        .plan-source-badge.source-inactive {
+          border-color: rgba(232, 182, 102, 0.6);
+          color: #ffd996;
+          background: rgba(66, 47, 20, 0.72);
         }
 
         .plan-status-badge.status-not-started {
@@ -1386,18 +1513,21 @@ export default function StrategyExecutionPlanPage() {
 function buildTaskViews(tasks: PlanTask[]): TaskView[] {
   const map = new Map<string, PlanTask>(tasks.map((task) => [task.id, task]));
   return tasks.map((task) => {
-    const dependencyTask = task.dependencyTaskId ? map.get(task.dependencyTaskId) : undefined;
+    const rawDependencyTask = task.dependencyTaskId ? map.get(task.dependencyTaskId) : undefined;
+    const dependencyTask = rawDependencyTask && !rawDependencyTask.inactive ? rawDependencyTask : undefined;
     const dependencyStatus = dependencyTask ? resolveTaskStatus(dependencyTask) : null;
     const blockedByDependency =
       Boolean(task.dependencyTaskId) &&
       dependencyTask != null &&
       dependencyStatus !== "مكتملة" &&
-      resolveTaskStatus(task) !== "لم تبدأ";
+      resolveTaskStatus(task) !== "لم تبدأ" &&
+      !task.inactive;
     return {
       ...task,
       effectiveStatus: resolveTaskStatus(task),
       blockedByDependency,
       dependencyTitle: dependencyTask?.title || "غير معروف",
+      isInactive: task.inactive,
     };
   });
 }
@@ -1413,7 +1543,11 @@ function resolveTaskStatus(task: PlanTask): TaskStatus {
 
 function syncScheduleRisks(taskViews: TaskView[], previous: PlanRisk[]): PlanRisk[] {
   const now = nowDateTimeLabel();
-  const delayedMap = new Map(taskViews.filter((task) => task.effectiveStatus === "متأخرة").map((task) => [task.id, task]));
+  const delayedMap = new Map(
+    taskViews
+      .filter((task) => task.effectiveStatus === "متأخرة" && !task.isInactive)
+      .map((task) => [task.id, task])
+  );
 
   const existingByTask = new Map(
     previous.filter((risk) => risk.source === "schedule").map((risk) => [risk.taskId, risk])
@@ -1526,6 +1660,10 @@ function readPlanSnapshot(projectId: string): PlanSnapshot | null {
           title: typeof task.title === "string" ? task.title : "مهمة بدون اسم",
           owner: typeof task.owner === "string" ? task.owner : "غير محدد",
           phase: normalizePhase(task.phase),
+          source: task.source === "يدوية" ? "يدوية" : "قالب",
+          templateKey: typeof task.templateKey === "string" ? task.templateKey : "",
+          inactive: Boolean(task.inactive),
+          inactiveReason: typeof task.inactiveReason === "string" ? task.inactiveReason : "",
           status: normalizeStatus(task.status),
           progress: normalizeProgress(asNumber(task.progress)),
           startDate: typeof task.startDate === "string" ? task.startDate : todayIso(),
@@ -1688,24 +1826,41 @@ function materializeTemplateTasks(
   tasks: PlanTask[];
   addedCount: number;
   skippedCount: number;
+  reactivatedCount: number;
 } {
-  const existingByTitle = new Map<string, PlanTask>();
-  for (const task of existingTasks) {
+  const mergedTasks = existingTasks.map((task) => ({ ...task }));
+  const existingByTitle = new Map<string, number>();
+  for (let index = 0; index < mergedTasks.length; index += 1) {
+    const task = mergedTasks[index];
     const key = normalizeTemplateTitle(task.title);
-    if (!existingByTitle.has(key)) existingByTitle.set(key, task);
+    if (!existingByTitle.has(key)) existingByTitle.set(key, index);
   }
 
   const keyToTaskRef = new Map<string, { id: string; dueDate: string }>();
   const newTasks: PlanTask[] = [];
   const baseDate = todayIso();
   let skippedCount = 0;
+  let reactivatedCount = 0;
 
   definitions.forEach((definition, index) => {
-    const existing = existingByTitle.get(normalizeTemplateTitle(definition.title));
-    if (existing) {
+    const existingIndex = existingByTitle.get(normalizeTemplateTitle(definition.title));
+    if (typeof existingIndex === "number") {
+      const existing = mergedTasks[existingIndex];
+      if (existing.inactive) {
+        mergedTasks[existingIndex] = {
+          ...existing,
+          source: "قالب",
+          templateKey: definition.key,
+          inactive: false,
+          inactiveReason: "",
+          updatedAt: nowDateTimeLabel(),
+        };
+        reactivatedCount += 1;
+      }
+      const current = mergedTasks[existingIndex];
       keyToTaskRef.set(definition.key, {
-        id: existing.id,
-        dueDate: existing.dueDate || baseDate,
+        id: current.id,
+        dueDate: current.dueDate || baseDate,
       });
       skippedCount += 1;
       return;
@@ -1719,6 +1874,10 @@ function materializeTemplateTasks(
       title: definition.title,
       owner: definition.owner,
       phase: definition.phase,
+      source: "قالب",
+      templateKey: definition.key,
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate,
@@ -1733,9 +1892,10 @@ function materializeTemplateTasks(
   });
 
   return {
-    tasks: [...existingTasks, ...newTasks],
+    tasks: [...mergedTasks, ...newTasks],
     addedCount: newTasks.length,
     skippedCount,
+    reactivatedCount,
   };
 }
 
@@ -1751,6 +1911,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "اعتماد خطة التشغيل الأساسية",
       owner: "مدير المشروع",
       phase: "التخطيط",
+      source: "قالب",
+      templateKey: "default-kickoff",
+      inactive: false,
+      inactiveReason: "",
       status: "جارية",
       progress: 20,
       startDate: base,
@@ -1765,6 +1929,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "تثبيت الموردين وتأكيد العقود",
       owner: "قائد المشتريات",
       phase: "التجهيز",
+      source: "قالب",
+      templateKey: "default-vendors",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: addDaysIso(base, 1),
@@ -1779,6 +1947,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "جاهزية الموقع والديكور والإضاءة",
       owner: "مدير التشغيل",
       phase: "التجهيز",
+      source: "قالب",
+      templateKey: "default-readiness",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: addDaysIso(base, 3),
@@ -1793,6 +1965,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "تنفيذ خطة التسويق الميداني",
       owner: "قائد التسويق",
       phase: "التنفيذ",
+      source: "قالب",
+      templateKey: "default-marketing",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: addDaysIso(base, 5),
@@ -1807,6 +1983,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "تشغيل يوم الفعالية ومراقبة الجودة",
       owner: "مدير التشغيل",
       phase: "التنفيذ",
+      source: "قالب",
+      templateKey: "default-live-run",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: addDaysIso(base, 10),
@@ -1821,6 +2001,10 @@ function buildDefaultTasks(): PlanTask[] {
       title: "إقفال الالتزامات وإعداد التقرير الختامي",
       owner: "مدير المشروع",
       phase: "الإغلاق",
+      source: "قالب",
+      templateKey: "default-closeout",
+      inactive: false,
+      inactiveReason: "",
       status: "لم تبدأ",
       progress: 0,
       startDate: addDaysIso(base, 11),
