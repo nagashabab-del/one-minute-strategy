@@ -30,6 +30,7 @@ type BudgetAdvance = {
 type BudgetSnapshot = {
   lines: BudgetLine[];
   advances: BudgetAdvance[];
+  auditTrail: BudgetAuditEntry[];
   plannedRevenue: number;
   actualRevenue: number;
   updatedAt: string;
@@ -39,6 +40,7 @@ type ProjectContext = {
   id: string;
   name: string;
   budgetTarget: number;
+  role: UserRole;
 };
 
 type NewAdvanceForm = {
@@ -49,15 +51,89 @@ type NewAdvanceForm = {
   dueDate: string;
 };
 
+type UserRole = "project_manager" | "operations_manager" | "finance_manager" | "viewer";
+type PermissionScope =
+  | "edit_budget_lines"
+  | "request_advance"
+  | "approve_advance"
+  | "disburse_advance"
+  | "settle_advance"
+  | "cancel_advance";
+type BudgetAuditAction =
+  | "إنشاء طلب عهدة"
+  | "اعتماد عهدة"
+  | "صرف عهدة"
+  | "تسوية عهدة"
+  | "إلغاء عهدة"
+  | "إضافة بند ميزانية"
+  | "حذف بند ميزانية"
+  | "توزيع تلقائي لبنود الميزانية"
+  | "رفض إجراء بسبب الصلاحيات";
+type BudgetAuditEntry = {
+  id: string;
+  action: BudgetAuditAction;
+  details: string;
+  actorRole: UserRole;
+  actorLabel: string;
+  createdAt: string;
+  advanceId?: string;
+  lineId?: string;
+};
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const SETTINGS_STORAGE_KEY = "oms_exec_settings_v1";
 const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
 
+const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
+  project_manager: {
+    edit_budget_lines: true,
+    request_advance: true,
+    approve_advance: true,
+    disburse_advance: true,
+    settle_advance: true,
+    cancel_advance: true,
+  },
+  operations_manager: {
+    edit_budget_lines: false,
+    request_advance: true,
+    approve_advance: false,
+    disburse_advance: false,
+    settle_advance: false,
+    cancel_advance: false,
+  },
+  finance_manager: {
+    edit_budget_lines: true,
+    request_advance: true,
+    approve_advance: true,
+    disburse_advance: true,
+    settle_advance: true,
+    cancel_advance: true,
+  },
+  viewer: {
+    edit_budget_lines: false,
+    request_advance: false,
+    approve_advance: false,
+    disburse_advance: false,
+    settle_advance: false,
+    cancel_advance: false,
+  },
+};
+
+const PERMISSION_SCOPE_LABELS: Record<PermissionScope, string> = {
+  edit_budget_lines: "تعديل بنود الميزانية",
+  request_advance: "إنشاء طلب عهدة",
+  approve_advance: "اعتماد العهدة",
+  disburse_advance: "تأكيد صرف العهدة",
+  settle_advance: "تسوية العهدة",
+  cancel_advance: "إلغاء العهدة",
+};
+
 export default function StrategyExecutionBudgetPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [advances, setAdvances] = useState<BudgetAdvance[]>([]);
+  const [auditTrail, setAuditTrail] = useState<BudgetAuditEntry[]>([]);
   const [plannedRevenue, setPlannedRevenue] = useState(0);
   const [actualRevenue, setActualRevenue] = useState(0);
   const [budgetAlertThreshold, setBudgetAlertThreshold] = useState(10);
@@ -83,6 +159,7 @@ export default function StrategyExecutionBudgetPage() {
       const nextLines = snapshot.lines.length ? snapshot.lines : defaultLines(context.budgetTarget);
       setLines(nextLines);
       setAdvances(snapshot.advances ?? []);
+      setAuditTrail(snapshot.auditTrail ?? []);
       setPlannedRevenue(snapshot.plannedRevenue);
       setActualRevenue(snapshot.actualRevenue);
       setLastSavedAt(snapshot.updatedAt);
@@ -94,6 +171,7 @@ export default function StrategyExecutionBudgetPage() {
       const fallbackLines = defaultLines(context.budgetTarget);
       setLines(fallbackLines);
       setAdvances([]);
+      setAuditTrail([]);
       setPlannedRevenue(0);
       setActualRevenue(0);
       setLastSavedAt(null);
@@ -112,13 +190,14 @@ export default function StrategyExecutionBudgetPage() {
     const payload: BudgetSnapshot = {
       lines,
       advances,
+      auditTrail,
       plannedRevenue,
       actualRevenue,
       updatedAt: nowText,
     };
     localStorage.setItem(budgetTrackerKey(projectContext.id), JSON.stringify(payload));
     setLastSavedAt(nowText);
-  }, [isLoaded, projectContext, lines, advances, plannedRevenue, actualRevenue]);
+  }, [isLoaded, projectContext, lines, advances, auditTrail, plannedRevenue, actualRevenue]);
 
   const activeReservedByLine = useMemo(() => {
     const map: Record<string, number> = {};
@@ -179,6 +258,9 @@ export default function StrategyExecutionBudgetPage() {
   }));
 
   const selectedAdvanceLine = lineOptions.find((line) => line.id === newAdvance.lineId) ?? null;
+  const currentRole = projectContext?.role ?? "project_manager";
+  const currentRoleLabel = userRoleLabel(currentRole);
+  const permissions = ROLE_PERMISSIONS[currentRole];
 
   const blockedHolders = useMemo(() => {
     const map = new Set<string>();
@@ -188,6 +270,13 @@ export default function StrategyExecutionBudgetPage() {
     }
     return map;
   }, [advances]);
+
+  const permissionSummary = [
+    permissionFlag("إنشاء طلب عهدة", permissions.request_advance),
+    permissionFlag("اعتماد", permissions.approve_advance),
+    permissionFlag("صرف", permissions.disburse_advance),
+    permissionFlag("تسوية", permissions.settle_advance),
+  ].join(" · ");
 
   return (
     <main>
@@ -206,6 +295,7 @@ export default function StrategyExecutionBudgetPage() {
             <div className="budget-top-meta">
               الميزانية المرجعية: {projectBudget > 0 ? formatCurrency(projectBudget) : "غير محددة"}
             </div>
+            <div className="budget-top-meta">الدور الحالي: {currentRoleLabel}</div>
           </div>
           <div className={`budget-health ${summary.tone.className}`}>
             <div className="budget-health-label">مؤشر الحالة المالية</div>
@@ -256,6 +346,7 @@ export default function StrategyExecutionBudgetPage() {
               type="number"
               min={0}
               value={plannedRevenue}
+              disabled={!permissions.edit_budget_lines}
               onChange={(event) => setPlannedRevenue(toNumber(event.target.value))}
             />
           </label>
@@ -266,6 +357,7 @@ export default function StrategyExecutionBudgetPage() {
               type="number"
               min={0}
               value={actualRevenue}
+              disabled={!permissions.edit_budget_lines}
               onChange={(event) => setActualRevenue(toNumber(event.target.value))}
             />
           </label>
@@ -284,10 +376,20 @@ export default function StrategyExecutionBudgetPage() {
         <div className="budget-lines-head">
           <h2 className="oms-section-title">بنود الميزانية</h2>
           <div className="budget-lines-actions">
-            <button className="oms-btn oms-btn-ghost" type="button" onClick={handleAutoDistribute}>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={handleAutoDistribute}
+              disabled={!permissions.edit_budget_lines}
+            >
               توزيع تلقائي
             </button>
-            <button className="oms-btn oms-btn-ghost" type="button" onClick={handleAddLine}>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={handleAddLine}
+              disabled={!permissions.edit_budget_lines}
+            >
               إضافة بند
             </button>
           </div>
@@ -306,6 +408,7 @@ export default function StrategyExecutionBudgetPage() {
                   <input
                     className="budget-input"
                     value={line.title}
+                    disabled={!permissions.edit_budget_lines}
                     onChange={(event) => updateLine(line.id, { title: event.target.value })}
                   />
                 </label>
@@ -314,6 +417,7 @@ export default function StrategyExecutionBudgetPage() {
                   <input
                     className="budget-input"
                     value={line.owner}
+                    disabled={!permissions.edit_budget_lines}
                     onChange={(event) => updateLine(line.id, { owner: event.target.value })}
                   />
                 </label>
@@ -324,6 +428,7 @@ export default function StrategyExecutionBudgetPage() {
                     type="number"
                     min={0}
                     value={line.planned}
+                    disabled={!permissions.edit_budget_lines}
                     onChange={(event) => updateLine(line.id, { planned: toNumber(event.target.value) })}
                   />
                 </label>
@@ -334,6 +439,7 @@ export default function StrategyExecutionBudgetPage() {
                     type="number"
                     min={0}
                     value={line.actual}
+                    disabled={!permissions.edit_budget_lines}
                     onChange={(event) => updateLine(line.id, { actual: toNumber(event.target.value) })}
                   />
                 </label>
@@ -354,7 +460,12 @@ export default function StrategyExecutionBudgetPage() {
                 </div>
 
                 <div className="budget-row-actions">
-                  <button className="oms-btn oms-btn-ghost" type="button" onClick={() => removeLine(line.id)}>
+                  <button
+                    className="oms-btn oms-btn-ghost"
+                    type="button"
+                    onClick={() => removeLine(line.id)}
+                    disabled={!permissions.edit_budget_lines}
+                  >
                     حذف
                   </button>
                 </div>
@@ -369,7 +480,7 @@ export default function StrategyExecutionBudgetPage() {
           <h2 className="oms-section-title">إدارة العهد المالية</h2>
           <div className="budget-advance-meta">
             عهد مفتوحة: {toArabicNumber(summary.openAdvancesCount)} · نسبة التسوية:{" "}
-            {formatPercent(summary.settlementRate)}
+            {formatPercent(summary.settlementRate)} · {permissionSummary}
           </div>
         </div>
 
@@ -379,6 +490,7 @@ export default function StrategyExecutionBudgetPage() {
             <select
               className="budget-input"
               value={newAdvance.lineId}
+              disabled={!permissions.request_advance}
               onChange={(event) => setNewAdvance((prev) => ({ ...prev, lineId: event.target.value }))}
             >
               <option value="">اختر البند</option>
@@ -399,6 +511,7 @@ export default function StrategyExecutionBudgetPage() {
             <input
               className="budget-input"
               value={newAdvance.holder}
+              disabled={!permissions.request_advance}
               onChange={(event) => setNewAdvance((prev) => ({ ...prev, holder: event.target.value }))}
               placeholder="اسم المسؤول"
             />
@@ -408,6 +521,7 @@ export default function StrategyExecutionBudgetPage() {
             <input
               className="budget-input"
               value={newAdvance.purpose}
+              disabled={!permissions.request_advance}
               onChange={(event) => setNewAdvance((prev) => ({ ...prev, purpose: event.target.value }))}
               placeholder="مشتريات مواد/دفعة مورد/خدمات..."
             />
@@ -419,6 +533,7 @@ export default function StrategyExecutionBudgetPage() {
               type="number"
               min={0}
               value={newAdvance.amount}
+              disabled={!permissions.request_advance}
               onChange={(event) => setNewAdvance((prev) => ({ ...prev, amount: toNumber(event.target.value) }))}
             />
           </label>
@@ -428,11 +543,17 @@ export default function StrategyExecutionBudgetPage() {
               className="budget-input"
               type="date"
               value={newAdvance.dueDate}
+              disabled={!permissions.request_advance}
               onChange={(event) => setNewAdvance((prev) => ({ ...prev, dueDate: event.target.value }))}
             />
           </label>
           <div className="advance-create-action">
-            <button className="oms-btn oms-btn-primary" type="button" onClick={handleCreateAdvance}>
+            <button
+              className="oms-btn oms-btn-primary"
+              type="button"
+              onClick={handleCreateAdvance}
+              disabled={!permissions.request_advance}
+            >
               تسجيل طلب عهدة
             </button>
           </div>
@@ -462,10 +583,20 @@ export default function StrategyExecutionBudgetPage() {
                   <div className="advance-actions">
                     {item.status === "طلب جديد" ? (
                       <>
-                        <button className="oms-btn oms-btn-primary" type="button" onClick={() => approveAdvance(item.id)}>
+                        <button
+                          className="oms-btn oms-btn-primary"
+                          type="button"
+                          onClick={() => approveAdvance(item.id)}
+                          disabled={!permissions.approve_advance}
+                        >
                           اعتماد العهدة
                         </button>
-                        <button className="oms-btn oms-btn-ghost" type="button" onClick={() => cancelAdvance(item.id)}>
+                        <button
+                          className="oms-btn oms-btn-ghost"
+                          type="button"
+                          onClick={() => cancelAdvance(item.id)}
+                          disabled={!permissions.cancel_advance}
+                        >
                           إلغاء الطلب
                         </button>
                       </>
@@ -473,10 +604,20 @@ export default function StrategyExecutionBudgetPage() {
 
                     {item.status === "معتمدة" ? (
                       <>
-                        <button className="oms-btn oms-btn-primary" type="button" onClick={() => disburseAdvance(item.id)}>
+                        <button
+                          className="oms-btn oms-btn-primary"
+                          type="button"
+                          onClick={() => disburseAdvance(item.id)}
+                          disabled={!permissions.disburse_advance}
+                        >
                           تأكيد الصرف
                         </button>
-                        <button className="oms-btn oms-btn-ghost" type="button" onClick={() => cancelAdvance(item.id)}>
+                        <button
+                          className="oms-btn oms-btn-ghost"
+                          type="button"
+                          onClick={() => cancelAdvance(item.id)}
+                          disabled={!permissions.cancel_advance}
+                        >
                           إلغاء العهدة
                         </button>
                       </>
@@ -491,6 +632,7 @@ export default function StrategyExecutionBudgetPage() {
                             type="number"
                             min={0}
                             value={settleInputs[item.id] ?? item.approvedAmount}
+                            disabled={!permissions.settle_advance}
                             onChange={(event) =>
                               setSettleInputs((prev) => ({
                                 ...prev,
@@ -499,7 +641,12 @@ export default function StrategyExecutionBudgetPage() {
                             }
                           />
                         </label>
-                        <button className="oms-btn oms-btn-primary" type="button" onClick={() => settleAdvance(item.id)}>
+                        <button
+                          className="oms-btn oms-btn-primary"
+                          type="button"
+                          onClick={() => settleAdvance(item.id)}
+                          disabled={!permissions.settle_advance}
+                        >
                           تسوية العهدة
                         </button>
                       </>
@@ -519,6 +666,29 @@ export default function StrategyExecutionBudgetPage() {
         </div>
         <div className="budget-foot-note">
           {lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي يعمل عند أي تعديل."}
+        </div>
+      </section>
+
+      <section className="oms-panel">
+        <h2 className="oms-section-title">سجل التدقيق المالي</h2>
+        <p className="oms-text">توثيق زمني لكل إجراءات العهد والصلاحيات على مستوى المشروع الحالي.</p>
+        <div className="audit-list">
+          {auditTrail.length === 0 ? (
+            <div className="workflow-empty">لا توجد أحداث تدقيق بعد. سيظهر أي إجراء جديد هنا تلقائيًا.</div>
+          ) : (
+            auditTrail.slice(0, 15).map((entry) => (
+              <article key={entry.id} className="audit-item">
+                <div className="audit-item-head">
+                  <div className="audit-action">{entry.action}</div>
+                  <div className="audit-time">{entry.createdAt}</div>
+                </div>
+                <div className="audit-meta">
+                  بواسطة: {entry.actorLabel} · الدور: {userRoleLabel(entry.actorRole)}
+                </div>
+                <div className="audit-details">{entry.details}</div>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
@@ -702,6 +872,12 @@ export default function StrategyExecutionBudgetPage() {
           font-size: 13px;
         }
 
+        .oms-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          filter: none;
+        }
+
         .budget-lines-actions {
           display: flex;
           gap: 8px;
@@ -873,6 +1049,46 @@ export default function StrategyExecutionBudgetPage() {
           color: var(--oms-text-faint);
         }
 
+        .audit-list {
+          margin-top: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .audit-item {
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+          display: grid;
+          gap: 4px;
+        }
+
+        .audit-item-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .audit-action {
+          font-size: 15px;
+          font-weight: 900;
+        }
+
+        .audit-time,
+        .audit-meta {
+          color: var(--oms-text-faint);
+          font-size: 12px;
+        }
+
+        .audit-details {
+          color: var(--oms-text-muted);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
         .budget-footer-actions {
           margin-top: 10px;
           display: flex;
@@ -925,33 +1141,73 @@ export default function StrategyExecutionBudgetPage() {
     </main>
   );
 
+  function appendAudit(
+    action: BudgetAuditAction,
+    details: string,
+    refs: { advanceId?: string; lineId?: string } = {}
+  ) {
+    const entry: BudgetAuditEntry = {
+      id: randomId(),
+      action,
+      details,
+      actorRole: currentRole,
+      actorLabel: currentRoleLabel,
+      createdAt: nowDateTimeLabel(),
+      ...refs,
+    };
+    setAuditTrail((prev) => [entry, ...prev].slice(0, 200));
+  }
+
+  function ensurePermission(scope: PermissionScope) {
+    if (permissions[scope]) return true;
+    const message = `غير مسموح: ${PERMISSION_SCOPE_LABELS[scope]} غير متاحة لدور ${currentRoleLabel}.`;
+    setAlertMessage(message);
+    appendAudit("رفض إجراء بسبب الصلاحيات", message);
+    return false;
+  }
+
   function updateLine(lineId: string, patch: Partial<BudgetLine>) {
+    if (!permissions.edit_budget_lines) return;
     setLines((prev) => prev.map((row) => (row.id === lineId ? { ...row, ...patch } : row)));
   }
 
   function removeLine(lineId: string) {
-    setLines((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((row) => row.id !== lineId);
-    });
+    if (!ensurePermission("edit_budget_lines")) return;
+    if (lines.length <= 1) {
+      setAlertMessage("لا يمكن حذف آخر بند في الميزانية.");
+      return;
+    }
+    const lineTitle = lines.find((row) => row.id === lineId)?.title || "بند غير معروف";
+    const hasOpenAdvance = advances.some((row) => row.lineId === lineId && row.status !== "مسواة");
+    if (hasOpenAdvance) {
+      setAlertMessage("لا يمكن حذف بند لديه عهد مفتوحة. قم بتسوية العهد أو إلغائها أولاً.");
+      return;
+    }
+    setLines((prev) => prev.filter((row) => row.id !== lineId));
+    appendAudit("حذف بند ميزانية", `تم حذف بند الميزانية: ${lineTitle}.`, { lineId });
   }
 
   function handleAddLine() {
+    if (!ensurePermission("edit_budget_lines")) return;
+    const newLineId = randomId();
     setLines((prev) => [
       ...prev,
       {
-        id: randomId(),
+        id: newLineId,
         title: "بند إضافي",
         owner: "غير محدد",
         planned: 0,
         actual: 0,
       },
     ]);
+    appendAudit("إضافة بند ميزانية", "تمت إضافة بند ميزانية جديد.", { lineId: newLineId });
   }
 
   function handleAutoDistribute() {
+    if (!ensurePermission("edit_budget_lines")) return;
     const next = defaultLines(projectBudget);
     setLines(next);
+    appendAudit("توزيع تلقائي لبنود الميزانية", "تمت إعادة توزيع بنود الميزانية تلقائيًا.");
   }
 
   function lineAvailable(lineId: string) {
@@ -962,6 +1218,7 @@ export default function StrategyExecutionBudgetPage() {
   }
 
   function handleCreateAdvance() {
+    if (!ensurePermission("request_advance")) return;
     const holderName = newAdvance.holder.trim();
     const purposeText = newAdvance.purpose.trim();
 
@@ -1011,6 +1268,11 @@ export default function StrategyExecutionBudgetPage() {
     };
 
     setAdvances((prev) => [record, ...prev]);
+    appendAudit(
+      "إنشاء طلب عهدة",
+      `تم إنشاء طلب عهدة لصاحب العهدة ${holderName} بقيمة ${formatCurrency(record.requestedAmount)}.`,
+      { advanceId: record.id, lineId: record.lineId }
+    );
     setAlertMessage("تم تسجيل طلب العهدة. يلزم الاعتماد قبل الصرف.");
     setNewAdvance((prev) => ({
       ...prev,
@@ -1022,6 +1284,7 @@ export default function StrategyExecutionBudgetPage() {
   }
 
   function approveAdvance(advanceId: string) {
+    if (!ensurePermission("approve_advance")) return;
     const item = advances.find((row) => row.id === advanceId);
     if (!item || item.status !== "طلب جديد") return;
 
@@ -1044,10 +1307,18 @@ export default function StrategyExecutionBudgetPage() {
           : row
       )
     );
+    appendAudit(
+      "اعتماد عهدة",
+      `تم اعتماد عهدة ${item.holder} بقيمة ${formatCurrency(item.requestedAmount)}.`,
+      { advanceId: item.id, lineId: item.lineId }
+    );
     setAlertMessage("تم اعتماد العهدة وحجز قيمتها من البند.");
   }
 
   function disburseAdvance(advanceId: string) {
+    if (!ensurePermission("disburse_advance")) return;
+    const item = advances.find((row) => row.id === advanceId);
+    if (!item || item.status !== "معتمدة") return;
     const now = nowTimeLabel();
     setAdvances((prev) =>
       prev.map((row) =>
@@ -1060,10 +1331,16 @@ export default function StrategyExecutionBudgetPage() {
           : row
       )
     );
+    appendAudit(
+      "صرف عهدة",
+      `تم تأكيد صرف عهدة ${item.holder} بقيمة ${formatCurrency(item.approvedAmount)}.`,
+      { advanceId: item.id, lineId: item.lineId }
+    );
     setAlertMessage("تم تسجيل صرف العهدة. يلزم التسوية لإقفالها.");
   }
 
   function settleAdvance(advanceId: string) {
+    if (!ensurePermission("settle_advance")) return;
     const target = advances.find((row) => row.id === advanceId);
     if (!target || target.status !== "مصروفة") return;
 
@@ -1104,16 +1381,29 @@ export default function StrategyExecutionBudgetPage() {
       return next;
     });
 
+    appendAudit(
+      "تسوية عهدة",
+      `تمت تسوية عهدة ${target.holder} بمبلغ ${formatCurrency(settledValue)}.`,
+      { advanceId: target.id, lineId: target.lineId }
+    );
     setAlertMessage("تمت تسوية العهدة وتحويلها إلى مصروف فعلي في البند.");
   }
 
   function cancelAdvance(advanceId: string) {
+    if (!ensurePermission("cancel_advance")) return;
+    const current = advances.find((row) => row.id === advanceId);
+    if (!current) return;
     setAdvances((prev) => prev.filter((row) => row.id !== advanceId));
     setSettleInputs((prev) => {
       const next = { ...prev };
       delete next[advanceId];
       return next;
     });
+    appendAudit(
+      "إلغاء عهدة",
+      `تم إلغاء عهدة ${current.holder} (حالتها قبل الإلغاء: ${current.status}).`,
+      { advanceId: current.id, lineId: current.lineId }
+    );
     setAlertMessage("تم إلغاء العهدة.");
   }
 
@@ -1132,12 +1422,12 @@ export default function StrategyExecutionBudgetPage() {
 
 function readProjectContext(): ProjectContext {
   if (typeof window === "undefined") {
-    return { id: "global", name: "مشروع غير محدد", budgetTarget: 0 };
+    return { id: "global", name: "مشروع غير محدد", budgetTarget: 0, role: "project_manager" };
   }
 
   try {
     const raw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
-    if (!raw) return { id: "global", name: "مشروع غير محدد", budgetTarget: 0 };
+    if (!raw) return { id: "global", name: "مشروع غير محدد", budgetTarget: 0, role: "project_manager" };
 
     const parsed = JSON.parse(raw) as {
       activeProjectId?: string;
@@ -1146,19 +1436,20 @@ function readProjectContext(): ProjectContext {
 
     const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
     const active = projects.find((item) => item.id === parsed.activeProjectId) ?? projects[0];
-    if (!active) return { id: "global", name: "مشروع غير محدد", budgetTarget: 0 };
+    if (!active) return { id: "global", name: "مشروع غير محدد", budgetTarget: 0, role: "project_manager" };
 
     const snapshotRaw = localStorage.getItem(`${PROJECT_DATA_KEY_PREFIX}${active.id}`);
-    const snapshot = snapshotRaw ? (JSON.parse(snapshotRaw) as { budget?: string | number }) : {};
+    const snapshot = snapshotRaw ? (JSON.parse(snapshotRaw) as { budget?: string | number; userRole?: unknown }) : {};
     const budgetTarget = parseAmount(snapshot.budget);
 
     return {
       id: active.id,
       name: active.name?.trim() || "مشروع بدون اسم",
       budgetTarget,
+      role: normalizeUserRole(snapshot.userRole),
     };
   } catch {
-    return { id: "global", name: "مشروع غير محدد", budgetTarget: 0 };
+    return { id: "global", name: "مشروع غير محدد", budgetTarget: 0, role: "project_manager" };
   }
 }
 
@@ -1207,9 +1498,23 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
         }))
       : [];
 
+    const normalizedAuditTrail = Array.isArray(parsed.auditTrail)
+      ? parsed.auditTrail.map((entry) => ({
+          id: typeof entry.id === "string" ? entry.id : randomId(),
+          action: normalizeAuditAction(entry.action),
+          details: typeof entry.details === "string" ? entry.details : "تم تنفيذ إجراء.",
+          actorRole: normalizeUserRole(entry.actorRole),
+          actorLabel: typeof entry.actorLabel === "string" ? entry.actorLabel : userRoleLabel("project_manager"),
+          createdAt: typeof entry.createdAt === "string" ? entry.createdAt : nowDateTimeLabel(),
+          advanceId: typeof entry.advanceId === "string" ? entry.advanceId : undefined,
+          lineId: typeof entry.lineId === "string" ? entry.lineId : undefined,
+        }))
+      : [];
+
     return {
       lines: normalizedLines,
       advances: normalizedAdvances,
+      auditTrail: normalizedAuditTrail,
       plannedRevenue: Number.isFinite(parsed.plannedRevenue) ? Number(parsed.plannedRevenue) : 0,
       actualRevenue: Number.isFinite(parsed.actualRevenue) ? Number(parsed.actualRevenue) : 0,
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
@@ -1293,6 +1598,39 @@ function normalizeAdvanceStatus(value: unknown): AdvanceStatus {
   return "طلب جديد";
 }
 
+function normalizeAuditAction(value: unknown): BudgetAuditAction {
+  if (
+    value === "إنشاء طلب عهدة" ||
+    value === "اعتماد عهدة" ||
+    value === "صرف عهدة" ||
+    value === "تسوية عهدة" ||
+    value === "إلغاء عهدة" ||
+    value === "إضافة بند ميزانية" ||
+    value === "حذف بند ميزانية" ||
+    value === "توزيع تلقائي لبنود الميزانية" ||
+    value === "رفض إجراء بسبب الصلاحيات"
+  ) {
+    return value;
+  }
+  return "إنشاء طلب عهدة";
+}
+
+function normalizeUserRole(value: unknown): UserRole {
+  if (value === "operations_manager" || value === "finance_manager" || value === "viewer") return value;
+  return "project_manager";
+}
+
+function userRoleLabel(role: UserRole) {
+  if (role === "operations_manager") return "مدير التشغيل";
+  if (role === "finance_manager") return "المدير المالي";
+  if (role === "viewer") return "مشاهد";
+  return "مدير المشروع";
+}
+
+function permissionFlag(label: string, allowed: boolean) {
+  return `${label}: ${allowed ? "مسموح" : "غير مسموح"}`;
+}
+
 function isReservedAdvance(item: BudgetAdvance) {
   return item.status === "معتمدة" || item.status === "مصروفة";
 }
@@ -1353,6 +1691,13 @@ function nowTimeLabel() {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function nowDateTimeLabel() {
+  return `${new Date().toLocaleDateString("en-CA")} ${new Date().toLocaleTimeString("ar-SA", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 function randomId() {
