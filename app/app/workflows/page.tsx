@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { StrategyReport, readReports } from "../reports/report-store";
+import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 
 type WorkflowAlert = {
   id: string;
@@ -24,6 +25,9 @@ type WorkflowQueueRow = {
 
 export default function WorkflowsPage() {
   const reports = useMemo(() => readReports(), []);
+  const readiness = useStrategyReadinessMode();
+  const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
+  const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "بدء تحليل جديد";
 
   const stageCounts = useMemo(() => {
     const drafts = reports.filter((item) => item.status === "مسودة").length;
@@ -47,6 +51,7 @@ export default function WorkflowsPage() {
       <p className="oms-page-subtitle">
         لوحة متابعة انتقال المشاريع من التحليل إلى الاعتماد، مع تحديد الإجراء التنفيذي التالي لكل مشروع.
       </p>
+      <StrategyReadinessBanner contextLabel="سير العمل" />
 
       <section className="workflow-stage-grid">
         <article className="oms-kpi-card workflow-stage-card">
@@ -99,8 +104,8 @@ export default function WorkflowsPage() {
         <article className="oms-panel">
           <h2 className="oms-section-title">إجراءات سريعة</h2>
           <div className="workflow-quick-actions">
-            <Link href="/app/strategy" className="oms-btn oms-btn-primary">
-              بدء تحليل جديد
+            <Link href={quickStartHref} className="oms-btn oms-btn-primary">
+              {quickStartLabel}
             </Link>
             <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
               متابعة الخطة المالية

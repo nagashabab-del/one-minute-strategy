@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StrategyReport, readReports } from "./report-store";
+import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 
 type StatusFilter = "الكل" | StrategyReport["status"];
 type SortOption = "الأحدث" | "الأقدم" | "الحالة";
 
 export default function ReportsPage() {
   const [reports] = useState<StrategyReport[]>(() => readReports());
+  const readiness = useStrategyReadinessMode();
+  const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
+  const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "ابدأ تحليل جديد";
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");
@@ -47,6 +51,7 @@ export default function ReportsPage() {
       <p className="oms-page-subtitle">
         مساحة مراجعة واعتماد تقارير المشاريع مع فرز سريع حسب الحالة والوقت.
       </p>
+      <StrategyReadinessBanner contextLabel="التقارير" />
 
       {reports.length === 0 ? (
         <div className="oms-panel">
@@ -54,8 +59,8 @@ export default function ReportsPage() {
           <p style={{ margin: "6px 0 0", color: "var(--oms-text-muted)" }}>
             ابدأ تحليل جديد وسيظهر التقرير هنا لاحقًا.
           </p>
-          <Link href="/app/strategy" className="oms-btn oms-btn-primary" style={{ marginTop: 10 }}>
-            ابدأ تحليل جديد
+          <Link href={quickStartHref} className="oms-btn oms-btn-primary" style={{ marginTop: 10 }}>
+            {quickStartLabel}
           </Link>
         </div>
       ) : (

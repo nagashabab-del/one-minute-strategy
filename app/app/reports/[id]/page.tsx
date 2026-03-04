@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { StrategyReport, readReportById } from "../report-store";
+import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
 
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string }>();
+  const readiness = useStrategyReadinessMode();
+  const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
+  const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "بدء تحليل جديد";
   const report = useMemo<StrategyReport | null>(() => readReportById(params.id), [params.id]);
 
   if (!report) {
@@ -36,10 +40,11 @@ export default function ReportDetailsPage() {
           <Link href="/app/reports" className="oms-btn oms-btn-ghost">
             رجوع إلى قائمة التقارير
           </Link>
-          <Link href="/app/strategy" className="oms-btn oms-btn-primary">
-            بدء تحليل جديد
+          <Link href={quickStartHref} className="oms-btn oms-btn-primary">
+            {quickStartLabel}
           </Link>
         </div>
+        <StrategyReadinessBanner contextLabel="التقارير" />
 
         <h1 className="oms-page-title" style={{ marginTop: 12 }}>
           {report.title}
