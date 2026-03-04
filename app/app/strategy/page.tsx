@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StrategyReadinessChecklist, StrategyReadinessPanel } from "./_components/readiness-gate";
 import { STRATEGY_STAGES } from "./stages";
 
 export default function StrategyPage() {
@@ -21,6 +22,9 @@ export default function StrategyPage() {
           </Link>
         </div>
       </section>
+
+      <StrategyReadinessPanel stageLabel="مركز الاستراتيجية" compact />
+      <StrategyReadinessChecklist title="جاهزية الدخول للمسارات التحليلية" />
 
       <section className="oms-grid-2" style={{ marginTop: 12 }}>
         {STRATEGY_STAGES.map((stage) => (
