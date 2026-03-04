@@ -9,6 +9,8 @@ type BudgetLine = {
   owner: string;
   planned: number;
   actual: number;
+  vatApplicable: boolean;
+  vatRate: number;
 };
 
 type AdvanceStatus = "طلب جديد" | "معتمدة" | "مصروفة" | "مسواة" | "ملغاة";
@@ -147,6 +149,7 @@ const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const SETTINGS_STORAGE_KEY = "oms_exec_settings_v1";
 const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
 const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
+const DEFAULT_VAT_RATE = 15;
 
 const REGULATORY_PATH_ORDER: RegulatoryPathKey[] = [
   "municipality",
@@ -350,8 +353,12 @@ export default function StrategyExecutionBudgetPage() {
   }, [advances]);
 
   const summary = useMemo(() => {
-    const plannedTotal = lines.reduce((sum, row) => sum + positive(row.planned), 0);
-    const actualTotal = lines.reduce((sum, row) => sum + positive(row.actual), 0);
+    const plannedNetTotal = lines.reduce((sum, row) => sum + positive(row.planned), 0);
+    const actualNetTotal = lines.reduce((sum, row) => sum + positive(row.actual), 0);
+    const plannedVatTotal = lines.reduce((sum, row) => sum + computeVatAmount(positive(row.planned), row), 0);
+    const actualVatTotal = lines.reduce((sum, row) => sum + computeVatAmount(positive(row.actual), row), 0);
+    const plannedTotal = plannedNetTotal + plannedVatTotal;
+    const actualTotal = actualNetTotal + actualVatTotal;
     const reservedTotal = advances.reduce((sum, item) => {
       if (!isReservedAdvance(item)) return sum;
       return sum + positive(item.approvedAmount);
@@ -362,8 +369,10 @@ export default function StrategyExecutionBudgetPage() {
     const baseline =
       projectContext?.budgetTarget && projectContext.budgetTarget > 0 ? projectContext.budgetTarget : plannedTotal;
     const consumptionPct = baseline > 0 ? (committedTotal / baseline) * 100 : null;
-    const plannedProfit = plannedRevenue - plannedTotal;
-    const actualProfit = actualRevenue - actualTotal;
+    const plannedProfitBeforeVat = plannedRevenue - plannedNetTotal;
+    const actualProfitBeforeVat = actualRevenue - actualNetTotal;
+    const plannedProfitAfterVat = plannedRevenue - plannedTotal;
+    const actualProfitAfterVat = actualRevenue - actualTotal;
     const tone = resolveBudgetTone(variancePct, remainingAfterCommitment, budgetAlertThreshold);
     const openAdvancesCount = advances.filter((item) => isOpenAdvance(item)).length;
     const overdueAdvances = advances.filter((item) => isOverdue(item)).length;
@@ -377,6 +386,10 @@ export default function StrategyExecutionBudgetPage() {
     ).length;
 
     return {
+      plannedNetTotal,
+      actualNetTotal,
+      plannedVatTotal,
+      actualVatTotal,
       plannedTotal,
       actualTotal,
       reservedTotal,
@@ -384,8 +397,10 @@ export default function StrategyExecutionBudgetPage() {
       remainingAfterCommitment,
       variancePct,
       consumptionPct,
-      plannedProfit,
-      actualProfit,
+      plannedProfitBeforeVat,
+      actualProfitBeforeVat,
+      plannedProfitAfterVat,
+      actualProfitAfterVat,
       tone,
       openAdvancesCount,
       overdueAdvances,
@@ -504,12 +519,20 @@ export default function StrategyExecutionBudgetPage() {
 
       <section className="budget-kpi-grid">
         <article className="oms-kpi-card">
-          <div className="oms-kpi-label">إجمالي المخطط</div>
+          <div className="oms-kpi-label">إجمالي المخطط (شامل الضريبة)</div>
           <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedTotal)}</div>
         </article>
         <article className="oms-kpi-card">
-          <div className="oms-kpi-label">المصروف الفعلي</div>
+          <div className="oms-kpi-label">المصروف الفعلي (شامل الضريبة)</div>
           <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualTotal)}</div>
+        </article>
+        <article className="oms-kpi-card">
+          <div className="oms-kpi-label">الضريبة المخططة</div>
+          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedVatTotal)}</div>
+        </article>
+        <article className="oms-kpi-card">
+          <div className="oms-kpi-label">الضريبة الفعلية</div>
+          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualVatTotal)}</div>
         </article>
         <article className="oms-kpi-card">
           <div className="oms-kpi-label">عهد مفتوحة (محجوزة)</div>
@@ -531,7 +554,7 @@ export default function StrategyExecutionBudgetPage() {
 
       <section className="oms-panel">
         <h2 className="oms-section-title">قياس الربحية</h2>
-        <p className="oms-text">الإيرادات مقابل التكاليف لتقدير الربح/الخسارة قبل وبعد الصرف الفعلي.</p>
+        <p className="oms-text">الإيرادات مقابل التكاليف قبل الضريبة وبعدها للحصول على قراءة ربحية أدق.</p>
 
         <div className="budget-revenue-grid">
           <label className="budget-field">
@@ -557,12 +580,20 @@ export default function StrategyExecutionBudgetPage() {
             />
           </label>
           <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة مخططة</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfit)}</div>
+            <div className="budget-profit-label">ربح/خسارة مخططة (قبل الضريبة)</div>
+            <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitBeforeVat)}</div>
           </div>
           <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة فعلية</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfit)}</div>
+            <div className="budget-profit-label">ربح/خسارة فعلية (قبل الضريبة)</div>
+            <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitBeforeVat)}</div>
+          </div>
+          <div className="budget-profit-box">
+            <div className="budget-profit-label">ربح/خسارة مخططة (شامل الضريبة)</div>
+            <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitAfterVat)}</div>
+          </div>
+          <div className="budget-profit-box">
+            <div className="budget-profit-label">ربح/خسارة فعلية (شامل الضريبة)</div>
+            <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitAfterVat)}</div>
           </div>
         </div>
       </section>
@@ -594,8 +625,12 @@ export default function StrategyExecutionBudgetPage() {
           {lines.map((line) => {
             const reserved = activeReservedByLine[line.id] ?? 0;
             const available = lineAvailable(line.id);
-            const effectiveSpent = positive(line.actual) + reserved;
-            const rowVariance = line.planned > 0 ? ((effectiveSpent - line.planned) / line.planned) * 100 : null;
+            const plannedVat = computeVatAmount(positive(line.planned), line);
+            const actualVat = computeVatAmount(positive(line.actual), line);
+            const plannedWithVat = positive(line.planned) + plannedVat;
+            const actualWithVat = positive(line.actual) + actualVat;
+            const effectiveSpent = actualWithVat + reserved;
+            const rowVariance = plannedWithVat > 0 ? ((effectiveSpent - plannedWithVat) / plannedWithVat) * 100 : null;
             return (
               <article key={line.id} className="budget-row">
                 <label className="budget-field">
@@ -617,7 +652,7 @@ export default function StrategyExecutionBudgetPage() {
                   />
                 </label>
                 <label className="budget-field">
-                  <span className="budget-field-label">المخطط</span>
+                  <span className="budget-field-label">المخطط (قبل الضريبة)</span>
                   <input
                     className="budget-input"
                     type="number"
@@ -628,7 +663,7 @@ export default function StrategyExecutionBudgetPage() {
                   />
                 </label>
                 <label className="budget-field">
-                  <span className="budget-field-label">المصروف الفعلي</span>
+                  <span className="budget-field-label">المصروف الفعلي (قبل الضريبة)</span>
                   <input
                     className="budget-input"
                     type="number"
@@ -638,8 +673,45 @@ export default function StrategyExecutionBudgetPage() {
                     onChange={(event) => updateLine(line.id, { actual: toNumber(event.target.value) })}
                   />
                 </label>
+                <label className="budget-field">
+                  <span className="budget-field-label">حالة الضريبة</span>
+                  <select
+                    className="budget-input"
+                    value={line.vatApplicable ? "taxable" : "exempt"}
+                    disabled={!permissions.edit_budget_lines}
+                    onChange={(event) =>
+                      updateLine(line.id, {
+                        vatApplicable: event.target.value === "taxable",
+                      })
+                    }
+                  >
+                    <option value="taxable">خاضع للضريبة</option>
+                    <option value="exempt">غير خاضع</option>
+                  </select>
+                </label>
+                <label className="budget-field">
+                  <span className="budget-field-label">نسبة الضريبة %</span>
+                  <input
+                    className="budget-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={line.vatRate}
+                    disabled={!permissions.edit_budget_lines || !line.vatApplicable}
+                    onChange={(event) => updateLine(line.id, { vatRate: normalizeVatRate(toNumber(event.target.value)) })}
+                  />
+                </label>
 
                 <div className="budget-row-stats">
+                  <div className="budget-row-stat">
+                    <span>إجمالي المخطط شامل الضريبة:</span>
+                    <strong>{formatCurrency(plannedWithVat)}</strong>
+                  </div>
+                  <div className="budget-row-stat">
+                    <span>ضريبة المصروف الفعلي:</span>
+                    <strong>{formatCurrency(actualVat)}</strong>
+                  </div>
                   <div className="budget-row-stat">
                     <span>العهد المحجوزة:</span>
                     <strong>{formatCurrency(reserved)}</strong>
@@ -2256,6 +2328,8 @@ export default function StrategyExecutionBudgetPage() {
         owner: "غير محدد",
         planned: 0,
         actual: 0,
+        vatApplicable: true,
+        vatRate: DEFAULT_VAT_RATE,
       },
     ]);
     appendAudit("إضافة بند ميزانية", "تمت إضافة بند ميزانية جديد.", { lineId: newLineId });
@@ -2272,7 +2346,9 @@ export default function StrategyExecutionBudgetPage() {
     const line = lines.find((row) => row.id === lineId);
     if (!line) return 0;
     const reserved = activeReservedByLine[lineId] ?? 0;
-    return positive(line.planned) - positive(line.actual) - reserved;
+    const plannedWithVat = lineAmountWithVat(positive(line.planned), line);
+    const actualWithVat = lineAmountWithVat(positive(line.actual), line);
+    return plannedWithVat - actualWithVat - reserved;
   }
 
   function updateRegulatoryCommitment(path: RegulatoryPathKey, patch: Partial<RegulatoryCommitment>) {
@@ -2726,7 +2802,9 @@ export default function StrategyExecutionBudgetPage() {
       if (row.lineId !== lineId) return sum;
       return sum + positive(row.approvedAmount);
     }, 0);
-    return positive(line.planned) - positive(line.actual) - reserved;
+    const plannedWithVat = lineAmountWithVat(positive(line.planned), line);
+    const actualWithVat = lineAmountWithVat(positive(line.actual), line);
+    return plannedWithVat - actualWithVat - reserved;
   }
 }
 
@@ -2998,6 +3076,8 @@ function readBudgetSnapshot(projectId: string): BudgetSnapshot | null {
           owner: typeof line.owner === "string" ? line.owner : "غير محدد",
           planned: Number.isFinite(line.planned) ? Number(line.planned) : 0,
           actual: Number.isFinite(line.actual) ? Number(line.actual) : 0,
+          vatApplicable: typeof line.vatApplicable === "boolean" ? line.vatApplicable : true,
+          vatRate: normalizeVatRate(line.vatRate),
         }))
       : [];
 
@@ -3103,6 +3183,8 @@ function defaultLines(budgetTarget: number): BudgetLine[] {
       owner: item.owner,
       planned: 0,
       actual: 0,
+      vatApplicable: true,
+      vatRate: DEFAULT_VAT_RATE,
     }));
   }
 
@@ -3112,6 +3194,8 @@ function defaultLines(budgetTarget: number): BudgetLine[] {
     owner: item.owner,
     planned: Math.round(budgetTarget * item.ratio),
     actual: 0,
+    vatApplicable: true,
+    vatRate: DEFAULT_VAT_RATE,
   }));
 }
 
@@ -3145,6 +3229,20 @@ function toNumber(value: string) {
 function positive(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, value);
+}
+
+function normalizeVatRate(value: unknown) {
+  if (typeof value !== "number" || Number.isNaN(value)) return DEFAULT_VAT_RATE;
+  return Math.max(0, Math.min(100, value));
+}
+
+function computeVatAmount(amount: number, line: BudgetLine) {
+  if (!line.vatApplicable) return 0;
+  return (positive(amount) * normalizeVatRate(line.vatRate)) / 100;
+}
+
+function lineAmountWithVat(amount: number, line: BudgetLine) {
+  return positive(amount) + computeVatAmount(amount, line);
 }
 
 function asNumber(value: unknown) {
