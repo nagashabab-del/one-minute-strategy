@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import StrategyReadinessBanner, { useStrategyReadinessMode } from "./_components/strategy-readiness-banner";
 import { readReports } from "./reports/report-store";
 
 type PriorityItem = {
@@ -13,6 +14,11 @@ type PriorityItem = {
 };
 
 export default function DashboardPage() {
+  const readiness = useStrategyReadinessMode();
+  const inGapMode = readiness.mode === "gap";
+  const quickStartHref = inGapMode ? "/app/strategy/brief" : "/app/strategy";
+  const quickStartLabel = inGapMode ? "استكمال موجز المشروع" : "بدء تحليل جديد";
+  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
   const completedCount = reports.filter((item) => item.status === "مكتمل").length;
@@ -37,6 +43,7 @@ export default function DashboardPage() {
       <p className="oms-page-subtitle">
         مركز قيادة القرار والتنفيذ: راقب الجاهزية، اعرف الأولويات، واتخذ الإجراء التالي فورًا.
       </p>
+      <StrategyReadinessBanner contextLabel="نظرة عامة" />
 
       <section className="oms-panel cockpit-hero">
         <div className="cockpit-hero-top">
@@ -46,15 +53,38 @@ export default function DashboardPage() {
             <div className="cockpit-subline">{readinessLabel}</div>
           </div>
           <div className="cockpit-actions">
-            <Link className="oms-btn oms-btn-primary" href="/app/strategy">
-              بدء تحليل جديد
+            <Link className="oms-btn oms-btn-primary" href={quickStartHref}>
+              {quickStartLabel}
             </Link>
-            <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
-              متابعة سير العمل
-            </Link>
-            <Link className="oms-btn oms-btn-ghost" href="/app/reports">
-              فتح التقارير
-            </Link>
+            {inGapMode ? (
+              <>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost cockpit-action-disabled"
+                  disabled
+                  title={quickActionBlockedHint}
+                >
+                  متابعة سير العمل
+                </button>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost cockpit-action-disabled"
+                  disabled
+                  title={quickActionBlockedHint}
+                >
+                  فتح التقارير
+                </button>
+              </>
+            ) : (
+              <>
+                <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
+                  متابعة سير العمل
+                </Link>
+                <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                  فتح التقارير
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -168,6 +198,13 @@ export default function DashboardPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+
+        .cockpit-action-disabled {
+          opacity: 0.58;
+          cursor: not-allowed;
+          border-color: rgba(244,126,126,0.42) !important;
+          color: #ffb3b3 !important;
         }
 
         .cockpit-kpis {
