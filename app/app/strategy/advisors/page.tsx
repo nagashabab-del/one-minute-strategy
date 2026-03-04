@@ -1,10 +1,13 @@
 import StageScreen from "../_components/stage-screen";
-import { StrategyReadinessPanel } from "../_components/readiness-gate";
+import { StrategyReadinessGuard, StrategyReadinessPanel } from "../_components/readiness-gate";
 
 export default function StrategyAdvisorsPage() {
   return (
-    <>
-      <StrategyReadinessPanel stageLabel="تجهيز المستشارين" />
+    <StrategyReadinessGuard
+      blockedTitle="لا يمكن تجهيز مسار المستشارين الآن"
+      blockedDescription="تجهيز المستشارين يعتمد على موجز مشروع مكتمل بالحد الأدنى. أكمل البيانات الحرجة أولًا لضمان أن توصيات الذكاء الاصطناعي مبنية على أساس دقيق."
+    >
+      <StrategyReadinessPanel stageLabel="تجهيز المستشارين" compact />
       <StageScreen
         title="تجهيز المستشارين"
         subtitle="تحديد الجهات الاستشارية الداخلة في الحوار التحليلي."
@@ -21,6 +24,6 @@ export default function StrategyAdvisorsPage() {
         primaryActionHref="/app/strategy/dialogue"
         primaryActionLabel="بدء جلسة التحليل"
       />
-    </>
+    </StrategyReadinessGuard>
   );
 }

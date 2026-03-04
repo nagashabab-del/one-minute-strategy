@@ -121,7 +121,7 @@ function ReadinessBody({
             whiteSpace: "nowrap",
           }}
         >
-          {isAdvisory ? "Advisory Mode" : "Gap Mode"}
+          {isAdvisory ? "وضع الاستشارة" : "وضع فجوة البيانات"}
         </span>
       </div>
 
