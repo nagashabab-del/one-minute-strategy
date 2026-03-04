@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { READINESS_LOCK_REASON } from "../_lib/readiness-lock";
 import { evaluateStrategyReadiness, readActiveStrategyProject } from "../strategy/_lib/readiness";
 
 type StrategyReadinessMode = "loading" | "gap" | "advisory";
@@ -53,7 +54,7 @@ export default function StrategyReadinessBanner({ contextLabel }: StrategyReadin
         )} حقول حرجة تقريبًا).
       </p>
       <p className="oms-text" style={{ marginTop: 6 }}>
-        الحل بخطوة واحدة: أكمل موجز المشروع وسيتم فتح الإجراءات تلقائيًا.
+        {READINESS_LOCK_REASON}
       </p>
       <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Link href="/app/strategy/brief" className="oms-btn oms-btn-primary">
@@ -76,4 +77,3 @@ function readCurrentReadiness(): StrategyReadinessState {
 function toArabicNumber(value: number) {
   return new Intl.NumberFormat("ar-SA").format(value);
 }
-

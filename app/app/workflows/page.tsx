@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { StrategyReport, readReports } from "../reports/report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
+import {
+  isReadinessBlockedHref,
+  READINESS_LOCK_REASON,
+  resolveQuickStartForReadiness,
+} from "../_lib/readiness-lock";
 
 type WorkflowAlert = {
   id: string;
@@ -27,9 +32,8 @@ export default function WorkflowsPage() {
   const reports = useMemo(() => readReports(), []);
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
-  const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
-  const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "بدء تحليل جديد";
-  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
+  const quickStart = resolveQuickStartForReadiness(readiness.mode);
+  const quickActionBlockedHint = READINESS_LOCK_REASON;
 
   const stageCounts = useMemo(() => {
     const drafts = reports.filter((item) => item.status === "مسودة").length;
@@ -119,8 +123,8 @@ export default function WorkflowsPage() {
         <article className="oms-panel">
           <h2 className="oms-section-title">إجراءات سريعة</h2>
           <div className="workflow-quick-actions">
-            <Link href={quickStartHref} className="oms-btn oms-btn-primary">
-              {quickStartLabel}
+            <Link href={quickStart.href} className="oms-btn oms-btn-primary">
+              {quickStart.label}
             </Link>
             {inGapMode ? (
               <>
@@ -484,8 +488,4 @@ function statusClass(status: StrategyReport["status"]) {
 function isNoRisk(risks: string[]) {
   const first = risks[0]?.trim() ?? "";
   return first.startsWith("لا توجد مخاطر");
-}
-
-function isReadinessBlockedHref(href: string) {
-  return !href.startsWith("/app/strategy");
 }

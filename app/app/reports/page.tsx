@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StrategyReport, readReports } from "./report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
+import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../_lib/readiness-lock";
 
 type StatusFilter = "الكل" | StrategyReport["status"];
 type SortOption = "الأحدث" | "الأقدم" | "الحالة";
@@ -12,9 +13,8 @@ export default function ReportsPage() {
   const [reports] = useState<StrategyReport[]>(() => readReports());
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
-  const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
-  const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "ابدأ تحليل جديد";
-  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
+  const quickStart = resolveQuickStartForReadiness(readiness.mode);
+  const quickActionBlockedHint = READINESS_LOCK_REASON;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");
@@ -61,8 +61,8 @@ export default function ReportsPage() {
           <p style={{ margin: "6px 0 0", color: "var(--oms-text-muted)" }}>
             ابدأ تحليل جديد وسيظهر التقرير هنا لاحقًا.
           </p>
-          <Link href={quickStartHref} className="oms-btn oms-btn-primary" style={{ marginTop: 10 }}>
-            {quickStartLabel}
+          <Link href={quickStart.href} className="oms-btn oms-btn-primary" style={{ marginTop: 10 }}>
+            {quickStart.label}
           </Link>
         </div>
       ) : (

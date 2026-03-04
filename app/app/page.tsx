@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "./_components/strategy-readiness-banner";
+import {
+  isReadinessBlockedHref,
+  READINESS_LOCK_REASON,
+  resolveQuickStartForReadiness,
+} from "./_lib/readiness-lock";
 import { readReports } from "./reports/report-store";
 
 type PriorityItem = {
@@ -16,9 +21,8 @@ type PriorityItem = {
 export default function DashboardPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
-  const quickStartHref = inGapMode ? "/app/strategy/brief" : "/app/strategy";
-  const quickStartLabel = inGapMode ? "استكمال موجز المشروع" : "بدء تحليل جديد";
-  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
+  const quickStart = resolveQuickStartForReadiness(readiness.mode);
+  const quickActionBlockedHint = READINESS_LOCK_REASON;
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
   const completedCount = reports.filter((item) => item.status === "مكتمل").length;
@@ -53,8 +57,8 @@ export default function DashboardPage() {
             <div className="cockpit-subline">{readinessLabel}</div>
           </div>
           <div className="cockpit-actions">
-            <Link className="oms-btn oms-btn-primary" href={quickStartHref}>
-              {quickStartLabel}
+            <Link className="oms-btn oms-btn-primary" href={quickStart.href}>
+              {quickStart.label}
             </Link>
             {inGapMode ? (
               <>
@@ -364,9 +368,6 @@ export default function DashboardPage() {
   );
 }
 
-function isReadinessBlockedHref(href: string) {
-  return !href.startsWith("/app/strategy");
-}
 
 function isNoRisk(risks: string[]) {
   const first = risks[0]?.trim() ?? "";

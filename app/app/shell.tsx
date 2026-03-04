@@ -4,6 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
+import {
+  READINESS_LOCK_REASON,
+  READINESS_STATUS_ADVISORY,
+  READINESS_STATUS_GAP,
+  resolveQuickStartForReadiness,
+} from "./_lib/readiness-lock";
 import { readReports } from "./reports/report-store";
 import { evaluateStrategyReadiness, readActiveStrategyProject } from "./strategy/_lib/readiness";
 
@@ -41,7 +47,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const inStrategyFlow = pathname.startsWith("/app/strategy");
   const [hasReports, setHasReports] = useState(false);
   const [gapMode, setGapMode] = useState(false);
-  const [criticalMissingCount, setCriticalMissingCount] = useState(0);
 
   const currentSection = useMemo(() => {
     if (pathname.startsWith("/app/strategy")) return "الاستراتيجية";
@@ -86,7 +91,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       setHasReports(readReports().length > 0);
       const readiness = readStrategyReadiness();
       setGapMode(readiness.mode === "gap");
-      setCriticalMissingCount(readiness.criticalMissing.length);
     };
     refreshContextState();
     window.addEventListener("storage", refreshContextState);
@@ -94,12 +98,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const shouldShowReportsShortcut = !inStrategyFlow || hasReports;
-  const quickStartHref = gapMode ? "/app/strategy/brief" : "/app/strategy";
-  const quickStartLabel = gapMode ? "استكمال بيانات التحليل" : "بدء تحليل جديد";
-  const quickActionBlockedHint =
-    criticalMissingCount > 0
-      ? "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع."
-      : "الإجراء مغلق مؤقتًا حتى اكتمال جاهزية بيانات الاستشارة.";
+  const quickStart = resolveQuickStartForReadiness(gapMode ? "gap" : "advisory");
+  const quickActionBlockedHint = READINESS_LOCK_REASON;
 
   return (
     <div
@@ -195,7 +195,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   fontWeight: 700,
                 }}
               >
-                {gapMode ? "وضع البيانات: فجوة بيانات" : "وضع البيانات: جاهز للاستشارة"}
+                {gapMode ? READINESS_STATUS_GAP : READINESS_STATUS_ADVISORY}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -209,8 +209,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="app-shell-context-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href={quickStartHref} className="oms-btn oms-btn-primary">
-              {quickStartLabel}
+            <Link href={quickStart.href} className="oms-btn oms-btn-primary">
+              {quickStart.label}
             </Link>
             {gapMode ? (
               <button

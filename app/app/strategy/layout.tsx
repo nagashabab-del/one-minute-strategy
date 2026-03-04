@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useStrategyReadinessState } from "./_components/readiness-gate";
+import { READINESS_STAGE_LOCK_REASON } from "../_lib/readiness-lock";
 import { STRATEGY_STAGES, resolveActiveStageId, stageCompletionRatio } from "./stages";
 
 export default function StrategyLayout({
@@ -19,7 +20,7 @@ export default function StrategyLayout({
   const activeStage = STRATEGY_STAGES.find((item) => item.id === activeId);
   const { state: readinessState, isLoading: readinessLoading } = useStrategyReadinessState();
   const isGapMode = !readinessLoading && readinessState?.summary.mode === "gap";
-  const sidebarBlockHint = "أكمل الحقول الحرجة في موجز المشروع أولًا قبل التنقل إلى هذه المرحلة.";
+  const sidebarBlockHint = READINESS_STAGE_LOCK_REASON;
 
   return (
     <div className="strategy-layout">

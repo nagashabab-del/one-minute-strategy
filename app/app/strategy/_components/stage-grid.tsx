@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { STRATEGY_STAGES } from "../stages";
 import { useStrategyReadinessState } from "./readiness-gate";
+import { READINESS_STAGE_LOCK_REASON } from "../../_lib/readiness-lock";
 
-const READINESS_BLOCK_REASON = "أكمل الحقول الحرجة في موجز المشروع أولًا قبل دخول هذه المرحلة.";
+const READINESS_BLOCK_REASON = READINESS_STAGE_LOCK_REASON;
 
 export function StrategyStageGrid() {
   const { state, isLoading } = useStrategyReadinessState();
@@ -54,4 +55,3 @@ export function StrategyStageGrid() {
     </section>
   );
 }
-
