@@ -210,6 +210,13 @@ type ScopeFrameworkItem = {
   constraints: string;
 };
 
+type ScopeFrameworkProfileId =
+  | "public_event"
+  | "conference"
+  | "sponsored"
+  | "institutional"
+  | "hybrid";
+
 type LocalProjectMeta = {
   id: string;
   name: string;
@@ -1109,6 +1116,160 @@ function normalizeScopeFramework(
       constraints: typeof savedRow?.constraints === "string" ? savedRow.constraints : "",
     };
   });
+}
+
+const SCOPE_PROFILE_LABELS: Record<ScopeFrameworkProfileId, string> = {
+  public_event: "فعالية جماهيرية/موسمية",
+  conference: "مؤتمر احترافي",
+  sponsored: "فعالية برعاية",
+  institutional: "فعالية مؤسسية",
+  hybrid: "نموذج هجين",
+};
+
+const SCOPE_PROFILE_ENABLED_AXES: Record<ScopeFrameworkProfileId, ScopeAxisId[]> = {
+  public_event: [
+    "site_setup",
+    "technical_setup",
+    "program_execution",
+    "operations_logistics",
+    "marketing_communication",
+    "permits_compliance",
+  ],
+  conference: [
+    "site_setup",
+    "technical_setup",
+    "program_execution",
+    "ceremony_documentation",
+    "operations_logistics",
+  ],
+  sponsored: [
+    "site_setup",
+    "technical_setup",
+    "program_execution",
+    "ceremony_documentation",
+    "marketing_communication",
+    "operations_logistics",
+  ],
+  institutional: [
+    "site_setup",
+    "technical_setup",
+    "program_execution",
+    "ceremony_documentation",
+    "operations_logistics",
+    "permits_compliance",
+  ],
+  hybrid: [
+    "site_setup",
+    "technical_setup",
+    "program_execution",
+    "ceremony_documentation",
+    "operations_logistics",
+    "marketing_communication",
+  ],
+};
+
+function detectScopeFrameworkProfile(eventType: string, venueType: VenueType): ScopeFrameworkProfileId {
+  const event = eventType.trim();
+  if (event.includes("مؤتمر")) return "conference";
+  if (event.includes("هجين")) return "hybrid";
+  if (event.includes("رعاية")) return "sponsored";
+  if (event.includes("مؤسسية")) return "institutional";
+  if (event.includes("مفتوحة") || event.includes("موسمية") || venueType === "مساحة عامة") {
+    return "public_event";
+  }
+  return "public_event";
+}
+
+function suggestedScopeAxisText(
+  axisId: ScopeAxisId,
+  profile: ScopeFrameworkProfileId,
+  eventType: string,
+  venueType: VenueType
+) {
+  const eventLabel = eventType.trim() || "الفعالية";
+  const venueLabel = venueType.trim() || "الموقع";
+  switch (axisId) {
+    case "site_setup":
+      return {
+        inScope: `تجهيز ${venueLabel} لاحتياجات ${eventLabel} (الدخول، المناطق التشغيلية، نقاط الخدمة).`,
+        outOfScope: "الأعمال الإنشائية الدائمة خارج نطاق الفعالية.",
+        assumptions: "الموقع متاح وفق المدد المعتمدة.",
+        constraints: "الالتزام بساعات العمل المسموح بها بالموقع.",
+      };
+    case "technical_setup":
+      return {
+        inScope: "الصوت، الإضاءة، الشاشات، الكهرباء المؤقتة، واختبارات الجاهزية الفنية.",
+        outOfScope: "شراء أصول تقنية دائمة للعميل.",
+        assumptions: "توفر الأحمال الكهربائية والربط الفني الأساسي.",
+        constraints: "التوريد ضمن المهل واشتراطات السلامة.",
+      };
+    case "program_execution":
+      return {
+        inScope: "إدارة السيناريو التشغيلي، تسلسل الفقرات، وضبط غرفة التحكم يوم التنفيذ.",
+        outOfScope: "تغيير محتوى البرنامج بعد اعتماد التشغيل النهائي.",
+        assumptions: "البرنامج المعتمد مكتمل قبل التشغيل.",
+        constraints: "الالتزام بزمن كل فقرة وعدم تجاوز الجدول.",
+      };
+    case "ceremony_documentation":
+      return {
+        inScope: "البروتوكول، الاستقبال، مسار الضيوف، التوثيق الإعلامي/الرسمي.",
+        outOfScope: "الإنتاج الإعلامي الممتد بعد نهاية المشروع إلا بطلب إضافي.",
+        assumptions: "قائمة الضيوف وبروتوكول الاستقبال معتمدين مسبقًا.",
+        constraints: "الالتزام بخصوصية الضيوف وسياسات التصوير.",
+      };
+    case "operations_logistics":
+      return {
+        inScope: "اللوجستيات، النقل، التحميل والتنزيل، إدارة المستلزمات وسير الفرق.",
+        outOfScope: "تشغيل مستودعات أو أساطيل غير مخصصة للمشروع.",
+        assumptions: "خطة الحركة والمناولة معتمدة.",
+        constraints: "نوافذ زمنية محدودة للدخول والخروج بالموقع.",
+      };
+    case "marketing_communication":
+      return {
+        inScope:
+          profile === "conference"
+            ? "حملة ترويج حضور المؤتمر وإدارة الرسائل والقنوات قبل الانطلاق."
+            : "حملات الجذب والتفاعل وإدارة الرسائل عبر القنوات المعتمدة.",
+        outOfScope: "الإدارة المستمرة للحسابات بعد إغلاق المشروع.",
+        assumptions: "رسائل الهوية وخطة المحتوى معتمدتان.",
+        constraints: "الالتزام بالميزانية التسويقية المعتمدة.",
+      };
+    case "permits_compliance":
+      return {
+        inScope: "حصر المتطلبات التنظيمية والتصاريح ومتابعة حالة الالتزام.",
+        outOfScope: "إصدار تصاريح لجهات خارج نطاق المشروع.",
+        assumptions: "بيانات الجهة المنظمة والموقع مكتملة.",
+        constraints: "المدد النظامية للجهات المنظمة.",
+      };
+    default:
+      return {
+        inScope: "",
+        outOfScope: "",
+        assumptions: "",
+        constraints: "",
+      };
+  }
+}
+
+function buildSuggestedScopeFramework(
+  current: ScopeFrameworkItem[],
+  eventType: string,
+  venueType: VenueType
+): { profile: ScopeFrameworkProfileId; profileLabel: string; items: ScopeFrameworkItem[] } {
+  const profile = detectScopeFrameworkProfile(eventType, venueType);
+  const enabledSet = new Set(SCOPE_PROFILE_ENABLED_AXES[profile]);
+  const items = current.map((row) => {
+    const suggested = suggestedScopeAxisText(row.axisId, profile, eventType, venueType);
+    return {
+      ...row,
+      enabled: enabledSet.has(row.axisId),
+      inScope: row.inScope.trim() ? row.inScope : suggested.inScope,
+      outOfScope: row.outOfScope.trim() ? row.outOfScope : suggested.outOfScope,
+      assumptions: row.assumptions.trim() ? row.assumptions : suggested.assumptions,
+      constraints: row.constraints.trim() ? row.constraints : suggested.constraints,
+    };
+  });
+  return { profile, profileLabel: SCOPE_PROFILE_LABELS[profile], items };
 }
 
 const ORG_ROLE_TEMPLATES: Omit<OrgRole, "enabled" | "assignee">[] = [
@@ -2034,6 +2195,10 @@ export default function Home() {
   );
   const readFrameworkInScope = (axisId: ScopeAxisId) =>
     scopeFrameworkMap.get(axisId)?.inScope?.trim() ?? "";
+  const inferredScopeProfileLabel = useMemo(
+    () => SCOPE_PROFILE_LABELS[detectScopeFrameworkProfile(eventType, venueType)],
+    [eventType, venueType]
+  );
   const effectiveScopeSite = scopeSite.trim() || readFrameworkInScope("site_setup");
   const effectiveScopeTechnical = scopeTechnical.trim() || readFrameworkInScope("technical_setup");
   const effectiveScopeProgram = scopeProgram.trim() || readFrameworkInScope("program_execution");
@@ -3176,6 +3341,21 @@ export default function Home() {
     setScopeFramework((prev) =>
       prev.map((row) => (row.axisId === axisId ? { ...row, ...patch } : row))
     );
+  }
+
+  function applySuggestedScopeFramework() {
+    const suggestion = buildSuggestedScopeFramework(scopeFramework, eventType, venueType);
+    setScopeFramework(suggestion.items);
+
+    const readSuggested = (axisId: ScopeAxisId) =>
+      suggestion.items.find((row) => row.axisId === axisId)?.inScope.trim() ?? "";
+
+    setScopeSite((prev) => prev.trim() || readSuggested("site_setup"));
+    setScopeTechnical((prev) => prev.trim() || readSuggested("technical_setup"));
+    setScopeProgram((prev) => prev.trim() || readSuggested("program_execution"));
+    setScopeCeremony((prev) => prev.trim() || readSuggested("ceremony_documentation"));
+
+    showSuccess(`تم توليد إطار نطاق مقترح (${suggestion.profileLabel}) بدون الكتابة فوق المدخلات الحالية.`);
   }
 
   function applyScopeFrameworkToLegacySummaries() {
@@ -12497,6 +12677,19 @@ export default function Home() {
                         <div style={{ ...styles.advancedSectionContent, display: "grid", gap: 10 }}>
                           <div style={styles.scopeSectionHint}>
                             فعّل المحاور المناسبة لنوع المشروع، ثم حدّد داخل/خارج النطاق والافتراضات والقيود.
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              style={styles.compactGhostBtn}
+                              disabled={!canEditAdvancedExecution}
+                              onClick={applySuggestedScopeFramework}
+                            >
+                              توليد إطار نطاق مقترح
+                            </button>
+                            <div style={styles.scopeSectionHint}>
+                              البروفايل المقترح حاليًا: {inferredScopeProfileLabel}
+                            </div>
                           </div>
                           <div style={{ display: "grid", gap: 10 }}>
                             {SCOPE_AXIS_DEFINITIONS.map((axis) => {
