@@ -2296,9 +2296,9 @@ export default function StrategyExecutionBudgetPage() {
     const item = regulatoryCommitments.find((row) => row.path === path);
     if (!item) return;
     const baselineRequired = regulatoryBaselineRequiredPaths.includes(path);
-    const nextStatus = normalizeRegulatoryCommitmentStatus(nextValue, item.required);
+    const wantsNotRequired = nextValue === "غير مطلوب";
 
-    if (nextStatus === "غير مطلوب" && baselineRequired) {
+    if (wantsNotRequired && baselineRequired) {
       if (currentRole !== "project_manager") {
         const message = `غير مسموح: تحويل المسار "${REGULATORY_PATH_LABELS[path]}" إلى غير مطلوب يتطلب صلاحية مدير المشروع.`;
         setAlertMessage(message);
@@ -2325,9 +2325,9 @@ export default function StrategyExecutionBudgetPage() {
       return;
     }
 
-    const shouldBeRequired = baselineRequired || nextStatus !== "غير مطلوب";
+    const shouldBeRequired = baselineRequired || !wantsNotRequired;
     updateRegulatoryCommitment(path, {
-      status: normalizeRegulatoryCommitmentStatus(nextStatus, shouldBeRequired),
+      status: normalizeRegulatoryCommitmentStatus(nextValue, shouldBeRequired),
       required: shouldBeRequired,
     });
   }
