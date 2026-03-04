@@ -39,6 +39,56 @@ const ALL_ADVISOR_KEYS: AdvisorKey[] = [
   "risk_advisor",
 ];
 
+const SCOPE_AXIS_DEFINITIONS: Array<{
+  id: ScopeAxisId;
+  title: string;
+  summary: string;
+  defaultEnabled: boolean;
+}> = [
+  {
+    id: "site_setup",
+    title: "الموقع والتجهيزات",
+    summary: "المساحات، البنية الميدانية، الجاهزية التشغيلية للموقع.",
+    defaultEnabled: true,
+  },
+  {
+    id: "technical_setup",
+    title: "التجهيزات الفنية",
+    summary: "الصوت، الإضاءة، الشاشات، الكهرباء، الربط التقني.",
+    defaultEnabled: true,
+  },
+  {
+    id: "program_execution",
+    title: "البرنامج التنفيذي",
+    summary: "تسلسل الفقرات، إدارة المسرح، تشغيل البرنامج يوم الفعالية.",
+    defaultEnabled: true,
+  },
+  {
+    id: "ceremony_documentation",
+    title: "المراسم والتوثيق",
+    summary: "البروتوكول، مسارات VIP، التوثيق الإعلامي والرسمي.",
+    defaultEnabled: true,
+  },
+  {
+    id: "operations_logistics",
+    title: "التشغيل واللوجستيات",
+    summary: "النقل، التحميل والتنزيل، المخزون، سير فرق التشغيل.",
+    defaultEnabled: true,
+  },
+  {
+    id: "marketing_communication",
+    title: "التسويق والاتصال",
+    summary: "الحملات، الجمهور المستهدف، إدارة الرسائل والقنوات.",
+    defaultEnabled: false,
+  },
+  {
+    id: "permits_compliance",
+    title: "التصاريح والامتثال",
+    summary: "التراخيص، الموافقات، المتطلبات النظامية والالتزام.",
+    defaultEnabled: false,
+  },
+];
+
 type VenueType = "منتجع" | "فندق" | "قاعة" | "مساحة عامة" | "غير محدد";
 
 type Question = {
@@ -122,6 +172,7 @@ type PersistedState = {
   scopeTechnical?: string;
   scopeProgram?: string;
   scopeCeremony?: string;
+  scopeFramework?: ScopeFrameworkItem[];
   executionStrategy?: string;
   qualityStandards?: string;
   riskManagement?: string;
@@ -139,6 +190,24 @@ type PersistedState = {
   advancedPlanText?: string;
   advancedApproved?: boolean;
   demoMode?: boolean;
+};
+
+type ScopeAxisId =
+  | "site_setup"
+  | "technical_setup"
+  | "program_execution"
+  | "ceremony_documentation"
+  | "operations_logistics"
+  | "marketing_communication"
+  | "permits_compliance";
+
+type ScopeFrameworkItem = {
+  axisId: ScopeAxisId;
+  enabled: boolean;
+  inScope: string;
+  outOfScope: string;
+  assumptions: string;
+  constraints: string;
 };
 
 type LocalProjectMeta = {
@@ -173,6 +242,7 @@ type ProjectsBackupFile = {
 type BoqItem = {
   id: string;
   category: string;
+  scopeAxisId?: ScopeAxisId | "";
   item: string;
   spec: string;
   unit: string;
@@ -400,6 +470,11 @@ function projectHubTaskGroupLabel(group: ProjectHubTaskStatusGroup) {
     default:
       return "لم تبدأ";
   }
+}
+
+function scopeAxisTitle(axisId: ScopeAxisId | "") {
+  if (!axisId) return "غير محدد";
+  return SCOPE_AXIS_DEFINITIONS.find((axis) => axis.id === axisId)?.title ?? "غير محدد";
 }
 
 function riskLevelScore(level: RiskLevel) {
@@ -960,6 +1035,7 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
   {
     id: "1",
     category: "الموقع والتجهيزات",
+    scopeAxisId: "site_setup",
     item: "",
     spec: "",
     unit: "قطعة",
@@ -974,6 +1050,66 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     dependencyType: "FS",
   },
 ];
+
+function normalizeScopeAxisId(value: unknown): ScopeAxisId | "" {
+  if (typeof value !== "string") return "";
+  return SCOPE_AXIS_DEFINITIONS.some((axis) => axis.id === value) ? (value as ScopeAxisId) : "";
+}
+
+function inferScopeAxisFromCategory(category: string): ScopeAxisId | "" {
+  const normalized = category.toLocaleLowerCase("ar-SA");
+  if (normalized.includes("موقع") || normalized.includes("تجهيز")) return "site_setup";
+  if (normalized.includes("فني") || normalized.includes("صوت") || normalized.includes("إضاءة")) {
+    return "technical_setup";
+  }
+  if (normalized.includes("برنامج") || normalized.includes("تشغيل")) return "program_execution";
+  if (normalized.includes("مراسم") || normalized.includes("توثيق") || normalized.includes("بروتوكول")) {
+    return "ceremony_documentation";
+  }
+  if (normalized.includes("لوجست") || normalized.includes("نقل") || normalized.includes("مخزون")) {
+    return "operations_logistics";
+  }
+  if (normalized.includes("تسويق") || normalized.includes("اتصال") || normalized.includes("إعلام")) {
+    return "marketing_communication";
+  }
+  if (normalized.includes("تصريح") || normalized.includes("امتثال") || normalized.includes("موافقة")) {
+    return "permits_compliance";
+  }
+  return "";
+}
+
+function normalizeScopeFramework(
+  saved: ScopeFrameworkItem[] | undefined,
+  legacy: {
+    scopeSite: string;
+    scopeTechnical: string;
+    scopeProgram: string;
+    scopeCeremony: string;
+  }
+): ScopeFrameworkItem[] {
+  const sourceMap = new Map((saved ?? []).map((row) => [row.axisId, row]));
+  return SCOPE_AXIS_DEFINITIONS.map((axis) => {
+    const savedRow = sourceMap.get(axis.id);
+    const legacyInScope =
+      axis.id === "site_setup"
+        ? legacy.scopeSite
+        : axis.id === "technical_setup"
+          ? legacy.scopeTechnical
+          : axis.id === "program_execution"
+            ? legacy.scopeProgram
+            : axis.id === "ceremony_documentation"
+              ? legacy.scopeCeremony
+              : "";
+    return {
+      axisId: axis.id,
+      enabled: savedRow?.enabled ?? (axis.defaultEnabled || legacyInScope.trim().length > 0),
+      inScope: typeof savedRow?.inScope === "string" ? savedRow.inScope : legacyInScope,
+      outOfScope: typeof savedRow?.outOfScope === "string" ? savedRow.outOfScope : "",
+      assumptions: typeof savedRow?.assumptions === "string" ? savedRow.assumptions : "",
+      constraints: typeof savedRow?.constraints === "string" ? savedRow.constraints : "",
+    };
+  });
+}
 
 const ORG_ROLE_TEMPLATES: Omit<OrgRole, "enabled" | "assignee">[] = [
   {
@@ -1074,6 +1210,7 @@ function normalizeBoqItems(saved?: BoqItem[]) {
   if (!saved?.length) return DEFAULT_BOQ_ITEMS;
   return saved.map<BoqItem>((row) => ({
     ...row,
+    scopeAxisId: normalizeScopeAxisId(row.scopeAxisId) || inferScopeAxisFromCategory(row.category),
     unitCost: row.unitCost ?? "",
     unitSellPrice: row.unitSellPrice ?? "",
     targetMarginPct: row.targetMarginPct ?? "",
@@ -1134,6 +1271,14 @@ export default function Home() {
   const [scopeProgram, setScopeProgram] = useState(initialSaved.scopeProgram ?? "");
   const [scopeCeremony, setScopeCeremony] = useState(
     initialSaved.scopeCeremony ?? ""
+  );
+  const [scopeFramework, setScopeFramework] = useState<ScopeFrameworkItem[]>(
+    normalizeScopeFramework(initialSaved.scopeFramework, {
+      scopeSite: initialSaved.scopeSite ?? "",
+      scopeTechnical: initialSaved.scopeTechnical ?? "",
+      scopeProgram: initialSaved.scopeProgram ?? "",
+      scopeCeremony: initialSaved.scopeCeremony ?? "",
+    })
   );
   const [executionStrategy, setExecutionStrategy] = useState(
     initialSaved.executionStrategy ?? ""
@@ -1875,6 +2020,27 @@ export default function Home() {
   );
   const readinessCriticalMissingText = strategyReadiness.criticalMissing.slice(0, 3).join("، ");
   const readinessOptionalMissingText = strategyReadiness.optionalMissing.slice(0, 3).join("، ");
+  const scopeFrameworkMap = useMemo(
+    () => new Map(scopeFramework.map((axis) => [axis.axisId, axis])),
+    [scopeFramework]
+  );
+  const enabledScopeAxes = useMemo(
+    () =>
+      SCOPE_AXIS_DEFINITIONS.filter((axis) => {
+        const row = scopeFrameworkMap.get(axis.id);
+        return row?.enabled;
+      }),
+    [scopeFrameworkMap]
+  );
+  const readFrameworkInScope = (axisId: ScopeAxisId) =>
+    scopeFrameworkMap.get(axisId)?.inScope?.trim() ?? "";
+  const effectiveScopeSite = scopeSite.trim() || readFrameworkInScope("site_setup");
+  const effectiveScopeTechnical = scopeTechnical.trim() || readFrameworkInScope("technical_setup");
+  const effectiveScopeProgram = scopeProgram.trim() || readFrameworkInScope("program_execution");
+  const effectiveScopeCeremony = scopeCeremony.trim() || readFrameworkInScope("ceremony_documentation");
+  const boqUnmappedScopeCount = boqItems.filter(
+    (row) => row.item.trim().length > 0 && !normalizeScopeAxisId(row.scopeAxisId)
+  ).length;
 
   const canStart =
     project.trim().length > 0 &&
@@ -1882,29 +2048,33 @@ export default function Home() {
     strategyReadiness.mode === "advisory";
   const canBuildAdvancedPlan =
     commissioningDate.trim().length > 0 &&
-    scopeSite.trim().length > 0 &&
-    scopeTechnical.trim().length > 0 &&
-    scopeProgram.trim().length > 0 &&
+    effectiveScopeSite.length > 0 &&
+    effectiveScopeTechnical.length > 0 &&
+    effectiveScopeProgram.length > 0 &&
     executionStrategy.trim().length > 0 &&
     boqItems.some((row) => row.item.trim().length > 0) &&
+    boqUnmappedScopeCount === 0 &&
     !hasBoqDependencyIssues;
   const advancedMissingFields: string[] = [];
   if (!commissioningDate.trim()) advancedMissingFields.push("تاريخ التعميد");
-  if (!scopeSite.trim()) advancedMissingFields.push("نطاق الموقع والتجهيزات");
-  if (!scopeTechnical.trim()) advancedMissingFields.push("نطاق التجهيزات الفنية");
-  if (!scopeProgram.trim()) advancedMissingFields.push("نطاق البرنامج التنفيذي");
+  if (!effectiveScopeSite) advancedMissingFields.push("نطاق الموقع والتجهيزات");
+  if (!effectiveScopeTechnical) advancedMissingFields.push("نطاق التجهيزات الفنية");
+  if (!effectiveScopeProgram) advancedMissingFields.push("نطاق البرنامج التنفيذي");
   if (!executionStrategy.trim()) advancedMissingFields.push("استراتيجية التنفيذ");
   if (!boqItems.some((row) => row.item.trim().length > 0)) {
     advancedMissingFields.push("بند واحد على الأقل في جدول الكميات (اسم البند)");
+  }
+  if (boqUnmappedScopeCount > 0) {
+    advancedMissingFields.push("ربط كل بند في جدول الكميات بمحور نطاق");
   }
   if (hasBoqDependencyIssues) {
     advancedMissingFields.push("معالجة تعارضات تبعيات جدول الكميات");
   }
   const advancedScopeChecklist = [
-    { id: "scope_site", done: scopeSite.trim().length > 0 },
-    { id: "scope_technical", done: scopeTechnical.trim().length > 0 },
-    { id: "scope_program", done: scopeProgram.trim().length > 0 },
-    { id: "scope_ceremony", done: scopeCeremony.trim().length > 0 },
+    { id: "scope_site", done: effectiveScopeSite.length > 0 },
+    { id: "scope_technical", done: effectiveScopeTechnical.length > 0 },
+    { id: "scope_program", done: effectiveScopeProgram.length > 0 },
+    { id: "scope_ceremony", done: effectiveScopeCeremony.length > 0 },
     { id: "execution_strategy", done: executionStrategy.trim().length > 0 },
   ];
   const advancedScopeCompletedCount = advancedScopeChecklist.filter((item) => item.done).length;
@@ -2059,6 +2229,7 @@ export default function Home() {
       scopeTechnical,
       scopeProgram,
       scopeCeremony,
+      scopeFramework,
       executionStrategy,
       qualityStandards,
       riskManagement,
@@ -2519,6 +2690,7 @@ export default function Home() {
       scopeTechnical,
       scopeProgram,
       scopeCeremony,
+      scopeFramework,
       executionStrategy,
       qualityStandards,
       riskManagement,
@@ -2583,6 +2755,7 @@ export default function Home() {
     scopeTechnical,
     scopeProgram,
     scopeCeremony,
+    scopeFramework,
     executionStrategy,
     qualityStandards,
     riskManagement,
@@ -2990,10 +3163,33 @@ export default function Home() {
         normalizedPatch[key] = normalizeDigitsToEnglish(raw);
       }
     });
+    if ("scopeAxisId" in normalizedPatch) {
+      normalizedPatch.scopeAxisId = normalizeScopeAxisId(normalizedPatch.scopeAxisId);
+    }
 
     setBoqItems((prev) =>
       prev.map((row) => (row.id === id ? { ...row, ...normalizedPatch } : row))
     );
+  }
+
+  function updateScopeFrameworkItem(axisId: ScopeAxisId, patch: Partial<ScopeFrameworkItem>) {
+    setScopeFramework((prev) =>
+      prev.map((row) => (row.axisId === axisId ? { ...row, ...patch } : row))
+    );
+  }
+
+  function applyScopeFrameworkToLegacySummaries() {
+    const readSummary = (axisId: ScopeAxisId, fallback: string) => {
+      const row = scopeFramework.find((item) => item.axisId === axisId);
+      if (!row || !row.enabled) return fallback;
+      return row.inScope.trim() || fallback;
+    };
+
+    setScopeSite((prev) => readSummary("site_setup", prev));
+    setScopeTechnical((prev) => readSummary("technical_setup", prev));
+    setScopeProgram((prev) => readSummary("program_execution", prev));
+    setScopeCeremony((prev) => readSummary("ceremony_documentation", prev));
+    showSuccess("تم مواءمة ملخص النطاق مع إطار النطاق التشغيلي.");
   }
 
   function syncBoqTargetMarginFromManualSell(id: string) {
@@ -3044,11 +3240,13 @@ export default function Home() {
       orgRoles.find((role) => role.id === "operations_manager" && role.enabled)?.id ??
       activeOrgRoles[0]?.id ??
       "";
+    const defaultScopeAxisId = enabledScopeAxes[0]?.id ?? "";
     setBoqItems((prev) => [
       ...prev,
       {
         id: nextId,
         category: "التجهيزات الفنية",
+        scopeAxisId: defaultScopeAxisId,
         item: "",
         spec: "",
         unit: "قطعة",
@@ -3703,7 +3901,8 @@ export default function Home() {
         const targetMarginSummary = row.targetMarginPct.trim().length
           ? ` — هامش مستهدف: ${toArabicDigits(row.targetMarginPct.trim())}%`
           : "";
-        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع${pricingModeSummary}: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}${targetMarginSummary}`;
+        const scopeAxisSummary = scopeAxisTitle(normalizeScopeAxisId(row.scopeAxisId));
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — محور النطاق: ${scopeAxisSummary} — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع${pricingModeSummary}: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}${targetMarginSummary}`;
       })
       .join("\n");
 
@@ -4030,10 +4229,10 @@ export default function Home() {
       `- الإقفال: من ${fmt(closureStart, true)} إلى ${fmt(closureEnd, true)}`,
       "",
       "نطاق العمل المعتمد:",
-      `- الموقع والتجهيزات: ${scopeSite || "- غير مدخل."}`,
-      `- التجهيزات الفنية: ${scopeTechnical || "- غير مدخل."}`,
-      `- البرنامج التنفيذي: ${scopeProgram || "- غير مدخل."}`,
-      `- المراسم والتوثيق: ${scopeCeremony || "- غير مدخل."}`,
+      `- الموقع والتجهيزات: ${effectiveScopeSite || "- غير مدخل."}`,
+      `- التجهيزات الفنية: ${effectiveScopeTechnical || "- غير مدخل."}`,
+      `- البرنامج التنفيذي: ${effectiveScopeProgram || "- غير مدخل."}`,
+      `- المراسم والتوثيق: ${effectiveScopeCeremony || "- غير مدخل."}`,
       "",
       "استراتيجية التنفيذ:",
       executionStrategy || "- غير مدخلة.",
@@ -4813,9 +5012,9 @@ export default function Home() {
     if (deliveryTrack === "advanced") {
       checks.push(
         commissioningDate.trim().length > 0,
-        scopeSite.trim().length > 0,
-        scopeTechnical.trim().length > 0,
-        scopeProgram.trim().length > 0,
+        effectiveScopeSite.length > 0,
+        effectiveScopeTechnical.length > 0,
+        effectiveScopeProgram.length > 0,
         executionStrategy.trim().length > 0
       );
     }
@@ -12292,7 +12491,137 @@ export default function Home() {
                           </div>
                         </div>
                         <div style={styles.advancedSectionHint}>
-                          حدّد مكونات النطاق لكل محور تشغيلي قبل الانتقال إلى جدول الكميات.
+                          هيكل النطاق هنا إطار توجيهي مرن. التفاصيل التنفيذية تنتقل لاحقًا إلى جدول الكميات.
+                        </div>
+
+                        <div style={{ ...styles.advancedSectionContent, display: "grid", gap: 10 }}>
+                          <div style={styles.scopeSectionHint}>
+                            فعّل المحاور المناسبة لنوع المشروع، ثم حدّد داخل/خارج النطاق والافتراضات والقيود.
+                          </div>
+                          <div style={{ display: "grid", gap: 10 }}>
+                            {SCOPE_AXIS_DEFINITIONS.map((axis) => {
+                              const axisState =
+                                scopeFramework.find((item) => item.axisId === axis.id) ?? {
+                                  axisId: axis.id,
+                                  enabled: axis.defaultEnabled,
+                                  inScope: "",
+                                  outOfScope: "",
+                                  assumptions: "",
+                                  constraints: "",
+                                };
+                              const toneColor = axisState.enabled
+                                ? "rgba(160, 236, 214, 0.42)"
+                                : "rgba(138, 160, 255, 0.18)";
+                              return (
+                                <div
+                                  key={axis.id}
+                                  style={{
+                                    borderRadius: 14,
+                                    border: `1px solid ${toneColor}`,
+                                    background: axisState.enabled
+                                      ? "linear-gradient(180deg, rgba(14,23,42,0.78), rgba(8,14,24,0.74))"
+                                      : "rgba(10,14,25,0.66)",
+                                    padding: 10,
+                                    display: "grid",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      gap: 8,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <div>
+                                      <div style={styles.scopeFieldTitle}>{axis.title}</div>
+                                      <div style={styles.scopeSectionHint}>{axis.summary}</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      style={styles.orgRoleToggle(axisState.enabled)}
+                                      disabled={!canEditAdvancedExecution}
+                                      onClick={() =>
+                                        updateScopeFrameworkItem(axis.id, { enabled: !axisState.enabled })
+                                      }
+                                    >
+                                      {axisState.enabled ? "داخل النطاق" : "خارج النطاق"}
+                                    </button>
+                                  </div>
+
+                                  <div style={styles.scopeFieldsGrid}>
+                                    <div style={styles.scopeFieldCard}>
+                                      <div style={styles.scopeFieldTitle}>داخل النطاق</div>
+                                      <textarea
+                                        value={axisState.inScope}
+                                        onChange={(e) =>
+                                          updateScopeFrameworkItem(axis.id, { inScope: e.target.value })
+                                        }
+                                        disabled={!canEditAdvancedExecution || !axisState.enabled}
+                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                        placeholder="ما الذي سيتم تنفيذه ضمن هذا المحور؟"
+                                      />
+                                    </div>
+
+                                    <div style={styles.scopeFieldCard}>
+                                      <div style={styles.scopeFieldTitle}>خارج النطاق</div>
+                                      <textarea
+                                        value={axisState.outOfScope}
+                                        onChange={(e) =>
+                                          updateScopeFrameworkItem(axis.id, { outOfScope: e.target.value })
+                                        }
+                                        disabled={!canEditAdvancedExecution}
+                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                        placeholder="ما الذي لن يتم تضمينه في هذا المحور؟"
+                                      />
+                                    </div>
+
+                                    <div style={styles.scopeFieldCard}>
+                                      <div style={styles.scopeFieldTitle}>افتراضات التنفيذ</div>
+                                      <textarea
+                                        value={axisState.assumptions}
+                                        onChange={(e) =>
+                                          updateScopeFrameworkItem(axis.id, { assumptions: e.target.value })
+                                        }
+                                        disabled={!canEditAdvancedExecution}
+                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                        placeholder="الافتراضات التي بُني عليها هذا المحور."
+                                      />
+                                    </div>
+
+                                    <div style={styles.scopeFieldCard}>
+                                      <div style={styles.scopeFieldTitle}>قيود التنفيذ</div>
+                                      <textarea
+                                        value={axisState.constraints}
+                                        onChange={(e) =>
+                                          updateScopeFrameworkItem(axis.id, { constraints: e.target.value })
+                                        }
+                                        disabled={!canEditAdvancedExecution}
+                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                        placeholder="قيود زمنية/مالية/تشغيلية مرتبطة بالمحور."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              style={styles.compactGhostBtn}
+                              disabled={!canEditAdvancedExecution}
+                              onClick={applyScopeFrameworkToLegacySummaries}
+                            >
+                              مواءمة ملخص النطاق الأساسي
+                            </button>
+                            <div style={styles.scopeSectionHint}>
+                              يتم استخدام الملخص الأساسي للحفاظ على التوافق مع المراحل الحالية والتقارير.
+                            </div>
+                          </div>
                         </div>
 
                         <div style={{ ...styles.scopeFieldsGrid, ...styles.advancedSectionContent }}>
@@ -12672,7 +13001,15 @@ export default function Home() {
                         </div>
                       </div>
                     ) : null}
+                    {boqUnmappedScopeCount > 0 ? (
+                      <div style={styles.warnBox}>
+                        <strong>تنبيه نطاق:</strong> يوجد{" "}
+                        {toArabicDigits(boqUnmappedScopeCount)} بند غير مربوط بمحور نطاق. اربط كل بند
+                        بمحور من مرحلة 6 قبل توليد الخطة.
+                      </div>
+                    ) : null}
                     {boqItems.map((row, idx) => {
+                      const normalizedScopeAxisId = normalizeScopeAxisId(row.scopeAxisId);
                       const assignedRole = row.ownerRoleId
                         ? orgRoles.find((role) => role.id === row.ownerRoleId)
                         : null;
@@ -12698,12 +13035,16 @@ export default function Home() {
                       const boqStateTone: "ready" | "working" | "idle" =
                         row.item.trim().length === 0
                           ? "idle"
+                          : !normalizedScopeAxisId
+                            ? "working"
                           : financialRow
                             ? "ready"
                             : "working";
                       const boqStateLabel =
                         boqStateTone === "ready"
                           ? "جاهز ماليًا"
+                          : row.item.trim().length > 0 && !normalizedScopeAxisId
+                            ? "بحاجة ربط نطاق"
                           : boqStateTone === "working"
                             ? "مكتمل جزئيًا"
                             : "غير مكتمل";
@@ -12776,6 +13117,27 @@ export default function Home() {
                           {isBoqExpanded ? (
                           <>
                           <div style={styles.initFormGrid}>
+                            <select
+                              value={row.scopeAxisId ?? ""}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, { scopeAxisId: normalizeScopeAxisId(e.target.value) })
+                              }
+                              style={styles.input}
+                              disabled={!canEditAdvancedExecution}
+                            >
+                              <option value="">محور النطاق المرتبط (إلزامي)</option>
+                              {enabledScopeAxes.map((axis) => (
+                                <option key={axis.id} value={axis.id}>
+                                  {axis.title}
+                                </option>
+                              ))}
+                              {!enabledScopeAxes.some((axis) => axis.id === normalizedScopeAxisId) &&
+                              normalizedScopeAxisId ? (
+                                <option value={normalizedScopeAxisId}>
+                                  {scopeAxisTitle(normalizedScopeAxisId)}
+                                </option>
+                              ) : null}
+                            </select>
                             <input
                               value={row.category}
                               onChange={(e) => updateBoqItem(row.id, { category: e.target.value })}
@@ -12791,6 +13153,11 @@ export default function Home() {
                               placeholder="اسم البند"
                             />
                           </div>
+                          {!normalizedScopeAxisId && row.item.trim().length > 0 ? (
+                            <div style={styles.textMutedSmallTop8}>
+                              اربط هذا البند بمحور نطاق قبل اعتماد الخطة.
+                            </div>
+                          ) : null}
                           <div style={styles.blockTop8}>
                             <textarea
                               value={row.spec}
