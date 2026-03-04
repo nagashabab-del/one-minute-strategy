@@ -170,6 +170,11 @@ type NewUpdateForm = {
   note: string;
 };
 
+type TemplateProfileSuggestion = {
+  next: PlanTemplateProfile;
+  summary: string;
+};
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
@@ -238,6 +243,7 @@ export default function StrategyExecutionPlanPage() {
   const [templatePresets, setTemplatePresets] = useState<PlanTemplatePreset[]>([]);
   const [newPresetName, setNewPresetName] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [templateSuggestionSummary, setTemplateSuggestionSummary] = useState("");
 
   useEffect(() => {
     const context = readProjectContext();
@@ -393,6 +399,13 @@ export default function StrategyExecutionPlanPage() {
       ...prev,
       lastGeneratedAt: generatedAt,
     }));
+  }
+
+  function applyAutoTemplateSuggestion() {
+    const suggestion = suggestTemplateProfile(projectContext.id, templateProfile);
+    setTemplateProfile(suggestion.next);
+    setTemplateSuggestionSummary(suggestion.summary);
+    setAlertMessage(`تم اقتراح إعدادات القالب تلقائيًا. ${suggestion.summary}`);
   }
 
   function saveCurrentTemplatePreset() {
@@ -894,6 +907,9 @@ export default function StrategyExecutionPlanPage() {
         </div>
 
         <div className="plan-template-actions">
+          <button className="oms-btn oms-btn-ghost" type="button" onClick={applyAutoTemplateSuggestion}>
+            اقتراح تلقائي من موجز المشروع
+          </button>
           <button className="oms-btn oms-btn-primary" type="button" onClick={generateSmartTemplateTasks}>
             توليد المهام من القالب
           </button>
@@ -901,6 +917,11 @@ export default function StrategyExecutionPlanPage() {
             وضع التنفيذ الحالي: {templateProfile.replaceExisting ? "استبدال كامل" : "دمج مع المهام الحالية"}
           </span>
         </div>
+        {templateSuggestionSummary ? (
+          <div className="budget-foot-note" style={{ marginTop: 8 }}>
+            آخر اقتراح تلقائي: {templateSuggestionSummary}
+          </div>
+        ) : null}
 
         <div className="plan-regulatory-wrap">
           <div className="plan-regulatory-head">
@@ -2704,6 +2725,80 @@ function materializeTemplateTasks(
 
 function normalizeTemplateTitle(value: string) {
   return value.trim().toLocaleLowerCase("ar-SA");
+}
+
+function suggestTemplateProfile(projectId: string, currentProfile: PlanTemplateProfile): TemplateProfileSuggestion {
+  const snapshot = readProjectDataSnapshot(projectId);
+  const boqCount = snapshot.boqItems.length;
+  const corpus = `${snapshot.eventType} ${snapshot.project} ${snapshot.venueType} ${snapshot.boqItems
+    .map((item) => `${item.category} ${item.item} ${item.spec}`)
+    .join(" ")}`
+    .trim()
+    .toLocaleLowerCase("en-US");
+
+  const isGovernment = containsAny(corpus, ["حكومي", "وزارة", "هيئة", "أمانة", "بلدية", "government"]);
+  const isSeason = containsAny(corpus, ["موسم", "season"]);
+  const isExpo = containsAny(corpus, ["معرض", "expo", "booth", "جناح"]);
+  const isConference = containsAny(corpus, ["مؤتمر", "forum", "summit", "conference"]);
+  const isInternal = containsAny(corpus, ["داخلي", "موظفين", "internal", "townhall"]);
+  const isMarketing = containsAny(corpus, ["تسويقي", "ترويج", "activation", "brand", "launch"]);
+
+  let projectType: ProjectTemplateType = currentProfile.projectType;
+  if (isGovernment) projectType = "فعالية حكومية";
+  else if (isSeason) projectType = "موسم";
+  else if (isExpo) projectType = "معرض";
+  else if (isConference) projectType = "مؤتمر";
+  else if (isInternal) projectType = "فعالية داخلية";
+  else if (isMarketing) projectType = "تفعيل تسويقي";
+
+  const highScaleSignal =
+    boqCount >= 20 ||
+    containsAny(corpus, ["ضخم", "واسع", "دولي", "آلاف", "multi-day", "مدينة", "mega"]);
+  const mediumScaleSignal =
+    boqCount >= 8 || containsAny(corpus, ["متوسط", "standard", "متعدد الفرق", "multi team"]);
+  const projectScale: ProjectScale = highScaleSignal ? "كبير" : mediumScaleSignal ? "متوسط" : "صغير";
+
+  const multiVenue =
+    containsAny(corpus, ["متعدد المواقع", "عدة مواقع", "أكثر من موقع", "multi-site", "multi site"]) ||
+    containsAny(corpus, ["موقعين", "موقعين", "فرعين", "branch"]);
+
+  const hasSponsors = containsAny(corpus, ["راعي", "رعاة", "sponsor", "sponsorship", "شريك", "شركاء"]);
+
+  const outdoorVenue = snapshot.venueType === "مساحة عامة" || containsAny(corpus, ["خارجي", "outdoor", "ساحة"]);
+  const needsPermits =
+    outdoorVenue ||
+    projectType === "فعالية حكومية" ||
+    containsAny(corpus, [
+      "تصريح",
+      "تصاريح",
+      "permit",
+      "دفاع مدني",
+      "بلدية",
+      "أمانة",
+      "حفلة",
+      "concert",
+      "مسرح",
+      "stage",
+      "حشود",
+      "crowd",
+      "مولد",
+      "generator",
+    ]);
+
+  const next: PlanTemplateProfile = {
+    ...currentProfile,
+    projectType,
+    projectScale,
+    multiVenue,
+    hasSponsors,
+    needsPermits,
+  };
+
+  const summary = `نوع المشروع: ${projectType} · الحجم: ${projectScale} · متعدد المواقع: ${
+    multiVenue ? "نعم" : "لا"
+  } · رعاة: ${hasSponsors ? "نعم" : "لا"} · تصاريح: ${needsPermits ? "نعم" : "لا"}`;
+
+  return { next, summary };
 }
 
 function buildDefaultTasks(): PlanTask[] {
