@@ -241,6 +241,7 @@ export default function StrategyExecutionPlanPage() {
 
   useEffect(() => {
     const context = readProjectContext();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount
     setProjectContext(context);
     const snapshot = readPlanSnapshot(context.id);
     if (snapshot) {
@@ -269,6 +270,7 @@ export default function StrategyExecutionPlanPage() {
 
   useEffect(() => {
     if (!isLoaded || !projectContext.id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state synchronization from computed schedule risks
     setRisks((prev) => {
       const next = syncScheduleRisks(taskViews, prev);
       if (risksEqual(prev, next)) return prev;
@@ -296,12 +298,16 @@ export default function StrategyExecutionPlanPage() {
         updatedAt: now,
       })
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reflect latest persistence timestamp in UI
     setLastSavedAt(now);
   }, [isLoaded, projectContext.id, tasks, updates, risks, templateProfile, templatePresets, regulatoryInsights]);
 
   useEffect(() => {
     if (templatePresets.length === 0) {
-      if (selectedPresetId) setSelectedPresetId("");
+      if (selectedPresetId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- keep selected preset aligned with available presets
+        setSelectedPresetId("");
+      }
       return;
     }
     const exists = templatePresets.some((item) => item.id === selectedPresetId);
