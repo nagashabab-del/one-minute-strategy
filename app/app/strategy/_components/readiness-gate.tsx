@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import {
   ActiveStrategyProject,
   evaluateStrategyReadiness,
   readActiveStrategyProject,
+  readActiveStrategyProjectId,
   StrategyReadinessSummary,
 } from "../_lib/readiness";
 
@@ -162,7 +163,15 @@ function ReadinessBody({
 }
 
 function useStrategyReadinessState() {
-  const state = useSyncExternalStore(subscribeReadiness, getReadinessSnapshot, getReadinessServerSnapshot);
+  const signature = useSyncExternalStore(
+    subscribeReadiness,
+    getReadinessSnapshotSignature,
+    getReadinessServerSnapshotSignature
+  );
+  const state = useMemo(() => {
+    if (signature === "server") return null;
+    return getReadinessSnapshot();
+  }, [signature]);
   return { state, isLoading: state === null };
 }
 
@@ -182,6 +191,18 @@ function getReadinessSnapshot(): ReadinessState {
   return { project, summary };
 }
 
-function getReadinessServerSnapshot(): ReadinessState | null {
-  return null;
+function getReadinessSnapshotSignature(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    const activeProjectId = readActiveStrategyProjectId();
+    if (!activeProjectId) return "empty";
+    const projectRaw = localStorage.getItem(`oms_dashboard_project_data_v1_${activeProjectId}`) ?? "";
+    return `${activeProjectId}::${projectRaw}`;
+  } catch {
+    return "unavailable";
+  }
+}
+
+function getReadinessServerSnapshotSignature(): string {
+  return "server";
 }

@@ -151,6 +151,10 @@ export function readActiveStrategyProject(): ActiveStrategyProject {
   };
 }
 
+export function readActiveStrategyProjectId(): string {
+  return readActiveStrategyProject().id;
+}
+
 export function evaluateStrategyReadiness(snapshot: StrategyProjectSnapshot): StrategyReadinessSummary {
   const fields: StrategyReadinessField[] = FIELD_RULES.map((rule) => ({
     key: rule.key,
