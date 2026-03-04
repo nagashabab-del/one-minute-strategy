@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { readReports } from "./reports/report-store";
+import { evaluateStrategyReadiness, readActiveStrategyProject } from "./strategy/_lib/readiness";
 
 type NavItem = {
   href: string;
@@ -39,6 +40,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const inStrategyFlow = pathname.startsWith("/app/strategy");
   const [hasReports, setHasReports] = useState(false);
+  const [gapMode, setGapMode] = useState(false);
+  const [criticalMissingCount, setCriticalMissingCount] = useState(0);
 
   const currentSection = useMemo(() => {
     if (pathname.startsWith("/app/strategy")) return "الاستراتيجية";
@@ -79,15 +82,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    const refreshReportsState = () => {
+    const refreshContextState = () => {
       setHasReports(readReports().length > 0);
+      const readiness = readStrategyReadiness();
+      setGapMode(readiness.mode === "gap");
+      setCriticalMissingCount(readiness.criticalMissing.length);
     };
-    refreshReportsState();
-    window.addEventListener("storage", refreshReportsState);
-    return () => window.removeEventListener("storage", refreshReportsState);
+    refreshContextState();
+    window.addEventListener("storage", refreshContextState);
+    return () => window.removeEventListener("storage", refreshContextState);
   }, [pathname]);
 
   const shouldShowReportsShortcut = !inStrategyFlow || hasReports;
+  const quickStartHref = gapMode ? "/app/strategy/brief" : "/app/strategy";
+  const quickStartLabel = gapMode ? "استكمال بيانات التحليل" : "بدء تحليل جديد";
+  const quickActionBlockedHint =
+    criticalMissingCount > 0
+      ? "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع."
+      : "الإجراء مغلق مؤقتًا حتى اكتمال جاهزية بيانات الاستشارة.";
 
   return (
     <div
@@ -175,6 +187,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div style={{ fontSize: 12, color: "rgba(220,231,255,0.70)" }}>القسم الحالي</div>
               <div style={{ marginTop: 3, fontSize: 22, fontWeight: 900 }}>{currentSection}</div>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: gapMode ? "#ffb3b3" : "rgba(138,255,214,0.88)",
+                  fontWeight: 700,
+                }}
+              >
+                {gapMode ? "وضع البيانات: فجوة بيانات" : "وضع البيانات: جاهز للاستشارة"}
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 12, color: "rgba(220,231,255,0.70)" }}>المشروع الحالي</div>
@@ -187,16 +209,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="app-shell-context-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/app/strategy" className="oms-btn oms-btn-primary">
-              بدء تحليل جديد
+            <Link href={quickStartHref} className="oms-btn oms-btn-primary">
+              {quickStartLabel}
             </Link>
-            <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href="/app/workflows">
-              متابعة سير العمل
-            </Link>
-            {shouldShowReportsShortcut ? (
-              <Link className="oms-btn oms-btn-ghost" href="/app/reports">
-                فتح التقارير
+            {gapMode ? (
+              <button
+                type="button"
+                className="context-btn-mobile-hide oms-btn oms-btn-ghost app-shell-action-disabled"
+                title={quickActionBlockedHint}
+                disabled
+              >
+                متابعة سير العمل
+              </button>
+            ) : (
+              <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href="/app/workflows">
+                متابعة سير العمل
               </Link>
+            )}
+            {shouldShowReportsShortcut ? (
+              gapMode ? (
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost app-shell-action-disabled"
+                  title={quickActionBlockedHint}
+                  disabled
+                >
+                  فتح التقارير
+                </button>
+              ) : (
+                <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                  فتح التقارير
+                </Link>
+              )
             ) : null}
           </div>
         </section>
@@ -415,7 +459,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             gap: 6px !important;
           }
         }
+
+        .app-shell-action-disabled {
+          opacity: 0.58;
+          cursor: not-allowed;
+          border-color: rgba(244,126,126,0.42) !important;
+          color: #ffb3b3 !important;
+        }
       `}</style>
     </div>
   );
+}
+
+function readStrategyReadiness() {
+  const project = readActiveStrategyProject();
+  return evaluateStrategyReadiness(project.snapshot);
 }
