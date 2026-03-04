@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useStrategyReadinessState } from "./_components/readiness-gate";
 import { STRATEGY_STAGES, resolveActiveStageId, stageCompletionRatio } from "./stages";
 
 export default function StrategyLayout({
@@ -16,6 +17,9 @@ export default function StrategyLayout({
   const activeIndex = STRATEGY_STAGES.findIndex((item) => item.id === activeId);
   const completion = stageCompletionRatio(activeId);
   const activeStage = STRATEGY_STAGES.find((item) => item.id === activeId);
+  const { state: readinessState, isLoading: readinessLoading } = useStrategyReadinessState();
+  const isGapMode = !readinessLoading && readinessState?.summary.mode === "gap";
+  const sidebarBlockHint = "أكمل الحقول الحرجة في موجز المشروع أولًا قبل التنقل إلى هذه المرحلة.";
 
   return (
     <div className="strategy-layout">
@@ -34,27 +38,49 @@ export default function StrategyLayout({
           <span>{mobileStagesOpen ? "إخفاء المراحل" : "عرض المراحل"}</span>
         </button>
 
+        {isGapMode ? (
+          <div className="strategy-gap-hint">{sidebarBlockHint}</div>
+        ) : null}
+
         <nav className={`strategy-stage-list ${mobileStagesOpen ? "is-open" : ""}`}>
           {STRATEGY_STAGES.map((stage, idx) => {
             const active = stage.id === activeId;
             const completed = idx < activeIndex;
-            const stateLabel = active ? "نشطة" : completed ? "مكتملة" : "قادمة";
+            const blocked = isGapMode && stage.id !== "brief" && !active;
+            const stateLabel = active ? "نشطة" : blocked ? "مغلقة" : completed ? "مكتملة" : "قادمة";
+            const stageClassName = `strategy-stage-link ${active ? "is-active" : ""} ${
+              completed ? "is-complete" : ""
+            } ${blocked ? "is-blocked" : ""}`;
+            const stateClassName = `strategy-stage-state ${active ? "is-active" : completed ? "is-complete" : ""} ${
+              blocked ? "is-blocked" : ""
+            }`;
+
+            const content = (
+              <>
+                <span className="strategy-stage-row">
+                  <span className="strategy-stage-title">{stage.title}</span>
+                  <span className={stateClassName}>{stateLabel}</span>
+                </span>
+                <span className="strategy-stage-subtitle">{stage.subtitle}</span>
+              </>
+            );
+
+            if (blocked) {
+              return (
+                <div key={stage.id} className={stageClassName} title={sidebarBlockHint} aria-disabled>
+                  {content}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={stage.id}
                 href={stage.href}
-                className={`strategy-stage-link ${active ? "is-active" : ""} ${
-                  completed ? "is-complete" : ""
-                }`}
+                className={stageClassName}
                 onClick={() => setMobileStagesOpen(false)}
               >
-                <span className="strategy-stage-row">
-                  <span className="strategy-stage-title">{stage.title}</span>
-                  <span className={`strategy-stage-state ${active ? "is-active" : completed ? "is-complete" : ""}`}>
-                    {stateLabel}
-                  </span>
-                </span>
-                <span className="strategy-stage-subtitle">{stage.subtitle}</span>
+                {content}
               </Link>
             );
           })}
@@ -157,6 +183,13 @@ export default function StrategyLayout({
           box-shadow: 0 0 0 1px rgba(174, 128, 255, 0.22), 0 8px 18px rgba(61, 24, 129, 0.42);
         }
 
+        .strategy-stage-link.is-blocked {
+          opacity: 0.58;
+          cursor: not-allowed;
+          border-color: rgba(244, 126, 126, 0.38);
+          box-shadow: none;
+        }
+
         .strategy-stage-row {
           display: flex;
           align-items: center;
@@ -196,10 +229,27 @@ export default function StrategyLayout({
           background: rgba(93, 39, 201, 0.45);
         }
 
+        .strategy-stage-state.is-blocked {
+          border-color: rgba(244, 126, 126, 0.45);
+          color: #ffb3b3;
+          background: rgba(52, 23, 27, 0.72);
+        }
+
         .strategy-stage-subtitle {
           font-size: 11px;
           color: var(--oms-text-faint);
           line-height: 1.3;
+        }
+
+        .strategy-gap-hint {
+          border: 1px solid rgba(244, 126, 126, 0.4);
+          background: rgba(52, 23, 27, 0.66);
+          color: #ffb3b3;
+          border-radius: var(--oms-radius-sm);
+          padding: 8px 10px;
+          font-size: 12px;
+          line-height: 1.6;
+          font-weight: 700;
         }
 
         .strategy-engine-btn {
