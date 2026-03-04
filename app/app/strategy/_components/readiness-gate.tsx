@@ -244,7 +244,7 @@ function ReadinessBody({
 
       <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
         <div className="oms-list-line">اكتمال البيانات: {toArabicNumber(summary.score)}%</div>
-        <div className="oms-list-line">الحد الأدنى قبل التحليل الكامل: {toArabicNumber(summary.requiredScore)}%</div>
+        <div className="oms-list-line">حد الدخول للاستشارة (الحقول الحرجة): {toArabicNumber(summary.requiredScore)}%</div>
       </div>
 
       {summary.criticalMissing.length > 0 ? (

@@ -1874,6 +1874,7 @@ export default function Home() {
     [project, eventType, venueType, startAt, endAt, budget, scopeSite, scopeTechnical, scopeProgram]
   );
   const readinessCriticalMissingText = strategyReadiness.criticalMissing.slice(0, 3).join("، ");
+  const readinessOptionalMissingText = strategyReadiness.optionalMissing.slice(0, 3).join("، ");
 
   const canStart =
     project.trim().length > 0 &&
@@ -11260,6 +11261,11 @@ export default function Home() {
                         <div style={{ ...styles.warnBox, marginBottom: 0 }}>
                           <strong>نواقص حرجة قبل بدء الجلسة:</strong>{" "}
                           {readinessCriticalMissingText || "أكمل بيانات المشروع الأساسية."}
+                        </div>
+                      ) : strategyReadiness.optionalMissing.length > 0 ? (
+                        <div style={{ ...styles.permissionHintBox, marginBottom: 0 }}>
+                          <strong>تحسينات موصى بها (غير مانعة):</strong>{" "}
+                          {readinessOptionalMissingText || "يمكنك البدء الآن واستكمال التفاصيل الاختيارية لاحقًا."}
                         </div>
                       ) : null}
 

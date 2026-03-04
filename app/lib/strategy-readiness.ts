@@ -37,8 +37,6 @@ export type StrategyReadinessSummary = {
   fields: StrategyReadinessField[];
 };
 
-const REQUIRED_READINESS_SCORE = 80;
-
 type FieldRule = {
   key: StrategyReadinessField["key"];
   label: string;
@@ -112,16 +110,18 @@ export function evaluateStrategyReadiness(snapshot: StrategyReadinessInput): Str
   }));
 
   const completedCount = fields.filter((item) => item.done).length;
+  const criticalFieldCount = fields.filter((item) => item.critical).length;
   const score = Math.round((completedCount / fields.length) * 100);
+  const requiredScore =
+    criticalFieldCount > 0 ? Math.round((criticalFieldCount / fields.length) * 100) : 0;
   const criticalMissing = fields.filter((item) => item.critical && !item.done).map((item) => item.label);
   const optionalMissing = fields.filter((item) => !item.critical && !item.done).map((item) => item.label);
 
-  const mode: StrategyReadinessMode =
-    criticalMissing.length === 0 && score >= REQUIRED_READINESS_SCORE ? "advisory" : "gap";
+  const mode: StrategyReadinessMode = criticalMissing.length === 0 ? "advisory" : "gap";
 
   return {
     score,
-    requiredScore: REQUIRED_READINESS_SCORE,
+    requiredScore,
     mode,
     criticalMissing,
     optionalMissing,
