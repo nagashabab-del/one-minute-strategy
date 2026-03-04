@@ -26,8 +26,10 @@ type WorkflowQueueRow = {
 export default function WorkflowsPage() {
   const reports = useMemo(() => readReports(), []);
   const readiness = useStrategyReadinessMode();
+  const inGapMode = readiness.mode === "gap";
   const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
   const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "بدء تحليل جديد";
+  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
 
   const stageCounts = useMemo(() => {
     const drafts = reports.filter((item) => item.status === "مسودة").length;
@@ -89,12 +91,25 @@ export default function WorkflowsPage() {
                     <div className="workflow-alert-title">{alert.title}</div>
                     <div className="workflow-alert-text">{alert.description}</div>
                   </div>
-                  <Link
-                    href={alert.href}
-                    className={alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
-                  >
-                    {alert.actionLabel}
-                  </Link>
+                  {inGapMode && isReadinessBlockedHref(alert.href) ? (
+                    <button
+                      type="button"
+                      className={`${
+                        alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
+                      } workflow-action-disabled`}
+                      disabled
+                      title={quickActionBlockedHint}
+                    >
+                      {alert.actionLabel}
+                    </button>
+                  ) : (
+                    <Link
+                      href={inGapMode ? "/app/strategy/brief" : alert.href}
+                      className={alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
+                    >
+                      {alert.actionLabel}
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>
@@ -107,12 +122,35 @@ export default function WorkflowsPage() {
             <Link href={quickStartHref} className="oms-btn oms-btn-primary">
               {quickStartLabel}
             </Link>
-            <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
-              متابعة الخطة المالية
-            </Link>
-            <Link href="/app/reports" className="oms-btn oms-btn-ghost">
-              مراجعة التقارير
-            </Link>
+            {inGapMode ? (
+              <>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost workflow-action-disabled"
+                  disabled
+                  title={quickActionBlockedHint}
+                >
+                  متابعة الخطة المالية
+                </button>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost workflow-action-disabled"
+                  disabled
+                  title={quickActionBlockedHint}
+                >
+                  مراجعة التقارير
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
+                  متابعة الخطة المالية
+                </Link>
+                <Link href="/app/reports" className="oms-btn oms-btn-ghost">
+                  مراجعة التقارير
+                </Link>
+              </>
+            )}
             <Link href="/app" className="oms-btn oms-btn-ghost">
               الرجوع للوحة التنفيذ
             </Link>
@@ -141,9 +179,20 @@ export default function WorkflowsPage() {
                   <div className="workflow-next-action">{row.nextAction}</div>
                 </div>
                 <div className="workflow-queue-actions">
-                  <Link href={row.href} className="oms-btn oms-btn-primary">
-                    تنفيذ الآن
-                  </Link>
+                  {inGapMode && isReadinessBlockedHref(row.href) ? (
+                    <button
+                      type="button"
+                      className="oms-btn oms-btn-primary workflow-action-disabled"
+                      disabled
+                      title={quickActionBlockedHint}
+                    >
+                      تنفيذ الآن
+                    </button>
+                  ) : (
+                    <Link href={inGapMode ? "/app/strategy/brief" : row.href} className="oms-btn oms-btn-primary">
+                      تنفيذ الآن
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}
@@ -305,6 +354,13 @@ export default function WorkflowsPage() {
           justify-content: flex-end;
         }
 
+        .workflow-action-disabled {
+          opacity: 0.58;
+          cursor: not-allowed;
+          border-color: rgba(244,126,126,0.42) !important;
+          color: #ffb3b3 !important;
+        }
+
         .workflow-empty {
           margin-top: 10px;
           border: 1px dashed var(--oms-border);
@@ -428,4 +484,8 @@ function statusClass(status: StrategyReport["status"]) {
 function isNoRisk(risks: string[]) {
   const first = risks[0]?.trim() ?? "";
   return first.startsWith("لا توجد مخاطر");
+}
+
+function isReadinessBlockedHref(href: string) {
+  return !href.startsWith("/app/strategy");
 }

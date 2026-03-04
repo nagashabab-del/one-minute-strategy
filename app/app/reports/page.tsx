@@ -11,8 +11,10 @@ type SortOption = "الأحدث" | "الأقدم" | "الحالة";
 export default function ReportsPage() {
   const [reports] = useState<StrategyReport[]>(() => readReports());
   const readiness = useStrategyReadinessMode();
+  const inGapMode = readiness.mode === "gap";
   const quickStartHref = readiness.mode === "gap" ? "/app/strategy/brief" : "/app/strategy";
   const quickStartLabel = readiness.mode === "gap" ? "استكمال موجز المشروع" : "ابدأ تحليل جديد";
+  const quickActionBlockedHint = "الإجراء مغلق مؤقتًا حتى اكتمال الحقول الحرجة في موجز المشروع.";
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");
@@ -153,9 +155,20 @@ export default function ReportsPage() {
                     ) : null}
                   </div>
                   <div className="reports-card-actions">
-                    <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
-                      فتح التقرير
-                    </Link>
+                    {inGapMode ? (
+                      <button
+                        type="button"
+                        className="oms-btn oms-btn-primary reports-open-btn reports-action-disabled"
+                        disabled
+                        title={quickActionBlockedHint}
+                      >
+                        فتح التقرير
+                      </button>
+                    ) : (
+                      <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
+                        فتح التقرير
+                      </Link>
+                    )}
                   </div>
                 </article>
               ))}
@@ -314,6 +327,13 @@ export default function ReportsPage() {
 
             .reports-open-btn {
               white-space: nowrap;
+            }
+
+            .reports-action-disabled {
+              opacity: 0.58;
+              cursor: not-allowed;
+              border-color: rgba(244,126,126,0.42) !important;
+              color: #ffb3b3 !important;
             }
 
             @media (max-width: 980px) {

@@ -122,12 +122,25 @@ export default function DashboardPage() {
                   <div className="cockpit-priority-title">{item.title}</div>
                   <div className="cockpit-priority-text">{item.description}</div>
                 </div>
-                <Link
-                  href={item.href}
-                  className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
-                >
-                  {item.actionLabel}
-                </Link>
+                {inGapMode && isReadinessBlockedHref(item.href) ? (
+                  <button
+                    type="button"
+                    className={`${
+                      item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
+                    } cockpit-action-disabled`}
+                    disabled
+                    title={quickActionBlockedHint}
+                  >
+                    {item.actionLabel}
+                  </button>
+                ) : (
+                  <Link
+                    href={inGapMode ? "/app/strategy/brief" : item.href}
+                    className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
+                  >
+                    {item.actionLabel}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
@@ -142,13 +155,23 @@ export default function DashboardPage() {
           ) : (
             <div className="cockpit-list">
               {recentReports.map((report) => (
-                <Link key={report.id} href={`/app/reports/${report.id}`} className="cockpit-report-row">
-                  <div>
-                    <div className="cockpit-report-title">{report.title}</div>
-                    <div className="cockpit-report-meta">الحالة: {report.status}</div>
+                inGapMode ? (
+                  <div key={report.id} className="cockpit-report-row cockpit-report-row-disabled" title={quickActionBlockedHint}>
+                    <div>
+                      <div className="cockpit-report-title">{report.title}</div>
+                      <div className="cockpit-report-meta">الحالة: {report.status}</div>
+                    </div>
+                    <div className="cockpit-report-date">{report.date}</div>
                   </div>
-                  <div className="cockpit-report-date">{report.date}</div>
-                </Link>
+                ) : (
+                  <Link key={report.id} href={`/app/reports/${report.id}`} className="cockpit-report-row">
+                    <div>
+                      <div className="cockpit-report-title">{report.title}</div>
+                      <div className="cockpit-report-meta">الحالة: {report.status}</div>
+                    </div>
+                    <div className="cockpit-report-date">{report.date}</div>
+                  </Link>
+                )
               ))}
             </div>
           )}
@@ -273,6 +296,12 @@ export default function DashboardPage() {
           gap: 10px;
         }
 
+        .cockpit-report-row-disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          border-color: rgba(244,126,126,0.36);
+        }
+
         .cockpit-report-title {
           font-weight: 800;
         }
@@ -333,6 +362,10 @@ export default function DashboardPage() {
       `}</style>
     </main>
   );
+}
+
+function isReadinessBlockedHref(href: string) {
+  return !href.startsWith("/app/strategy");
 }
 
 function isNoRisk(risks: string[]) {
