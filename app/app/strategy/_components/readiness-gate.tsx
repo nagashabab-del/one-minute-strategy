@@ -10,7 +10,7 @@ import {
   StrategyReadinessSummary,
 } from "../_lib/readiness";
 
-type ReadinessState = {
+export type ReadinessState = {
   project: ActiveStrategyProject;
   summary: StrategyReadinessSummary;
 };
@@ -275,7 +275,7 @@ function ReadinessBody({
   );
 }
 
-function useStrategyReadinessState() {
+export function useStrategyReadinessState() {
   const signature = useSyncExternalStore(
     subscribeReadiness,
     getReadinessSnapshotSignature,
