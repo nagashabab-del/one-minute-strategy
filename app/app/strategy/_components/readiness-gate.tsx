@@ -20,6 +20,11 @@ type StrategyReadinessPanelProps = {
   compact?: boolean;
 };
 
+type StrategyReadinessChecklistProps = {
+  title?: string;
+  showOptional?: boolean;
+};
+
 type StrategyReadinessGuardProps = {
   children: React.ReactNode;
   blockedTitle: string;
@@ -39,6 +44,114 @@ export function StrategyReadinessPanel({ stageLabel, compact = false }: Strategy
   }
 
   return <ReadinessBody stageLabel={stageLabel} state={state} compact={compact} />;
+}
+
+export function StrategyReadinessChecklist({
+  title = "قائمة جاهزية موجز المشروع",
+  showOptional = false,
+}: StrategyReadinessChecklistProps) {
+  const { state, isLoading } = useStrategyReadinessState();
+
+  if (isLoading || !state) {
+    return (
+      <section className="oms-panel">
+        <h2 className="oms-section-title">{title}</h2>
+        <p className="oms-text">جارٍ تحميل عناصر الجاهزية...</p>
+      </section>
+    );
+  }
+
+  const fields = state.summary.fields.filter((field) => showOptional || field.critical);
+  const completedCount = fields.filter((field) => field.done).length;
+
+  return (
+    <section className="oms-panel">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <h2 className="oms-section-title" style={{ margin: 0 }}>
+          {title}
+        </h2>
+        <span className="oms-list-line" style={{ fontWeight: 800 }}>
+          {toArabicNumber(completedCount)}/{toArabicNumber(fields.length)}
+        </span>
+      </div>
+
+      <p className="oms-text" style={{ marginTop: 8 }}>
+        هذه القائمة تقرأ مباشرة من بيانات المشروع في محرك الاستراتيجية.
+      </p>
+
+      <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+        {fields.map((field) => {
+          const statusText = field.done ? "مكتمل" : field.critical ? "ناقص (حرج)" : "ناقص";
+          const statusStyle = field.done
+            ? {
+                border: "1px solid rgba(95, 209, 153, 0.55)",
+                background: "rgba(12, 44, 36, 0.72)",
+                color: "#75e0b6",
+              }
+            : field.critical
+              ? {
+                  border: "1px solid rgba(244, 126, 126, 0.55)",
+                  background: "rgba(52, 23, 27, 0.74)",
+                  color: "#ffb3b3",
+                }
+              : {
+                  border: "1px solid rgba(160, 178, 255, 0.34)",
+                  background: "rgba(12, 20, 36, 0.72)",
+                  color: "var(--oms-text-faint)",
+                };
+
+          return (
+            <div
+              key={field.key}
+              style={{
+                border: "1px solid var(--oms-border)",
+                borderRadius: "12px",
+                padding: "8px 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                flexWrap: "wrap",
+                background: "var(--oms-bg-card)",
+              }}
+            >
+              <span className="oms-list-line" style={{ margin: 0, fontWeight: 700 }}>
+                {field.label}
+              </span>
+              <span
+                style={{
+                  minHeight: 22,
+                  borderRadius: 999,
+                  padding: "0 8px",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  ...statusStyle,
+                }}
+              >
+                {statusText}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Link href="/app/strategy/workspace" className="oms-btn oms-btn-ghost">
+          فتح المحرك وتحديث البيانات
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 export function StrategyReadinessGuard({

@@ -1,10 +1,11 @@
 import StageScreen from "../_components/stage-screen";
-import { StrategyReadinessPanel } from "../_components/readiness-gate";
+import { StrategyReadinessChecklist, StrategyReadinessPanel } from "../_components/readiness-gate";
 
 export default function StrategyBriefPage() {
   return (
     <>
       <StrategyReadinessPanel stageLabel="موجز المشروع" />
+      <StrategyReadinessChecklist />
       <StageScreen
         title="موجز المشروع"
         subtitle="إدخال سريع وغير تفصيلي لبدء الاستشارة قبل الالتزام التنفيذي."
