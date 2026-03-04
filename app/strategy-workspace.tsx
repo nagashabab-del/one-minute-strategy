@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { ChangeEvent, CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { evaluateStrategyReadiness } from "./lib/strategy-readiness";
 
 type StageUI =
   | "welcome"
@@ -1857,9 +1858,27 @@ export default function Home() {
   const isWelcome = stage === "welcome";
   const isProjectsHub = stage === "projects_hub";
   const isSelectionStep = stage === "init" && initStep === "session";
+  const strategyReadiness = useMemo(
+    () =>
+      evaluateStrategyReadiness({
+        project,
+        eventType,
+        venueType,
+        startAt,
+        endAt,
+        budget,
+        scopeSite,
+        scopeTechnical,
+        scopeProgram,
+      }),
+    [project, eventType, venueType, startAt, endAt, budget, scopeSite, scopeTechnical, scopeProgram]
+  );
+  const readinessCriticalMissingText = strategyReadiness.criticalMissing.slice(0, 3).join("، ");
 
   const canStart =
-    project.trim().length > 0 && effectiveSelectedAdvisors.length > 0;
+    project.trim().length > 0 &&
+    effectiveSelectedAdvisors.length > 0 &&
+    strategyReadiness.mode === "advisory";
   const canBuildAdvancedPlan =
     commissioningDate.trim().length > 0 &&
     scopeSite.trim().length > 0 &&
@@ -11184,7 +11203,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <div style={styles.label}>الميزانية (اختياري)</div>
+                    <div style={styles.label}>الميزانية التقديرية</div>
                     <div style={styles.inputSuffixWrap}>
                       <input
                         value={budget}
@@ -11235,6 +11254,12 @@ export default function Home() {
                       {hasInvalidTimeRange() ? (
                         <div style={{ ...styles.warnBox, marginBottom: 0 }}>
                           <strong>تنبيه:</strong> وقت النهاية يجب أن يكون بعد وقت البداية.
+                        </div>
+                      ) : null}
+                      {strategyReadiness.mode === "gap" ? (
+                        <div style={{ ...styles.warnBox, marginBottom: 0 }}>
+                          <strong>نواقص حرجة قبل بدء الجلسة:</strong>{" "}
+                          {readinessCriticalMissingText || "أكمل بيانات المشروع الأساسية."}
                         </div>
                       ) : null}
 
