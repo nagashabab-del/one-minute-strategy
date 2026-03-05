@@ -433,6 +433,56 @@ export function buildReportWordHtml(report: StrategyReport): string {
 </html>`;
 }
 
+export function buildReportsCsv(reports: StrategyReport[]): string {
+  const header = [
+    "المعرف",
+    "العنوان",
+    "التاريخ",
+    "الحالة",
+    "القرار التنفيذي",
+    "عدد ملاحظات المستشارين",
+    "عدد التوصيات",
+    "عدد المخاطر",
+    "حالة الامتثال",
+    "الامتثال المكتمل",
+    "الامتثال المطلوب",
+    "المسارات المفتوحة",
+  ];
+
+  const rows = reports.map((report) => {
+    const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
+    const recommendationsCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
+    const risksCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
+    const complianceReady = report.regulatoryCompliance?.readiness ?? "غير متوفر";
+    const complianceCompleted = String(report.regulatoryCompliance?.completedCount ?? 0);
+    const complianceRequired = String(report.regulatoryCompliance?.requiredCount ?? 0);
+    const pendingPaths = report.regulatoryCompliance?.pendingPaths.join(" | ") || "";
+
+    return [
+      report.id,
+      report.title,
+      report.date,
+      report.status,
+      report.executiveDecision,
+      String(highlightsCount),
+      String(recommendationsCount),
+      String(risksCount),
+      complianceReady,
+      complianceCompleted,
+      complianceRequired,
+      pendingPaths,
+    ];
+  });
+
+  const allRows = [header, ...rows];
+  return allRows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+export function buildReportsCsvFileName(): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return `oms-reports-${today}.csv`;
+}
+
 function buildReportBaseName(report: StrategyReport): string {
   const normalizedTitle = report.title
     .trim()
@@ -450,4 +500,9 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function csvCell(value: string): string {
+  const escaped = value.replaceAll('"', '""');
+  return `"${escaped}"`;
 }

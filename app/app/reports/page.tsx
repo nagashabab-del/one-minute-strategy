@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
+  buildReportsCsv,
+  buildReportsCsvFileName,
   buildReportFileName,
   buildReportText,
   buildReportWordFileName,
@@ -91,6 +93,20 @@ export default function ReportsPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const onExportFilteredCsv = () => {
+    if (typeof window === "undefined") return;
+    const csv = buildReportsCsv(filteredReports);
+    const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildReportsCsvFileName();
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <main>
       <h1 className="oms-page-title">التقارير</h1>
@@ -156,6 +172,27 @@ export default function ReportsPage() {
                   <option value="الحالة">حسب الحالة</option>
                 </select>
               </label>
+            </div>
+
+            <div className="reports-toolbar-actions">
+              {inGapMode ? (
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost reports-toolbar-export reports-action-disabled"
+                  disabled
+                  title={quickActionBlockedHint}
+                >
+                  تصدير CSV ({filteredReports.length})
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost reports-toolbar-export"
+                  onClick={onExportFilteredCsv}
+                >
+                  تصدير CSV ({filteredReports.length})
+                </button>
+              )}
             </div>
 
             <div className="reports-kpis">
@@ -297,6 +334,18 @@ export default function ReportsPage() {
               display: grid;
               grid-template-columns: repeat(4, minmax(0, 1fr));
               gap: 10px;
+            }
+
+            .reports-toolbar-actions {
+              margin-top: 10px;
+              display: flex;
+              justify-content: flex-start;
+            }
+
+            .reports-toolbar-export {
+              min-height: 38px;
+              font-size: 12px;
+              font-weight: 800;
             }
 
             .reports-kpi-value {
