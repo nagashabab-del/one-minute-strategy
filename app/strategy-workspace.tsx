@@ -257,6 +257,8 @@ type BoqItem = {
   unitCost: string;
   unitSellPrice: string;
   targetMarginPct: string;
+  vatApplicable: boolean;
+  vatRate: string;
   source: "أصل داخلي" | "مورد";
   leadTimeDays: string;
   ownerRoleId: OrgRoleId | "";
@@ -881,6 +883,24 @@ function marginPctFromCostAndSell(unitCost: number, unitSellPrice: number) {
   return ((unitSellPrice - unitCost) / unitCost) * 100;
 }
 
+const DEFAULT_BOQ_VAT_RATE = 15;
+
+function normalizeBoqVatRate(value: unknown) {
+  let parsed = DEFAULT_BOQ_VAT_RATE;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    parsed = value;
+  } else if (typeof value === "string") {
+    parsed = parseNumericInput(value);
+  }
+  if (!Number.isFinite(parsed)) return DEFAULT_BOQ_VAT_RATE;
+  return Math.max(0, Math.min(100, parsed));
+}
+
+function computeBoqVatAmount(amount: number, applicable: boolean, vatRate: number) {
+  if (!applicable) return 0;
+  return (Math.max(0, amount) * normalizeBoqVatRate(vatRate)) / 100;
+}
+
 function formatNumericForInput(value: number) {
   if (!Number.isFinite(value)) return "";
   const rounded = Math.round(value * 100) / 100;
@@ -1050,6 +1070,8 @@ const DEFAULT_BOQ_ITEMS: BoqItem[] = [
     unitCost: "",
     unitSellPrice: "",
     targetMarginPct: "",
+    vatApplicable: true,
+    vatRate: String(DEFAULT_BOQ_VAT_RATE),
     source: "مورد",
     leadTimeDays: "",
     ownerRoleId: "",
@@ -1375,6 +1397,8 @@ function normalizeBoqItems(saved?: BoqItem[]) {
     unitCost: row.unitCost ?? "",
     unitSellPrice: row.unitSellPrice ?? "",
     targetMarginPct: row.targetMarginPct ?? "",
+    vatApplicable: typeof row.vatApplicable === "boolean" ? row.vatApplicable : true,
+    vatRate: formatNumericForInput(normalizeBoqVatRate(row.vatRate)),
     ownerRoleId: row.ownerRoleId ?? "",
     dependsOnBoqId: row.dependsOnBoqId ?? "",
     dependencyType: "FS",
@@ -2105,6 +2129,13 @@ export default function Home() {
       const totalCost = qty * unitCost;
       const totalSell = qty * unitSellPrice;
       const profit = totalSell - totalCost;
+      const vatApplicable = row.vatApplicable !== false;
+      const vatRate = normalizeBoqVatRate(row.vatRate);
+      const totalCostVat = computeBoqVatAmount(totalCost, vatApplicable, vatRate);
+      const totalSellVat = computeBoqVatAmount(totalSell, vatApplicable, vatRate);
+      const totalCostWithVat = totalCost + totalCostVat;
+      const totalSellWithVat = totalSell + totalSellVat;
+      const netVatPayable = totalSellVat - totalCostVat;
       const sellGapVsSuggested =
         usesManualSellPrice && suggestedUnitSellPrice !== null
           ? manualUnitSellPrice - suggestedUnitSellPrice
@@ -2121,15 +2152,27 @@ export default function Home() {
         usesManualSellPrice,
         usesSuggestedSellPrice: !usesManualSellPrice && suggestedUnitSellPrice !== null,
         sellGapVsSuggested,
+        vatApplicable,
+        vatRate,
         unitSellPrice,
         totalCost,
         totalSell,
         profit,
+        totalCostVat,
+        totalSellVat,
+        totalCostWithVat,
+        totalSellWithVat,
+        netVatPayable,
       };
     });
 
     const totalCost = rows.reduce((sum, row) => sum + row.totalCost, 0);
     const totalSell = rows.reduce((sum, row) => sum + row.totalSell, 0);
+    const totalCostVat = rows.reduce((sum, row) => sum + row.totalCostVat, 0);
+    const totalSellVat = rows.reduce((sum, row) => sum + row.totalSellVat, 0);
+    const totalCostWithVat = rows.reduce((sum, row) => sum + row.totalCostWithVat, 0);
+    const totalSellWithVat = rows.reduce((sum, row) => sum + row.totalSellWithVat, 0);
+    const netVatPayable = totalSellVat - totalCostVat;
     const profit = totalSell - totalCost;
     const margin = totalSell > 0 ? (profit / totalSell) * 100 : null;
     const markup = totalCost > 0 ? (profit / totalCost) * 100 : null;
@@ -2145,6 +2188,11 @@ export default function Home() {
       rows,
       totalCost,
       totalSell,
+      totalCostVat,
+      totalSellVat,
+      totalCostWithVat,
+      totalSellWithVat,
+      netVatPayable,
       profit,
       margin,
       markup,
@@ -3320,8 +3368,8 @@ export default function Home() {
   function updateBoqItem(id: string, patch: Partial<BoqItem>) {
     const normalizedPatch: Partial<BoqItem> = { ...patch };
     const numericKeys: Array<
-      "qty" | "unitCost" | "unitSellPrice" | "targetMarginPct" | "leadTimeDays"
-    > = ["qty", "unitCost", "unitSellPrice", "targetMarginPct", "leadTimeDays"];
+      "qty" | "unitCost" | "unitSellPrice" | "targetMarginPct" | "leadTimeDays" | "vatRate"
+    > = ["qty", "unitCost", "unitSellPrice", "targetMarginPct", "leadTimeDays", "vatRate"];
     numericKeys.forEach((key) => {
       const raw = normalizedPatch[key];
       if (typeof raw === "string") {
@@ -3434,6 +3482,8 @@ export default function Home() {
         unitCost: "",
         unitSellPrice: "",
         targetMarginPct: "",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
         source: "مورد",
         leadTimeDays: "",
         ownerRoleId: defaultOwnerRoleId,
@@ -3650,9 +3700,13 @@ export default function Home() {
       `بداية الفعالية: ${startAt || "غير محدد"}`,
       `نهاية الفعالية: ${endAt || "غير محدد"}`,
       `الميزانية: ${budget || "غير محدد"}`,
-      `إجمالي تكلفة جدول الكميات: ${formatMoney(boqFinancialSummary.totalCost)}`,
-      `إجمالي سعر البيع (جدول الكميات): ${formatMoney(boqFinancialSummary.totalSell)}`,
-      `صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `إجمالي تكلفة جدول الكميات (قبل الضريبة): ${formatMoney(boqFinancialSummary.totalCost)}`,
+      `إجمالي سعر البيع (جدول الكميات قبل الضريبة): ${formatMoney(boqFinancialSummary.totalSell)}`,
+      `صافي الربح/الخسارة التشغيلي: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `ضريبة المشتريات التقديرية: ${formatMoney(boqFinancialSummary.totalCostVat)}`,
+      `ضريبة المبيعات التقديرية: ${formatMoney(boqFinancialSummary.totalSellVat)}`,
+      `صافي الالتزام الضريبي التقديري: ${formatMoney(boqFinancialSummary.netVatPayable)}`,
+      "ملاحظة: الضريبة معروضة كمؤشر محاسبي مستقل ولا تدخل في ربحية التشغيل أو ميزانية التنفيذ.",
       `هامش الربح: ${
         boqFinancialSummary.margin === null
           ? "غير متاح"
@@ -4082,7 +4136,10 @@ export default function Home() {
           ? ` — هامش مستهدف: ${toArabicDigits(row.targetMarginPct.trim())}%`
           : "";
         const scopeAxisSummary = scopeAxisTitle(normalizeScopeAxisId(row.scopeAxisId));
-        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — محور النطاق: ${scopeAxisSummary} — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع${pricingModeSummary}: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)}${targetMarginSummary}`;
+        const taxModeSummary = financialRow?.vatApplicable
+          ? `ضريبة ${toArabicDigits(formatNumericForInput(financialRow.vatRate))}%`
+          : "معفى من الضريبة";
+        return `${toArabicDigits(idx + 1)}. ${row.item} — ${row.qty || "؟"} ${row.unit} (${row.source}) — محور النطاق: ${scopeAxisSummary} — المسؤول: ${ownerSummary} — يعتمد على: ${dependencySummary} — التكلفة: ${formatMoney(lineCost)} — البيع${pricingModeSummary}: ${formatMoney(lineSell)} — الربح: ${formatMoney(lineProfit)} — حالة الضريبة: ${taxModeSummary}${targetMarginSummary}`;
       })
       .join("\n");
 
@@ -4426,9 +4483,15 @@ export default function Home() {
       boqSummary || "- لا توجد بنود مدخلة في جدول الكميات بعد.",
       "",
       "التحليل المالي الداخلي (جدول الكميات):",
-      `- إجمالي التكلفة: ${formatMoney(boqFinancialSummary.totalCost)}`,
-      `- إجمالي سعر البيع: ${formatMoney(boqFinancialSummary.totalSell)}`,
-      `- صافي الربح/الخسارة: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `- إجمالي التكلفة (قبل الضريبة): ${formatMoney(boqFinancialSummary.totalCost)}`,
+      `- إجمالي سعر البيع (قبل الضريبة): ${formatMoney(boqFinancialSummary.totalSell)}`,
+      `- صافي الربح/الخسارة التشغيلي: ${formatMoney(boqFinancialSummary.profit)} (${boqFinancialSummary.status})`,
+      `- ضريبة المشتريات: ${formatMoney(boqFinancialSummary.totalCostVat)}`,
+      `- ضريبة المبيعات: ${formatMoney(boqFinancialSummary.totalSellVat)}`,
+      `- صافي الالتزام الضريبي: ${formatMoney(boqFinancialSummary.netVatPayable)}`,
+      `- إجمالي التكلفة شامل الضريبة (عرض محاسبي): ${formatMoney(boqFinancialSummary.totalCostWithVat)}`,
+      `- إجمالي البيع شامل الضريبة (عرض محاسبي): ${formatMoney(boqFinancialSummary.totalSellWithVat)}`,
+      "- ملاحظة: الضريبة لا تدخل في تكلفة التنفيذ أو الربح التشغيلي، وتُدار كالتزام محاسبي مستقل.",
       `- هامش الربح: ${
         boqFinancialSummary.margin === null
           ? "غير متاح"
@@ -4443,7 +4506,7 @@ export default function Home() {
       }`,
       `- مقارنة بالميزانية: ${
         boqFinancialSummary.budgetValue > 0
-          ? `التكلفة ${
+          ? `التكلفة التشغيلية قبل الضريبة ${
               boqFinancialSummary.totalCost <= boqFinancialSummary.budgetValue ? "ضمن" : "فوق"
             } الميزانية (${formatMoney(boqFinancialSummary.budgetValue)})`
           : "الميزانية غير معرفة"
@@ -4537,6 +4600,8 @@ export default function Home() {
           unitCost: "45000",
           unitSellPrice: "62000",
           targetMarginPct: "30",
+          vatApplicable: true,
+          vatRate: String(DEFAULT_BOQ_VAT_RATE),
           source: "مورد",
           leadTimeDays: "5",
           ownerRoleId: "operations_manager",
@@ -4747,6 +4812,8 @@ export default function Home() {
         unitCost: "45000",
         unitSellPrice: "62000",
         targetMarginPct: "30",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
         source: "مورد",
         leadTimeDays: "5",
         ownerRoleId: "operations_manager",
@@ -4763,6 +4830,8 @@ export default function Home() {
         unitCost: "18000",
         unitSellPrice: "28500",
         targetMarginPct: "35",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
         source: "أصل داخلي",
         leadTimeDays: "2",
         ownerRoleId: "visitor_experience_manager",
@@ -13418,6 +13487,33 @@ export default function Home() {
                               <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
                             </div>
                             <select
+                              value={row.vatApplicable ? "taxable" : "exempt"}
+                              onChange={(e) =>
+                                updateBoqItem(row.id, {
+                                  vatApplicable: e.target.value === "taxable",
+                                  vatRate:
+                                    e.target.value === "taxable"
+                                      ? row.vatRate || String(DEFAULT_BOQ_VAT_RATE)
+                                      : row.vatRate,
+                                })
+                              }
+                              style={styles.input}
+                              disabled={!canEditBoqPricing}
+                            >
+                              <option value="taxable">خاضع للضريبة</option>
+                              <option value="exempt">معفى من الضريبة</option>
+                            </select>
+                            <div style={styles.inputSuffixWrap}>
+                              <input
+                                value={row.vatRate}
+                                onChange={(e) => updateBoqItem(row.id, { vatRate: e.target.value })}
+                                style={{ ...styles.input, paddingLeft: 30 }}
+                                disabled={!canEditBoqPricing || !row.vatApplicable}
+                                placeholder="نسبة الضريبة ٪"
+                              />
+                              <span style={styles.inputSuffix}>٪</span>
+                            </div>
+                            <select
                               value={row.source}
                               onChange={(e) =>
                                 updateBoqItem(row.id, {
@@ -13466,7 +13562,7 @@ export default function Home() {
                           <div style={styles.textMutedSmallTop8}>
                           {(() => {
                             if (!financialRow) {
-                              return "أدخل الكمية والتكلفة وسعر البيع أو نسبة الربح لحساب الربحية.";
+                              return "أدخل الكمية والتكلفة وسعر البيع أو نسبة الربح لحساب الربحية (قبل الضريبة).";
                             }
                             const suggestedLine =
                               financialRow.suggestedUnitSellPrice !== null ? (
@@ -13487,6 +13583,18 @@ export default function Home() {
                                   {renderMoneyValue(financialRow.sellGapVsSuggested)}
                                 </>
                               );
+                            const taxModeLine = financialRow.vatApplicable
+                              ? ` • ضريبة القيمة المضافة: ${toArabicDigits(
+                                  formatNumericForInput(financialRow.vatRate)
+                                )}%`
+                              : " • حالة الضريبة: معفى";
+                            const taxTotalsLine = (
+                              <>
+                                {" • "}ضريبة التكلفة: {renderMoneyValue(financialRow.totalCostVat)}
+                                {" • "}ضريبة البيع: {renderMoneyValue(financialRow.totalSellVat)}
+                                {" • "}صافي الضريبة: {renderMoneyValue(financialRow.netVatPayable)}
+                              </>
+                            );
                             return (
                               <>
                                 التكلفة الإجمالية: {renderMoneyValue(financialRow.totalCost)}
@@ -13495,6 +13603,8 @@ export default function Home() {
                                 {suggestedLine}
                                 {modeLine}
                                 {gapLine}
+                                {taxModeLine}
+                                {taxTotalsLine}
                               </>
                             );
                           })()}
@@ -13597,19 +13707,19 @@ export default function Home() {
                       <div style={styles.label}>ملخص مالي داخلي (جدول الكميات)</div>
                       <div style={styles.miniStatsGrid}>
                         <div style={styles.miniStat}>
-                          <div style={styles.miniStatLabel}>إجمالي التكلفة</div>
+                          <div style={styles.miniStatLabel}>إجمالي التكلفة (قبل الضريبة)</div>
                           <div style={styles.miniStatValue}>
                             {renderMoneyValue(boqFinancialSummary.totalCost)}
                           </div>
                         </div>
                         <div style={styles.miniStat}>
-                          <div style={styles.miniStatLabel}>إجمالي البيع</div>
+                          <div style={styles.miniStatLabel}>إجمالي البيع (قبل الضريبة)</div>
                           <div style={styles.miniStatValue}>
                             {renderMoneyValue(boqFinancialSummary.totalSell)}
                           </div>
                         </div>
                         <div style={styles.miniStat}>
-                          <div style={styles.miniStatLabel}>صافي الربح/الخسارة</div>
+                          <div style={styles.miniStatLabel}>صافي الربح/الخسارة (تشغيلي)</div>
                           <div
                             style={{
                               ...styles.miniStatValue,
@@ -13623,6 +13733,27 @@ export default function Home() {
                           <div style={styles.miniStatLabel}>حالة الربحية</div>
                           <div style={styles.miniStatValue}>{boqFinancialSummary.status}</div>
                         </div>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        ضريبة المشتريات (تكلفة):{" "}
+                        <strong>{renderMoneyValue(boqFinancialSummary.totalCostVat)}</strong>
+                        {" • "}
+                        ضريبة المبيعات (بيع):{" "}
+                        <strong>{renderMoneyValue(boqFinancialSummary.totalSellVat)}</strong>
+                        {" • "}
+                        صافي الالتزام الضريبي:{" "}
+                        <strong>{renderMoneyValue(boqFinancialSummary.netVatPayable)}</strong>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        الإجماليات الشاملة للضريبة (عرض محاسبي فقط):{" "}
+                        <strong>
+                          تكلفة {renderMoneyValue(boqFinancialSummary.totalCostWithVat)} • بيع{" "}
+                          {renderMoneyValue(boqFinancialSummary.totalSellWithVat)}
+                        </strong>
+                      </div>
+                      <div style={styles.textMutedSmallTop8}>
+                        الضريبة لا تُحتسب ضمن تكلفة التنفيذ ولا ضمن الربح التشغيلي؛ وتُعرض هنا كالتزام
+                        محاسبي مستقل.
                       </div>
                       <div style={styles.textMutedSmallTop8}>
                         هامش الربح:{" "}
@@ -13657,7 +13788,7 @@ export default function Home() {
                           {boqFinancialSummary.budgetValue > 0
                             ? `استهلاك ${toArabicDigits(
                                 (boqFinancialSummary.budgetUsagePercent ?? 0).toFixed(1)
-                              )}% من الميزانية`
+                              )}% من الميزانية التشغيلية (قبل الضريبة)`
                             : "الميزانية غير محددة"}
                         </strong>
                       </div>
@@ -14928,10 +15059,12 @@ export default function Home() {
                         <div style={styles.sideBlock}>
                           <div style={styles.sideBlockTitle}>الربحية الداخلية (جدول الكميات)</div>
                           <div style={styles.sideSummaryPrimaryText}>
-                            التكلفة: <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
+                            التكلفة (قبل الضريبة):{" "}
+                            <strong>{renderMoneyValue(boqFinancialSummary.totalCost)}</strong>
                           </div>
                           <div style={styles.sideSummaryPrimaryText}>
-                            البيع: <strong>{renderMoneyValue(boqFinancialSummary.totalSell)}</strong>
+                            البيع (قبل الضريبة):{" "}
+                            <strong>{renderMoneyValue(boqFinancialSummary.totalSell)}</strong>
                           </div>
                           <div style={styles.textMutedSmallTop8}>
                             صافي النتيجة:{" "}
@@ -14952,6 +15085,10 @@ export default function Home() {
                                   ? "فوق التعادل"
                                   : "أقل من التعادل"}
                             </strong>
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>
+                            صافي الالتزام الضريبي:{" "}
+                            <strong>{renderMoneyValue(boqFinancialSummary.netVatPayable)}</strong>
                           </div>
                         </div>
 
