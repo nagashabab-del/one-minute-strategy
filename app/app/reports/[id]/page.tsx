@@ -14,14 +14,16 @@ import {
   subscribeReportsChanges,
 } from "../report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
-import { resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
+import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
 
 type ExportFeedback = { tone: "ok" | "error"; text: string };
 
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string | string[] }>();
   const readiness = useStrategyReadinessMode();
+  const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
+  const quickActionBlockedHint = READINESS_LOCK_REASON;
   const reportId = useMemo(() => {
     if (Array.isArray(params.id)) return params.id[0] ?? "";
     return typeof params.id === "string" ? params.id : "";
@@ -82,6 +84,7 @@ export default function ReportDetailsPage() {
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
   const onExportTxt = (silent = false) => {
+    if (inGapMode) return false;
     const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
@@ -89,7 +92,7 @@ export default function ReportDetailsPage() {
     return ok;
   };
   const onCopyReport = async () => {
-    if (typeof window === "undefined") return;
+    if (inGapMode || typeof window === "undefined") return;
     const text = buildReportText(report);
 
     try {
@@ -115,10 +118,11 @@ export default function ReportDetailsPage() {
     }
   };
   const onPrintPdf = () => {
-    if (typeof window === "undefined") return;
+    if (inGapMode || typeof window === "undefined") return;
     window.print();
   };
   const onExportDoc = (silent = false) => {
+    if (inGapMode) return false;
     const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
       "\ufeff",
       buildReportWordHtml(report),
@@ -129,6 +133,7 @@ export default function ReportDetailsPage() {
     return ok;
   };
   const onExportBundle = async () => {
+    if (inGapMode) return;
     if (isBundleExporting) return;
     setIsBundleExporting(true);
     const txtOk = onExportTxt(true);
@@ -169,31 +174,57 @@ export default function ReportDetailsPage() {
           <Link href={quickStart.href} className="oms-btn oms-btn-primary">
             {quickStart.label}
           </Link>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={() => onExportTxt()} disabled={isBundleExporting}>
+          <button
+            type="button"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
+            onClick={() => onExportTxt()}
+            disabled={isBundleExporting || inGapMode}
+            title={inGapMode ? quickActionBlockedHint : undefined}
+          >
             تصدير نصي (.txt)
           </button>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={() => onExportDoc()} disabled={isBundleExporting}>
+          <button
+            type="button"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
+            onClick={() => onExportDoc()}
+            disabled={isBundleExporting || inGapMode}
+            title={inGapMode ? quickActionBlockedHint : undefined}
+          >
             تصدير Word (.doc)
           </button>
           <button
             type="button"
-            className="oms-btn oms-btn-ghost"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onExportBundle()}
-            disabled={isBundleExporting}
+            disabled={isBundleExporting || inGapMode}
+            title={inGapMode ? quickActionBlockedHint : undefined}
           >
             {isBundleExporting ? "جاري تصدير الحزمة..." : "تصدير الحزمة"}
           </button>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={onCopyReport}>
+          <button
+            type="button"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
+            onClick={onCopyReport}
+            disabled={inGapMode}
+            title={inGapMode ? quickActionBlockedHint : undefined}
+          >
             {copyFeedback === "ok"
               ? "تم النسخ"
               : copyFeedback === "error"
                 ? "فشل النسخ"
                 : "نسخ التقرير"}
           </button>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={onPrintPdf}>
+          <button
+            type="button"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
+            onClick={onPrintPdf}
+            disabled={inGapMode}
+            title={inGapMode ? quickActionBlockedHint : undefined}
+          >
             تصدير PDF (طباعة)
           </button>
         </div>
+        {inGapMode ? <div className="report-lock-note">{quickActionBlockedHint}</div> : null}
         <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر &quot;Save as PDF&quot;.</div>
         {exportFeedback ? (
           <div className={`report-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
@@ -293,6 +324,24 @@ export default function ReportDetailsPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+
+        .report-action-disabled {
+          opacity: 0.58;
+          cursor: not-allowed;
+          border-color: rgba(244, 126, 126, 0.42) !important;
+          color: #ffb3b3 !important;
+        }
+
+        .report-lock-note {
+          margin-top: 6px;
+          border-radius: 10px;
+          border: 1px solid rgba(247, 106, 121, 0.54);
+          background: rgba(70, 20, 33, 0.5);
+          color: #ffbcc4;
+          padding: 8px 10px;
+          font-size: 12px;
+          font-weight: 800;
         }
 
         .report-overview {
@@ -465,6 +514,7 @@ export default function ReportDetailsPage() {
           }
 
           .report-head-actions,
+          .report-lock-note,
           .report-copy-feedback,
           .report-print-note,
           .report-nonprint {
