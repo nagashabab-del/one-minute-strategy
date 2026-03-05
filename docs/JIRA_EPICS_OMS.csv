@@ -1,0 +1,7 @@
+Issue ID,Issue Type,Summary,Epic Name,Description,Priority,Labels
+OMS-EP1,Epic,"الاستقرار والمصادقة (Stability & Auth)","OMS EP1 - Stability & Auth","تثبيت صفحة الهبوط ونظام المصادقة وضبط سياسات الوصول بين بيئات التطوير والإنتاج.",High,"oms,auth,stability"
+OMS-EP2,Epic,"رحلة المستخدم وتجربة البداية (Onboarding UX)","OMS EP2 - Onboarding UX","تحسين رحلة أول استخدام وتوحيد اللغة والـCTA لضمان انسيابية التحويل من Landing إلى الاستخدام الفعلي.",High,"oms,ux,onboarding"
+OMS-EP3,Epic,"استمرارية مسار الاستراتيجية (Flow Continuity)","OMS EP3 - Flow Continuity","ربط صفحات المراحل بالـworkspace الحقيقي وتحسين دلالة الحالات غير الموجودة في التقارير.",Medium,"oms,flow,strategy"
+OMS-EP4,Epic,"جودة مخرجات الذكاء والأداء","OMS EP4 - AI Quality & Performance","تحسين جودة مخرجات التحليل وتعريب الأخطاء وتقليل زمن الاستجابة خصوصًا في مرحلة التحليل النهائي.",High,"oms,ai,performance,api"
+OMS-EP5,Epic,"التقارير والتخزين المنتجّي","OMS EP5 - Reports & Persistence","تحويل التخزين إلى backend دائم متعدد الأجهزة وإضافة تصدير رسمي للتقارير بصيغ PDF وDOCX.",High,"oms,reports,data,persistence"
+OMS-EP6,Epic,"أتمتة QA وحوكمة الإطلاق","OMS EP6 - QA Automation & Release Governance","بناء بوابة جودة قبل الإطلاق عبر اختبارات E2E وقيود CI لمنع تمرير الأعطال الحرجة.",Medium,"oms,qa,ci,release"
