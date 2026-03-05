@@ -189,9 +189,8 @@ export default function LandingPage() {
 
             <aside className={styles.copyPane} dir="rtl">
               <h2 className={styles.copyTitle}>
-                القرار في دقيقة
-                <br />
-                والتنفيذ تحت السيطرة
+                <span className={styles.copyLine}>القرار في دقيقة</span>
+                <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
               </h2>
               <p className={styles.copyDescription}>
                 منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
