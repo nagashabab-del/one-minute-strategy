@@ -71,16 +71,7 @@ export default function ReportDetailsPage() {
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
   const onExportTxt = () => {
-    if (typeof window === "undefined") return;
-    const blob = new Blob([buildReportText(report)], { type: "text/plain;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = buildReportFileName(report);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
   };
   const onCopyReport = async () => {
     if (typeof window === "undefined") return;
@@ -113,13 +104,23 @@ export default function ReportDetailsPage() {
     window.print();
   };
   const onExportDoc = () => {
+    triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
+      "\ufeff",
+      buildReportWordHtml(report),
+    ]);
+  };
+  const onExportBundle = () => {
+    onExportTxt();
+    window.setTimeout(() => onExportDoc(), 120);
+  };
+
+  const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
     if (typeof window === "undefined") return;
-    const docHtml = buildReportWordHtml(report);
-    const blob = new Blob(["\ufeff", docHtml], { type: "application/msword;charset=utf-8" });
+    const blob = new Blob(payload, { type: mimeType });
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = buildReportWordFileName(report);
+    anchor.download = fileName;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -141,6 +142,9 @@ export default function ReportDetailsPage() {
           </button>
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportDoc}>
             تصدير Word (.doc)
+          </button>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportBundle}>
+            تصدير الحزمة
           </button>
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onCopyReport}>
             {copyFeedback === "ok"

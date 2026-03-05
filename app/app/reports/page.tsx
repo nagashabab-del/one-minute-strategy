@@ -67,40 +67,32 @@ export default function ReportsPage() {
   }, [reports, search, statusFilter, sortBy]);
 
   const onExportReportTxt = (report: StrategyReport) => {
-    if (typeof window === "undefined") return;
-    const blob = new Blob([buildReportText(report)], { type: "text/plain;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = buildReportFileName(report);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
   };
 
   const onExportReportDoc = (report: StrategyReport) => {
-    if (typeof window === "undefined") return;
-    const docHtml = buildReportWordHtml(report);
-    const blob = new Blob(["\ufeff", docHtml], { type: "application/msword;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = buildReportWordFileName(report);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
+      "\ufeff",
+      buildReportWordHtml(report),
+    ]);
+  };
+
+  const onExportReportBundle = (report: StrategyReport) => {
+    onExportReportTxt(report);
+    window.setTimeout(() => onExportReportDoc(report), 120);
   };
 
   const onExportFilteredCsv = () => {
+    triggerDownload(buildReportsCsvFileName(), "text/csv;charset=utf-8", ["\ufeff", buildReportsCsv(filteredReports)]);
+  };
+
+  const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
     if (typeof window === "undefined") return;
-    const csv = buildReportsCsv(filteredReports);
-    const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(payload, { type: mimeType });
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = buildReportsCsvFileName();
+    anchor.download = fileName;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -270,6 +262,14 @@ export default function ReportsPage() {
                           >
                             DOC
                           </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                            disabled
+                            title={quickActionBlockedHint}
+                          >
+                            حزمة
+                          </button>
                         </div>
                       </>
                     ) : (
@@ -291,6 +291,13 @@ export default function ReportsPage() {
                             onClick={() => onExportReportDoc(report)}
                           >
                             DOC
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn"
+                            onClick={() => onExportReportBundle(report)}
+                          >
+                            حزمة
                           </button>
                         </div>
                       </>
@@ -427,7 +434,7 @@ export default function ReportsPage() {
 
             .reports-actions-row {
               display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               gap: 8px;
             }
 
