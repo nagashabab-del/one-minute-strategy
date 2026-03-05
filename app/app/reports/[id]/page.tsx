@@ -37,7 +37,6 @@ export default function ReportDetailsPage() {
     () => (reportsSignature === "server" || !reportId ? null : readReportById(reportId)),
     [reportId, reportsSignature]
   );
-  const [copyFeedback, setCopyFeedback] = useState<"idle" | "ok" | "error">("idle");
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
   const [isBundleExporting, setIsBundleExporting] = useState(false);
 
@@ -110,11 +109,9 @@ export default function ReportDetailsPage() {
         document.execCommand("copy");
         document.body.removeChild(textarea);
       }
-      setCopyFeedback("ok");
-      window.setTimeout(() => setCopyFeedback("idle"), 2200);
+      pushExportFeedback("ok", "تم نسخ التقرير للحافظة.");
     } catch {
-      setCopyFeedback("error");
-      window.setTimeout(() => setCopyFeedback("idle"), 2200);
+      pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام التصدير النصي.");
     }
   };
   const onPrintPdf = () => {
@@ -208,11 +205,7 @@ export default function ReportDetailsPage() {
             disabled={inGapMode}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {copyFeedback === "ok"
-              ? "تم النسخ"
-              : copyFeedback === "error"
-                ? "فشل النسخ"
-                : "نسخ التقرير"}
+            نسخ التقرير
           </button>
           <button
             type="button"
@@ -228,9 +221,6 @@ export default function ReportDetailsPage() {
         <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر &quot;Save as PDF&quot;.</div>
         {exportFeedback ? (
           <div className={`report-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
-        ) : null}
-        {copyFeedback === "error" ? (
-          <div className="report-copy-feedback">تعذّر النسخ التلقائي. يمكنك استخدام التصدير النصي.</div>
         ) : null}
         <div className="report-nonprint">
           <StrategyReadinessBanner contextLabel="التقارير" />
@@ -349,13 +339,6 @@ export default function ReportDetailsPage() {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
-        }
-
-        .report-copy-feedback {
-          margin-top: 6px;
-          color: #ffb3b3;
-          font-size: 12px;
-          font-weight: 700;
         }
 
         .report-export-feedback {
@@ -515,7 +498,6 @@ export default function ReportDetailsPage() {
 
           .report-head-actions,
           .report-lock-note,
-          .report-copy-feedback,
           .report-print-note,
           .report-nonprint {
             display: none !important;
