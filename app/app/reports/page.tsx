@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { StrategyReport, readReports } from "./report-store";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { getReportsSignature, StrategyReport, readReports, subscribeReportsChanges } from "./report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../_lib/readiness-lock";
 
@@ -10,7 +10,15 @@ type StatusFilter = "الكل" | StrategyReport["status"];
 type SortOption = "الأحدث" | "الأقدم" | "الحالة";
 
 export default function ReportsPage() {
-  const [reports] = useState<StrategyReport[]>(() => readReports());
+  const reportsSignature = useSyncExternalStore(
+    subscribeReportsChanges,
+    getReportsSignature,
+    () => "server"
+  );
+  const reports = useMemo<StrategyReport[]>(
+    () => (reportsSignature === "server" ? [] : readReports()),
+    [reportsSignature]
+  );
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
@@ -55,7 +63,14 @@ export default function ReportsPage() {
       </p>
       <StrategyReadinessBanner contextLabel="التقارير" />
 
-      {reports.length === 0 ? (
+      {reportsSignature === "server" ? (
+        <section className="oms-panel">
+          <h2 className="oms-section-title">جاري تحميل التقارير...</h2>
+          <p className="oms-text">نقرأ آخر البيانات المحفوظة للمشاريع لعرض القائمة بدقة.</p>
+        </section>
+      ) : null}
+
+      {reportsSignature !== "server" && reports.length === 0 ? (
         <div className="oms-panel">
           <div style={{ fontWeight: 900, fontSize: 18 }}>لا توجد تقارير حتى الآن</div>
           <p style={{ margin: "6px 0 0", color: "var(--oms-text-muted)" }}>
@@ -65,7 +80,7 @@ export default function ReportsPage() {
             {quickStart.label}
           </Link>
         </div>
-      ) : (
+      ) : reportsSignature !== "server" ? (
         <>
           <section className="oms-panel reports-toolbar">
             <div className="reports-toolbar-grid">
@@ -361,7 +376,7 @@ export default function ReportsPage() {
             }
           `}</style>
         </>
-      )}
+      ) : null}
     </main>
   );
 }

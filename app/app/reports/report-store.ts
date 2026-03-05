@@ -239,3 +239,43 @@ export function readReports(): StrategyReport[] {
 export function readReportById(id: string): StrategyReport | null {
   return readReports().find((report) => report.id === id) ?? null;
 }
+
+export function subscribeReportsChanges(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  const onStorage = () => callback();
+  const onFocus = () => callback();
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") callback();
+  };
+
+  window.addEventListener("storage", onStorage);
+  window.addEventListener("focus", onFocus);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener("focus", onFocus);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  };
+}
+
+export function getReportsSignature(): string {
+  if (typeof window === "undefined") return "server";
+
+  const registryRaw = localStorage.getItem(PROJECTS_REGISTRY_KEY) ?? "";
+  const registry = safeParse<ProjectsRegistry>(registryRaw, {
+    activeProjectId: "",
+    projects: [],
+  });
+  const parts: string[] = [registryRaw];
+
+  for (const project of registry.projects) {
+    if (!project?.id || project.isArchived) continue;
+    parts.push(localStorage.getItem(projectDataKey(project.id)) ?? "");
+    parts.push(localStorage.getItem(budgetTrackerKey(project.id)) ?? "");
+    parts.push(localStorage.getItem(planTrackerKey(project.id)) ?? "");
+  }
+
+  return parts.join("::");
+}

@@ -2,16 +2,44 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo } from "react";
-import { StrategyReport, readReportById } from "../report-store";
+import { useMemo, useSyncExternalStore } from "react";
+import {
+  getReportsSignature,
+  StrategyReport,
+  readReportById,
+  subscribeReportsChanges,
+} from "../report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
 import { resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
 
 export default function ReportDetailsPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string | string[] }>();
   const readiness = useStrategyReadinessMode();
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
-  const report = useMemo<StrategyReport | null>(() => readReportById(params.id), [params.id]);
+  const reportId = useMemo(() => {
+    if (Array.isArray(params.id)) return params.id[0] ?? "";
+    return typeof params.id === "string" ? params.id : "";
+  }, [params.id]);
+  const reportsSignature = useSyncExternalStore(
+    subscribeReportsChanges,
+    getReportsSignature,
+    () => "server"
+  );
+  const report = useMemo<StrategyReport | null>(
+    () => (reportsSignature === "server" || !reportId ? null : readReportById(reportId)),
+    [reportId, reportsSignature]
+  );
+
+  if (reportsSignature === "server") {
+    return (
+      <main>
+        <h1 className="oms-page-title" style={{ fontSize: 24 }}>
+          جاري تحميل التقرير...
+        </h1>
+        <p className="oms-page-subtitle">نراجع البيانات المخزنة لهذا المشروع.</p>
+      </main>
+    );
+  }
 
   if (!report) {
     return (
@@ -20,11 +48,16 @@ export default function ReportDetailsPage() {
           التقرير غير موجود
         </h1>
         <p className="oms-page-subtitle">
-          لم يتم العثور على التقرير المطلوب.
+          لم يتم العثور على تقرير بهذا المعرّف{reportId ? ` (${reportId})` : ""}.
         </p>
-        <Link href="/app/reports" className="oms-btn oms-btn-ghost">
-          رجوع إلى التقارير
-        </Link>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href="/app/reports" className="oms-btn oms-btn-ghost">
+            رجوع إلى التقارير
+          </Link>
+          <Link href={quickStart.href} className="oms-btn oms-btn-primary">
+            {quickStart.label}
+          </Link>
+        </div>
       </main>
     );
   }
