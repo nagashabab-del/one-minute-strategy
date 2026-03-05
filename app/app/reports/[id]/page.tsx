@@ -106,6 +106,10 @@ export default function ReportDetailsPage() {
       window.setTimeout(() => setCopyFeedback("idle"), 2200);
     }
   };
+  const onPrintPdf = () => {
+    if (typeof window === "undefined") return;
+    window.print();
+  };
 
   return (
     <main>
@@ -127,11 +131,17 @@ export default function ReportDetailsPage() {
                 ? "فشل النسخ"
                 : "نسخ التقرير"}
           </button>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={onPrintPdf}>
+            تصدير PDF (طباعة)
+          </button>
         </div>
+        <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر "Save as PDF".</div>
         {copyFeedback === "error" ? (
           <div className="report-copy-feedback">تعذّر النسخ التلقائي. يمكنك استخدام التصدير النصي.</div>
         ) : null}
-        <StrategyReadinessBanner contextLabel="التقارير" />
+        <div className="report-nonprint">
+          <StrategyReadinessBanner contextLabel="التقارير" />
+        </div>
 
         <h1 className="oms-page-title" style={{ marginTop: 12 }}>
           {report.title}
@@ -235,6 +245,12 @@ export default function ReportDetailsPage() {
           color: #ffb3b3;
           font-size: 12px;
           font-weight: 700;
+        }
+
+        .report-print-note {
+          margin-top: 6px;
+          color: var(--oms-text-faint);
+          font-size: 12px;
         }
 
         .report-kpi-value {
@@ -351,6 +367,53 @@ export default function ReportDetailsPage() {
 
           .report-overview {
             grid-template-columns: 1fr;
+          }
+        }
+
+        @media print {
+          @page {
+            size: A4;
+            margin: 14mm;
+          }
+
+          :global(body) {
+            background: #fff !important;
+            color: #111 !important;
+          }
+
+          .report-head-actions,
+          .report-copy-feedback,
+          .report-print-note,
+          .report-nonprint {
+            display: none !important;
+          }
+
+          .oms-panel {
+            border: 1px solid #d3d7de !important;
+            background: #fff !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .report-overview {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .report-status,
+          .report-risk-badge,
+          .report-compliance-badge {
+            border-color: #9ea6b2 !important;
+            color: #111 !important;
+            background: #fff !important;
+          }
+
+          .oms-page-title,
+          .oms-page-subtitle,
+          .oms-text,
+          .oms-list-line,
+          .oms-section-title {
+            color: #111 !important;
           }
         }
       `}</style>
