@@ -279,3 +279,67 @@ export function getReportsSignature(): string {
 
   return parts.join("::");
 }
+
+export function buildReportText(report: StrategyReport): string {
+  const sections: string[] = [];
+  sections.push(`One Minute Strategy`);
+  sections.push(`====================`);
+  sections.push(`عنوان التقرير: ${report.title}`);
+  sections.push(`المعرّف: ${report.id}`);
+  sections.push(`تاريخ التحديث: ${report.date}`);
+  sections.push(`الحالة: ${report.status}`);
+  sections.push("");
+  sections.push("القرار التنفيذي");
+  sections.push("---------------");
+  sections.push(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد.");
+  sections.push("");
+
+  if (report.regulatoryCompliance) {
+    sections.push("الالتزام التنظيمي");
+    sections.push("---------------");
+    sections.push(`الحالة: ${report.regulatoryCompliance.readiness}`);
+    sections.push(
+      `مستوى الإكمال: ${report.regulatoryCompliance.completedCount}/${report.regulatoryCompliance.requiredCount}`
+    );
+    sections.push(
+      `المسارات المفتوحة: ${
+        report.regulatoryCompliance.pendingPaths.length
+          ? report.regulatoryCompliance.pendingPaths.join("، ")
+          : "لا توجد"
+      }`
+    );
+    sections.push("");
+  }
+
+  sections.push("أبرز ملاحظات المستشارين");
+  sections.push("----------------------");
+  for (const line of report.advisorsHighlights) {
+    sections.push(`- ${line}`);
+  }
+  sections.push("");
+
+  sections.push("التوصيات التنفيذية");
+  sections.push("-----------------");
+  for (const line of report.recommendations) {
+    sections.push(`- ${line}`);
+  }
+  sections.push("");
+
+  sections.push("المخاطر");
+  sections.push("-------");
+  for (const line of report.risks) {
+    sections.push(`- ${line}`);
+  }
+
+  return sections.join("\n");
+}
+
+export function buildReportFileName(report: StrategyReport): string {
+  const normalizedTitle = report.title
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .slice(0, 48);
+  const normalizedDate = (report.date || "").replace(/[^\d-]/g, "").slice(0, 10) || "date";
+  return `oms-report-${normalizedTitle || report.id}-${normalizedDate}.txt`;
+}

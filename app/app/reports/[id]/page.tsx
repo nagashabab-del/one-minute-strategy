@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
 import {
+  buildReportFileName,
+  buildReportText,
   getReportsSignature,
   StrategyReport,
   readReportById,
@@ -65,6 +67,18 @@ export default function ReportDetailsPage() {
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
+  const onExportTxt = () => {
+    if (typeof window === "undefined") return;
+    const blob = new Blob([buildReportText(report)], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildReportFileName(report);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <main>
@@ -76,6 +90,9 @@ export default function ReportDetailsPage() {
           <Link href={quickStart.href} className="oms-btn oms-btn-primary">
             {quickStart.label}
           </Link>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportTxt}>
+            تصدير نصي (.txt)
+          </button>
         </div>
         <StrategyReadinessBanner contextLabel="التقارير" />
 
