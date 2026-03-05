@@ -19,10 +19,35 @@ export default function SignInPage() {
 
   return (
     <main dir="rtl" style={pageStyle}>
-      <SignIn path="/sign-in" routing="path" signUpUrl="/sign-up" forceRedirectUrl="/app" />
+      <SignIn
+        path="/sign-in"
+        routing="path"
+        signUpUrl="/sign-up"
+        forceRedirectUrl="/app"
+        appearance={signInAppearance}
+      />
     </main>
   );
 }
+
+const signInAppearance = {
+  layout: {
+    socialButtonsPlacement: "top",
+    socialButtonsVariant: "blockButton",
+  },
+  elements: {
+    socialButtonsBlockButton: {
+      borderRadius: "10px",
+      border: "1px solid rgba(138,160,255,0.36)",
+      background: "rgba(12,20,36,0.86)",
+      color: "#F5F8FF",
+      minHeight: "42px",
+    },
+    socialButtonsBlockButtonText: {
+      fontWeight: 800,
+    },
+  },
+} as const;
 
 const pageStyle = {
   minHeight: "100vh",

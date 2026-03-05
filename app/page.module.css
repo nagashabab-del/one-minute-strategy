@@ -129,6 +129,22 @@
   border: 1px solid rgba(124, 180, 227, 0.6);
 }
 
+.googleBtn {
+  margin-top: 8px;
+  width: 170px;
+  min-height: 34px;
+  border-radius: 4px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f3f7ff;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(232, 237, 247, 0.52);
+  background: rgba(7, 12, 22, 0.44);
+}
+
 .linkGrid {
   margin-top: 14px;
   display: grid;
@@ -181,6 +197,10 @@
   }
 
   .loginBtn {
+    width: 100%;
+  }
+
+  .googleBtn {
     width: 100%;
   }
 

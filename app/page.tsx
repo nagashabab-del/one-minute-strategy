@@ -44,6 +44,10 @@ export default function LandingPage() {
               LOGIN
             </Link>
 
+            <Link href="/sign-in" className={styles.googleBtn}>
+              تسجيل الدخول عبر Google
+            </Link>
+
             <div className={styles.linkGrid}>
               <Link href="/sign-up">مستخدم جديد؟ سجل الآن</Link>
               <Link href="/sign-in">لديك حساب؟ تسجيل الدخول</Link>
