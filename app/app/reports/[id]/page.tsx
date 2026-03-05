@@ -16,6 +16,8 @@ import {
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
 import { resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
 
+type ExportFeedback = { tone: "ok" | "error"; text: string };
+
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string | string[] }>();
   const readiness = useStrategyReadinessMode();
@@ -34,6 +36,8 @@ export default function ReportDetailsPage() {
     [reportId, reportsSignature]
   );
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "ok" | "error">("idle");
+  const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
+  const [isBundleExporting, setIsBundleExporting] = useState(false);
 
   if (reportsSignature === "server") {
     return (
@@ -67,11 +71,22 @@ export default function ReportDetailsPage() {
     );
   }
 
+  const pushExportFeedback = (tone: ExportFeedback["tone"], text: string) => {
+    setExportFeedback({ tone, text });
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => setExportFeedback(null), 2600);
+    }
+  };
+
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
-  const onExportTxt = () => {
-    triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+  const onExportTxt = (silent = false) => {
+    const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+    if (!silent) {
+      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
+    }
+    return ok;
   };
   const onCopyReport = async () => {
     if (typeof window === "undefined") return;
@@ -103,28 +118,45 @@ export default function ReportDetailsPage() {
     if (typeof window === "undefined") return;
     window.print();
   };
-  const onExportDoc = () => {
-    triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
+  const onExportDoc = (silent = false) => {
+    const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
       "\ufeff",
       buildReportWordHtml(report),
     ]);
+    if (!silent) {
+      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف DOC بنجاح." : "تعذر تنزيل ملف DOC.");
+    }
+    return ok;
   };
-  const onExportBundle = () => {
-    onExportTxt();
-    window.setTimeout(() => onExportDoc(), 120);
+  const onExportBundle = async () => {
+    if (isBundleExporting) return;
+    setIsBundleExporting(true);
+    const txtOk = onExportTxt(true);
+    await wait(120);
+    const docOk = onExportDoc(true);
+    setIsBundleExporting(false);
+    pushExportFeedback(
+      txtOk && docOk ? "ok" : "error",
+      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOC)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
+    );
   };
 
   const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
-    if (typeof window === "undefined") return;
-    const blob = new Blob(payload, { type: mimeType });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    if (typeof window === "undefined") return false;
+    try {
+      const blob = new Blob(payload, { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   return (
@@ -137,14 +169,19 @@ export default function ReportDetailsPage() {
           <Link href={quickStart.href} className="oms-btn oms-btn-primary">
             {quickStart.label}
           </Link>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportTxt}>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={() => onExportTxt()} disabled={isBundleExporting}>
             تصدير نصي (.txt)
           </button>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportDoc}>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={() => onExportDoc()} disabled={isBundleExporting}>
             تصدير Word (.doc)
           </button>
-          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportBundle}>
-            تصدير الحزمة
+          <button
+            type="button"
+            className="oms-btn oms-btn-ghost"
+            onClick={() => void onExportBundle()}
+            disabled={isBundleExporting}
+          >
+            {isBundleExporting ? "جاري تصدير الحزمة..." : "تصدير الحزمة"}
           </button>
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onCopyReport}>
             {copyFeedback === "ok"
@@ -158,6 +195,9 @@ export default function ReportDetailsPage() {
           </button>
         </div>
         <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر &quot;Save as PDF&quot;.</div>
+        {exportFeedback ? (
+          <div className={`report-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
+        ) : null}
         {copyFeedback === "error" ? (
           <div className="report-copy-feedback">تعذّر النسخ التلقائي. يمكنك استخدام التصدير النصي.</div>
         ) : null}
@@ -267,6 +307,27 @@ export default function ReportDetailsPage() {
           color: #ffb3b3;
           font-size: 12px;
           font-weight: 700;
+        }
+
+        .report-export-feedback {
+          margin-top: 6px;
+          border-radius: 10px;
+          border: 1px solid var(--oms-border-strong);
+          padding: 8px 10px;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .report-export-feedback.tone-ok {
+          border-color: rgba(88, 214, 165, 0.58);
+          color: #78e3b9;
+          background: rgba(14, 56, 45, 0.52);
+        }
+
+        .report-export-feedback.tone-error {
+          border-color: rgba(247, 106, 121, 0.58);
+          color: #ffbcc4;
+          background: rgba(70, 20, 33, 0.52);
         }
 
         .report-print-note {
@@ -453,4 +514,14 @@ function complianceClass(readiness: NonNullable<StrategyReport["regulatoryCompli
   if (readiness === "جاهز") return "is-good";
   if (readiness === "جزئي") return "is-warning";
   return "is-risk";
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+    window.setTimeout(resolve, ms);
+  });
 }
