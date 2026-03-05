@@ -137,6 +137,10 @@
   transition: filter 0.16s ease;
 }
 
+.actionLink {
+  text-decoration: none;
+}
+
 .loginBtn:hover,
 .googleBtn:hover {
   filter: brightness(1.06);
@@ -166,6 +170,13 @@
   color: #ffd5d9;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.infoText {
+  margin: 10px 0 0;
+  color: rgba(218, 230, 252, 0.86);
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .registerRow {

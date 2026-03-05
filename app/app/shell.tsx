@@ -44,6 +44,8 @@ const MOBILE_ITEMS: NavItem[] = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const demoModeEnabled =
+    process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
   const inStrategyFlow = pathname.startsWith("/app/strategy");
   const [hasReports, setHasReports] = useState(false);
   const [gapMode, setGapMode] = useState(false);
@@ -158,11 +160,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div
                 className="oms-btn oms-btn-ghost"
                 style={{
-                  color: "rgba(245,248,255,0.76)",
+                  color: demoModeEnabled ? "rgba(245,248,255,0.76)" : "#ffb3b3",
                   fontWeight: 700,
                 }}
               >
-                وضع تجريبي بدون Clerk
+                {demoModeEnabled ? "وضع تجريبي بدون Clerk" : "المصادقة غير مفعّلة"}
               </div>
             )}
           </div>

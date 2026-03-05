@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useSignIn } from "@clerk/nextjs";
 import styles from "./page.module.css";
 
 const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+const demoModeEnabled =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
 
 function readClerkErrorMessage(err: unknown) {
   if (typeof err === "object" && err !== null && "errors" in err && Array.isArray(err.errors)) {
@@ -23,6 +25,14 @@ function readClerkErrorMessage(err: unknown) {
 }
 
 export default function LandingPage() {
+  if (!clerkEnabled) {
+    return <LandingWithoutClerk />;
+  }
+
+  return <LandingWithClerk />;
+}
+
+function LandingWithClerk() {
   const router = useRouter();
   const { isLoaded, signIn, setActive } = useSignIn();
   const [identifier, setIdentifier] = useState("");
@@ -153,7 +163,7 @@ export default function LandingPage() {
 
                 <div className={styles.actionRow}>
                   <button type="submit" className={styles.loginBtn} disabled={!canSubmit}>
-                    {isSubmitting ? "جاري تسجيل الدخول..." : "LOGIN"}
+                    {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
                   </button>
                   <button
                     type="button"
@@ -161,7 +171,7 @@ export default function LandingPage() {
                     onClick={handleGoogleLogin}
                     disabled={!canSubmit}
                   >
-                    {isGoogleLoading ? "Redirecting..." : "تسجيل الدخول عبر Google"}
+                    {isGoogleLoading ? "جاري التحويل..." : "متابعة عبر Google"}
                   </button>
                 </div>
 
@@ -173,32 +183,123 @@ export default function LandingPage() {
               </div>
             </section>
 
-            <aside className={styles.copyPane} dir="rtl">
-              <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
-                <Image
-                  src="/landing-logo.svg"
-                  alt="One Minute Strategy"
-                  width={178}
-                  height={50}
-                  className={styles.logo}
-                  priority
-                />
-              </Link>
-              <h2 className={styles.copyTitle}>
-                <span className={styles.copyLine}>القرار في دقيقة</span>
-                <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
-              </h2>
-              <p className={styles.copyDescription}>
-                منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
-                <br />
-                في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
-              </p>
-            </aside>
+            <MarketingCopy />
           </div>
         </div>
 
         <footer className={styles.footer}>one minute 2026</footer>
       </section>
     </main>
+  );
+}
+
+function LandingWithoutClerk() {
+  return (
+    <LandingShell
+      authPane={
+        <section className={styles.authPane}>
+          <form className={styles.loginForm} dir="rtl">
+            <div className={styles.inputStack}>
+              <label className={styles.fieldLabel}>
+                <span className={styles.fieldText}>اسم المستخدم</span>
+                <input
+                  className={styles.fieldInput}
+                  autoComplete="username"
+                  placeholder="ادخل اسم المستخدم"
+                  disabled
+                />
+              </label>
+
+              <label className={styles.fieldLabel}>
+                <span className={styles.fieldText}>كلمة المرور</span>
+                <input
+                  type="password"
+                  className={styles.fieldInput}
+                  autoComplete="current-password"
+                  placeholder="ادخل كلمة المرور"
+                  disabled
+                />
+              </label>
+            </div>
+
+            <label className={styles.rememberRow}>
+              <input type="checkbox" disabled />
+              <span>تذكرني</span>
+            </label>
+
+            <div className={styles.actionRow}>
+              <Link href="/sign-in" className={`${styles.loginBtn} ${styles.actionLink}`}>
+                فتح تسجيل الدخول
+              </Link>
+              {demoModeEnabled ? (
+                <Link href="/app" className={`${styles.googleBtn} ${styles.actionLink}`}>
+                  دخول الوضع التجريبي
+                </Link>
+              ) : (
+                <Link href="/sign-up" className={`${styles.googleBtn} ${styles.actionLink}`}>
+                  إنشاء حساب
+                </Link>
+              )}
+            </div>
+
+            <p className={styles.infoText}>
+              تسجيل الدخول المباشر يتطلب تفعيل Clerk.{" "}
+              {demoModeEnabled
+                ? "الوضع التجريبي مفعّل محليًا ويمكنك الدخول مباشرة."
+                : "الوضع التجريبي غير مفعّل في هذه البيئة."}
+            </p>
+          </form>
+
+          <div className={styles.registerRow}>
+            <Link href="/sign-up">مستخدم جديد؟ سجل الآن</Link>
+          </div>
+        </section>
+      }
+    />
+  );
+}
+
+function LandingShell({ authPane }: { authPane: ReactNode }) {
+  return (
+    <main className={styles.page}>
+      <section className={styles.stage} aria-label="Landing hero">
+        <div className={styles.card}>
+          <div className={styles.overlay} />
+
+          <div className={styles.contentGrid}>
+            {authPane}
+            <MarketingCopy />
+          </div>
+        </div>
+
+        <footer className={styles.footer}>one minute 2026</footer>
+      </section>
+    </main>
+  );
+}
+
+function MarketingCopy() {
+  return (
+    <aside className={styles.copyPane} dir="rtl">
+      <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
+        <Image
+          src="/landing-logo.svg"
+          alt="One Minute Strategy"
+          width={178}
+          height={50}
+          className={styles.logo}
+          priority
+        />
+      </Link>
+      <h2 className={styles.copyTitle}>
+        <span className={styles.copyLine}>القرار في دقيقة</span>
+        <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
+      </h2>
+      <p className={styles.copyDescription}>
+        منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
+        <br />
+        في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
+      </p>
+    </aside>
   );
 }

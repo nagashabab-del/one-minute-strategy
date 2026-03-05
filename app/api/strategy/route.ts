@@ -58,13 +58,14 @@ function normalizeReportText(text: string) {
     .trim();
 }
 
+function jsonError(status: number, error: string, code: string) {
+  return NextResponse.json({ ok: false, error, code }, { status });
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { ok: false, error: "Missing OPENAI_API_KEY in .env.local" },
-        { status: 500 }
-      );
+      return jsonError(500, "مفتاح OPENAI_API_KEY غير موجود في إعدادات البيئة.", "CONFIG_MISSING_OPENAI_KEY");
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -93,16 +94,10 @@ export async function POST(req: Request) {
     );
 
     if (!project?.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "project is required" },
-        { status: 400 }
-      );
+      return jsonError(400, "حقل بيانات المشروع مطلوب قبل بدء التحليل.", "PROJECT_REQUIRED");
     }
     if (selectedAdvisors.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: "At least one advisor must be selected" },
-        { status: 400 }
-      );
+      return jsonError(400, "يجب اختيار مستشار واحد على الأقل.", "ADVISOR_REQUIRED");
     }
 
     const activeAdvisorKeysText = selectedAdvisors
@@ -344,12 +339,9 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
       return NextResponse.json({ ok: true, data: JSON.parse(resp.output_text) });
     }
 
-    return NextResponse.json({ ok: false, error: "Invalid stage" }, { status: 400 });
+    return jsonError(400, "المرحلة المطلوبة غير صالحة.", "INVALID_STAGE");
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return jsonError(500, `تعذر تنفيذ الطلب الآن: ${message}`, "STRATEGY_API_FAILURE");
   }
 }
