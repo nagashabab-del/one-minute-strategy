@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { getReportsSignature, StrategyReport, readReports, subscribeReportsChanges } from "./report-store";
+import {
+  buildReportFileName,
+  buildReportText,
+  buildReportWordFileName,
+  buildReportWordHtml,
+  getReportsSignature,
+  StrategyReport,
+  readReports,
+  subscribeReportsChanges,
+} from "./report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../_lib/readiness-lock";
 
@@ -54,6 +63,33 @@ export default function ReportsPage() {
       return b.date.localeCompare(a.date);
     });
   }, [reports, search, statusFilter, sortBy]);
+
+  const onExportReportTxt = (report: StrategyReport) => {
+    if (typeof window === "undefined") return;
+    const blob = new Blob([buildReportText(report)], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildReportFileName(report);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const onExportReportDoc = (report: StrategyReport) => {
+    if (typeof window === "undefined") return;
+    const docHtml = buildReportWordHtml(report);
+    const blob = new Blob(["\ufeff", docHtml], { type: "application/msword;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildReportWordFileName(report);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <main>
@@ -171,18 +207,56 @@ export default function ReportsPage() {
                   </div>
                   <div className="reports-card-actions">
                     {inGapMode ? (
-                      <button
-                        type="button"
-                        className="oms-btn oms-btn-primary reports-open-btn reports-action-disabled"
-                        disabled
-                        title={quickActionBlockedHint}
-                      >
-                        فتح التقرير
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="oms-btn oms-btn-primary reports-open-btn reports-action-disabled"
+                          disabled
+                          title={quickActionBlockedHint}
+                        >
+                          فتح التقرير
+                        </button>
+                        <div className="reports-actions-row">
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                            disabled
+                            title={quickActionBlockedHint}
+                          >
+                            TXT
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                            disabled
+                            title={quickActionBlockedHint}
+                          >
+                            DOC
+                          </button>
+                        </div>
+                      </>
                     ) : (
-                      <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
-                        فتح التقرير
-                      </Link>
+                      <>
+                        <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
+                          فتح التقرير
+                        </Link>
+                        <div className="reports-actions-row">
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn"
+                            onClick={() => onExportReportTxt(report)}
+                          >
+                            TXT
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn"
+                            onClick={() => onExportReportDoc(report)}
+                          >
+                            DOC
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 </article>
@@ -297,9 +371,15 @@ export default function ReportsPage() {
             }
 
             .reports-card-actions {
-              display: flex;
-              align-items: center;
-              justify-content: flex-start;
+              display: grid;
+              gap: 8px;
+              min-width: 150px;
+            }
+
+            .reports-actions-row {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px;
             }
 
             .reports-card-compliance {
@@ -341,7 +421,16 @@ export default function ReportsPage() {
             }
 
             .reports-open-btn {
+              width: 100%;
+              justify-content: center;
               white-space: nowrap;
+            }
+
+            .reports-export-btn {
+              min-height: 38px;
+              justify-content: center;
+              font-size: 12px;
+              font-weight: 800;
             }
 
             .reports-action-disabled {
