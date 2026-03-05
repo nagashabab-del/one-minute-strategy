@@ -2,183 +2,204 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at 24% 20%, rgba(95, 74, 179, 0.28), transparent 42%),
-    radial-gradient(circle at 82% 88%, rgba(0, 122, 171, 0.2), transparent 36%),
-    linear-gradient(180deg, #061125 0%, #051126 46%, #031022 100%);
-}
-
-.stage {
-  width: min(1080px, 100%);
-}
-
-.card {
-  position: relative;
-  overflow: hidden;
-  min-height: 560px;
-  border-radius: 6px;
-  border: 1px solid rgba(118, 146, 180, 0.28);
-  box-shadow:
-    0 32px 80px rgba(3, 8, 18, 0.72),
-    inset 0 0 0 1px rgba(155, 178, 206, 0.12);
-  background-image: url("/landing-hero-bg.png");
+  padding: 28px;
+  background-image:
+    radial-gradient(circle at 22% 22%, rgba(104, 81, 193, 0.24), transparent 42%),
+    radial-gradient(circle at 82% 86%, rgba(0, 116, 173, 0.2), transparent 36%),
+    linear-gradient(180deg, rgba(4, 10, 22, 0.56), rgba(4, 10, 22, 0.76)),
+    url("/landing-hero-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-.overlay {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 18% 55%, rgba(3, 9, 20, 0.28), transparent 36%),
-    linear-gradient(180deg, rgba(2, 8, 14, 0.58), rgba(2, 8, 14, 0.84));
+.glassCard {
+  width: min(1160px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(188, 206, 243, 0.24);
+  background: linear-gradient(140deg, rgba(11, 17, 33, 0.36), rgba(8, 13, 27, 0.32));
+  backdrop-filter: blur(12px) saturate(110%);
+  -webkit-backdrop-filter: blur(12px) saturate(110%);
+  box-shadow:
+    0 40px 90px rgba(3, 8, 20, 0.58),
+    inset 0 0 0 1px rgba(217, 229, 255, 0.06);
+  padding: 24px;
 }
 
-.panel {
-  position: relative;
-  z-index: 1;
-  width: min(380px, calc(100% - 30px));
-  margin: 64px 0 0 68px;
-  padding: 18px 0;
-  color: #f0f5ff;
-  text-align: left;
-  direction: ltr;
+.cardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.brandPane {
+  border-radius: 14px;
+  border: 1px solid rgba(176, 196, 241, 0.18);
+  background: linear-gradient(170deg, rgba(8, 13, 26, 0.4), rgba(8, 13, 26, 0.18));
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: right;
+  direction: rtl;
+}
+
+.brandTag {
+  margin: 0;
+  color: rgba(211, 224, 255, 0.76);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.brandTitle {
+  margin: 12px 0 0;
+  color: #f5f8ff;
+  font-size: clamp(34px, 4.2vw, 54px);
+  line-height: 1.18;
+  font-weight: 900;
+}
+
+.brandDescription {
+  margin: 14px 0 0;
+  color: rgba(220, 231, 255, 0.82);
+  font-size: clamp(16px, 1.7vw, 21px);
+  line-height: 1.9;
+  font-weight: 300;
+}
+
+.loginPane {
+  border-radius: 14px;
+  border: 1px solid rgba(176, 196, 241, 0.2);
+  background: linear-gradient(170deg, rgba(5, 9, 20, 0.52), rgba(5, 9, 20, 0.36));
+  padding: 24px 22px;
+  direction: rtl;
+  text-align: right;
 }
 
 .logoWrap {
   display: inline-flex;
   align-items: center;
-  margin-bottom: 26px;
   text-decoration: none;
 }
 
 .logo {
   width: auto;
-  height: 26px;
-}
-
-.title {
-  margin: 0;
-  font-size: clamp(34px, 4.4vw, 44px);
-  line-height: 1.06;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-}
-
-.subtitle {
-  margin: 8px 0 0;
-  color: rgba(228, 235, 248, 0.86);
-  font-size: 17px;
-  font-weight: 300;
+  height: 42px;
 }
 
 .loginForm {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .inputStack {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .fieldLabel {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 8px;
-  border-bottom: 1px solid rgba(229, 238, 255, 0.72);
 }
 
-.fieldIcon {
-  font-size: 12px;
-  opacity: 0.88;
+.fieldText {
+  color: rgba(222, 232, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .fieldInput {
-  flex: 1;
-  min-height: 34px;
-  background: transparent;
-  border: 0;
-  outline: none;
-  color: rgba(243, 247, 255, 0.95);
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(161, 180, 225, 0.28);
+  background: rgba(8, 14, 29, 0.72);
+  color: #f7faff;
   font-size: 14px;
-  font-weight: 400;
-  padding: 0;
+  font-weight: 500;
+  padding: 0 12px;
+  text-align: right;
+  direction: rtl;
+  outline: none;
 }
 
 .fieldInput::placeholder {
-  color: rgba(243, 247, 255, 0.78);
+  color: rgba(206, 221, 255, 0.62);
+}
+
+.fieldInput:focus {
+  border-color: rgba(134, 172, 250, 0.62);
+  box-shadow: 0 0 0 3px rgba(93, 133, 214, 0.16);
 }
 
 .fieldInput:disabled {
-  opacity: 0.65;
+  opacity: 0.66;
   cursor: not-allowed;
 }
 
 .rememberRow {
   margin-top: 10px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(232, 238, 250, 0.86);
-  font-size: 12px;
+  color: rgba(224, 236, 255, 0.86);
+  font-size: 13px;
 }
 
 .rememberRow input {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 .actionRow {
-  margin-top: 16px;
+  margin-top: 14px;
   display: grid;
-  grid-template-columns: 170px 170px;
-  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .loginBtn,
 .googleBtn {
-  min-height: 34px;
-  border-radius: 4px;
-  text-decoration: none;
+  min-height: 40px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   cursor: pointer;
-  transition: filter 0.16s ease;
+  transition: filter 0.16s ease, transform 0.16s ease;
 }
 
 .loginBtn:hover,
 .googleBtn:hover {
   filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
 .loginBtn:disabled,
 .googleBtn:disabled {
   opacity: 0.56;
   cursor: not-allowed;
+  transform: none;
 }
 
 .loginBtn {
-  color: #e9f4ff;
-  letter-spacing: 0.05em;
-  background: linear-gradient(180deg, #3f8bcf 0%, #2c6ea8 100%);
   border: 1px solid rgba(124, 180, 227, 0.6);
+  color: #ecf6ff;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #3f8bcf 0%, #2c6ea8 100%);
 }
 
 .googleBtn {
-  color: #f3f7ff;
-  border: 1px solid rgba(232, 237, 247, 0.52);
-  background: rgba(7, 12, 22, 0.44);
+  border: 1px solid rgba(183, 201, 238, 0.4);
+  color: #f2f7ff;
+  background: rgba(8, 15, 30, 0.7);
 }
 
 .errorText {
   margin: 10px 0 0;
-  color: #ffd5d9;
+  color: #ffd4d8;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -188,55 +209,51 @@
 }
 
 .registerRow a {
-  min-height: 30px;
-  width: 170px;
-  border: 1px solid rgba(191, 206, 228, 0.34);
-  border-radius: 2px;
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(184, 202, 238, 0.34);
+  border-radius: 10px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(232, 241, 255, 0.95);
-  font-size: 11px;
-  text-align: center;
-  padding: 0 6px;
-  background: rgba(3, 9, 17, 0.28);
+  color: rgba(234, 242, 255, 0.95);
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(4, 10, 22, 0.46);
 }
 
 @media (max-width: 980px) {
-  .card {
-    min-height: 520px;
+  .glassCard {
+    padding: 16px;
   }
 
-  .panel {
-    margin: 42px 0 0 42px;
-    width: min(370px, calc(100% - 24px));
+  .cardGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .brandPane,
+  .loginPane {
+    padding: 22px 18px;
   }
 }
 
 @media (max-width: 680px) {
   .page {
-    padding: 14px;
+    padding: 12px;
   }
 
-  .card {
-    min-height: 560px;
+  .brandTitle {
+    font-size: clamp(28px, 8vw, 38px);
   }
 
-  .panel {
-    margin: 24px auto 0;
-    width: calc(100% - 24px);
-  }
-
-  .title {
-    font-size: clamp(30px, 10vw, 38px);
+  .brandDescription {
+    font-size: 15px;
+    line-height: 1.85;
   }
 
   .actionRow {
     grid-template-columns: 1fr;
-  }
-
-  .registerRow a {
-    width: 100%;
   }
 }

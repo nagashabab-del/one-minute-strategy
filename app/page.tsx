@@ -66,10 +66,12 @@ export default function LandingPage() {
 
       if (result.status === "complete" && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
-        if (remember && typeof window !== "undefined") {
-          window.localStorage.setItem("oms_last_identifier", cleanIdentifier);
-        } else if (typeof window !== "undefined") {
-          window.localStorage.removeItem("oms_last_identifier");
+        if (typeof window !== "undefined") {
+          if (remember) {
+            window.localStorage.setItem("oms_last_identifier", cleanIdentifier);
+          } else {
+            window.localStorage.removeItem("oms_last_identifier");
+          }
         }
         router.push("/app");
         return;
@@ -105,47 +107,57 @@ export default function LandingPage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.stage} aria-label="Landing hero">
-        <div className={styles.card}>
-          <div className={styles.overlay} />
+      <section className={styles.glassCard}>
+        <div className={styles.cardGrid}>
+          <aside className={styles.brandPane}>
+            <p className={styles.brandTag}>One Minute Strategy</p>
+            <h1 className={styles.brandTitle}>
+              القرار في دقيقة
+              <br />
+              والتنفيذ تحت السيطرة
+            </h1>
+            <p className={styles.brandDescription}>
+              منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
+              <br />
+              في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
+            </p>
+          </aside>
 
-          <div className={styles.panel}>
+          <section className={styles.loginPane}>
             <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
               <Image
                 src="/landing-logo.svg"
                 alt="One Minute Strategy"
-                width={126}
-                height={36}
+                width={182}
+                height={52}
                 className={styles.logo}
                 priority
               />
             </Link>
 
-            <h1 className={styles.title}>Welcome!</h1>
-            <p className={styles.subtitle}>Today will be great.</p>
-
-            <form className={styles.loginForm} onSubmit={handlePasswordLogin}>
+            <form className={styles.loginForm} onSubmit={handlePasswordLogin} dir="rtl">
               <div className={styles.inputStack}>
                 <label className={styles.fieldLabel}>
-                  <span className={styles.fieldIcon}>👤</span>
+                  <span className={styles.fieldText}>اسم المستخدم</span>
                   <input
                     className={styles.fieldInput}
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
                     autoComplete="username"
-                    placeholder="Username"
+                    placeholder="ادخل اسم المستخدم"
                     disabled={!canSubmit}
                   />
                 </label>
+
                 <label className={styles.fieldLabel}>
-                  <span className={styles.fieldIcon}>🔒</span>
+                  <span className={styles.fieldText}>كلمة المرور</span>
                   <input
                     type="password"
                     className={styles.fieldInput}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
-                    placeholder="Password"
+                    placeholder="ادخل كلمة المرور"
                     disabled={!canSubmit}
                   />
                 </label>
@@ -158,12 +170,12 @@ export default function LandingPage() {
                   onChange={(event) => setRemember(event.target.checked)}
                   disabled={!canSubmit}
                 />
-                <span>Remember me</span>
+                <span>تذكرني</span>
               </label>
 
               <div className={styles.actionRow}>
                 <button type="submit" className={styles.loginBtn} disabled={!canSubmit}>
-                  {isSubmitting ? "Logging in..." : "LOGIN"}
+                  {isSubmitting ? "جاري تسجيل الدخول..." : "LOGIN"}
                 </button>
                 <button
                   type="button"
@@ -181,7 +193,7 @@ export default function LandingPage() {
             <div className={styles.registerRow}>
               <Link href="/sign-up">مستخدم جديد؟ سجل الآن</Link>
             </div>
-          </div>
+          </section>
         </div>
       </section>
     </main>
