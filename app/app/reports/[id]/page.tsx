@@ -145,10 +145,10 @@ export default function ReportDetailsPage() {
       if (!skipBusy) setIsActionBusy(false);
     }
   };
-  const onExportPdf = async (silent = false) => {
-    if (isActionBusy) return false;
+  const onExportPdf = async (silent = false, skipBusy = false) => {
+    if (!skipBusy && isActionBusy) return false;
     if (inGapMode) return false;
-    setIsActionBusy(true);
+    if (!skipBusy) setIsActionBusy(true);
     try {
       const blob = await buildReportPdfBlob(report);
       triggerBlobDownload(buildReportPdfFileName(report), blob);
@@ -162,7 +162,7 @@ export default function ReportDetailsPage() {
       }
       return false;
     } finally {
-      setIsActionBusy(false);
+      if (!skipBusy) setIsActionBusy(false);
     }
   };
   const onExportBundle = async () => {
@@ -172,10 +172,14 @@ export default function ReportDetailsPage() {
     const txtOk = onExportTxt(true, true);
     await wait(120);
     const docOk = await onExportDoc(true, true);
+    await wait(120);
+    const pdfOk = await onExportPdf(true, true);
     setIsBundleExporting(false);
     pushExportFeedback(
-      txtOk && docOk ? "ok" : "error",
-      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOCX)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
+      txtOk && docOk && pdfOk ? "ok" : "error",
+      txtOk && docOk && pdfOk
+        ? "تم تنزيل الحزمة (TXT + DOCX + PDF)."
+        : "تم تنزيل جزء من الحزمة أو فشل التصدير."
     );
   };
 
