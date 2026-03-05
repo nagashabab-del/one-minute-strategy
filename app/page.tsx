@@ -113,20 +113,6 @@ export default function LandingPage() {
 
           <div className={styles.contentGrid}>
             <section className={styles.authPane}>
-              <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
-                <Image
-                  src="/landing-logo.svg"
-                  alt="One Minute Strategy"
-                  width={178}
-                  height={50}
-                  className={styles.logo}
-                  priority
-                />
-              </Link>
-
-              <h1 className={styles.welcomeTitle}>Welcome!</h1>
-              <p className={styles.welcomeSubtitle}>Today will be great.</p>
-
               <form className={styles.loginForm} onSubmit={handlePasswordLogin} dir="rtl">
                 <div className={styles.inputStack}>
                   <label className={styles.fieldLabel}>
@@ -188,6 +174,16 @@ export default function LandingPage() {
             </section>
 
             <aside className={styles.copyPane} dir="rtl">
+              <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
+                <Image
+                  src="/landing-logo.svg"
+                  alt="One Minute Strategy"
+                  width={178}
+                  height={50}
+                  className={styles.logo}
+                  priority
+                />
+              </Link>
               <h2 className={styles.copyTitle}>
                 <span className={styles.copyLine}>القرار في دقيقة</span>
                 <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
