@@ -6,6 +6,8 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildReportFileName,
   buildReportText,
+  buildReportWordFileName,
+  buildReportWordHtml,
   getReportsSignature,
   StrategyReport,
   readReportById,
@@ -110,6 +112,19 @@ export default function ReportDetailsPage() {
     if (typeof window === "undefined") return;
     window.print();
   };
+  const onExportDoc = () => {
+    if (typeof window === "undefined") return;
+    const docHtml = buildReportWordHtml(report);
+    const blob = new Blob(["\ufeff", docHtml], { type: "application/msword;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildReportWordFileName(report);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <main>
@@ -123,6 +138,9 @@ export default function ReportDetailsPage() {
           </Link>
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportTxt}>
             تصدير نصي (.txt)
+          </button>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportDoc}>
+            تصدير Word (.doc)
           </button>
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onCopyReport}>
             {copyFeedback === "ok"

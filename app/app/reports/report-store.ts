@@ -335,11 +335,119 @@ export function buildReportText(report: StrategyReport): string {
 }
 
 export function buildReportFileName(report: StrategyReport): string {
+  const baseName = buildReportBaseName(report);
+  return `oms-report-${baseName}.txt`;
+}
+
+export function buildReportWordFileName(report: StrategyReport): string {
+  const baseName = buildReportBaseName(report);
+  return `oms-report-${baseName}.doc`;
+}
+
+export function buildReportWordHtml(report: StrategyReport): string {
+  const highlights = report.advisorsHighlights
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("");
+  const recommendations = report.recommendations
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("");
+  const risks = report.risks.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
+  const compliance = report.regulatoryCompliance
+    ? `
+      <section class="panel">
+        <h2>الالتزام التنظيمي</h2>
+        <p>الحالة: ${escapeHtml(report.regulatoryCompliance.readiness)}</p>
+        <p>مستوى الإكمال: ${report.regulatoryCompliance.completedCount}/${report.regulatoryCompliance.requiredCount}</p>
+        <p>المسارات المفتوحة: ${escapeHtml(
+          report.regulatoryCompliance.pendingPaths.length
+            ? report.regulatoryCompliance.pendingPaths.join("، ")
+            : "لا توجد"
+        )}</p>
+      </section>
+    `
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(report.title)}</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      margin: 24px;
+      color: #111827;
+      line-height: 1.7;
+      direction: rtl;
+      text-align: right;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    h2 { margin: 0 0 10px; font-size: 20px; }
+    p { margin: 0 0 8px; }
+    ul { margin: 0; padding-right: 20px; }
+    li { margin-bottom: 6px; }
+    .meta { color: #4b5563; margin-bottom: 14px; font-size: 14px; }
+    .panel {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #ffffff;
+    }
+    .brand {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="brand">One Minute Strategy</div>
+  <h1>${escapeHtml(report.title)}</h1>
+  <div class="meta">المعرّف: ${escapeHtml(report.id)} | التاريخ: ${escapeHtml(report.date)} | الحالة: ${escapeHtml(
+    report.status
+  )}</div>
+
+  <section class="panel">
+    <h2>القرار التنفيذي</h2>
+    <p>${escapeHtml(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد.")}</p>
+  </section>
+
+  ${compliance}
+
+  <section class="panel">
+    <h2>أبرز ملاحظات المستشارين</h2>
+    <ul>${highlights}</ul>
+  </section>
+
+  <section class="panel">
+    <h2>التوصيات التنفيذية</h2>
+    <ul>${recommendations}</ul>
+  </section>
+
+  <section class="panel">
+    <h2>المخاطر</h2>
+    <ul>${risks}</ul>
+  </section>
+</body>
+</html>`;
+}
+
+function buildReportBaseName(report: StrategyReport): string {
   const normalizedTitle = report.title
     .trim()
     .replace(/\s+/g, "-")
     .replace(/[\\/:*?"<>|]/g, "")
     .slice(0, 48);
   const normalizedDate = (report.date || "").replace(/[^\d-]/g, "").slice(0, 10) || "date";
-  return `oms-report-${normalizedTitle || report.id}-${normalizedDate}.txt`;
+  return `${normalizedTitle || report.id}-${normalizedDate}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
