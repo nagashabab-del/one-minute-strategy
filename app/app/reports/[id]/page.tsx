@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildReportFileName,
   buildReportText,
@@ -31,6 +31,7 @@ export default function ReportDetailsPage() {
     () => (reportsSignature === "server" || !reportId ? null : readReportById(reportId)),
     [reportId, reportsSignature]
   );
+  const [copyFeedback, setCopyFeedback] = useState<"idle" | "ok" | "error">("idle");
 
   if (reportsSignature === "server") {
     return (
@@ -79,6 +80,32 @@ export default function ReportDetailsPage() {
     document.body.removeChild(anchor);
     window.URL.revokeObjectURL(url);
   };
+  const onCopyReport = async () => {
+    if (typeof window === "undefined") return;
+    const text = buildReportText(report);
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopyFeedback("ok");
+      window.setTimeout(() => setCopyFeedback("idle"), 2200);
+    } catch {
+      setCopyFeedback("error");
+      window.setTimeout(() => setCopyFeedback("idle"), 2200);
+    }
+  };
 
   return (
     <main>
@@ -93,7 +120,17 @@ export default function ReportDetailsPage() {
           <button type="button" className="oms-btn oms-btn-ghost" onClick={onExportTxt}>
             تصدير نصي (.txt)
           </button>
+          <button type="button" className="oms-btn oms-btn-ghost" onClick={onCopyReport}>
+            {copyFeedback === "ok"
+              ? "تم النسخ"
+              : copyFeedback === "error"
+                ? "فشل النسخ"
+                : "نسخ التقرير"}
+          </button>
         </div>
+        {copyFeedback === "error" ? (
+          <div className="report-copy-feedback">تعذّر النسخ التلقائي. يمكنك استخدام التصدير النصي.</div>
+        ) : null}
         <StrategyReadinessBanner contextLabel="التقارير" />
 
         <h1 className="oms-page-title" style={{ marginTop: 12 }}>
@@ -191,6 +228,13 @@ export default function ReportDetailsPage() {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
+        }
+
+        .report-copy-feedback {
+          margin-top: 6px;
+          color: #ffb3b3;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         .report-kpi-value {
