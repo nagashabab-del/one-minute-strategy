@@ -8,11 +8,16 @@ type StageScreenProps = {
   nextDeliverables: string[];
   primaryActionHref: string;
   primaryActionLabel: string;
+  workspaceHref?: string;
+  workspaceLabel?: string;
 };
 
 export default function StageScreen(props: StageScreenProps) {
   const scopeItems = props.currentScope.slice(0, 2);
   const deliverables = props.nextDeliverables.slice(0, 2);
+  const workspaceHref = props.workspaceHref ?? "/app/strategy/workspace";
+  const workspaceLabel = props.workspaceLabel ?? "فتح محرك التحليل الحالي";
+  const showWorkspaceAction = workspaceHref !== props.primaryActionHref;
 
   return (
     <main>
@@ -49,6 +54,11 @@ export default function StageScreen(props: StageScreenProps) {
           <Link href={props.primaryActionHref} className="oms-btn oms-btn-primary">
             {props.primaryActionLabel}
           </Link>
+          {showWorkspaceAction ? (
+            <Link href={workspaceHref} className="oms-btn oms-btn-ghost">
+              {workspaceLabel}
+            </Link>
+          ) : null}
         </div>
       </section>
     </main>
