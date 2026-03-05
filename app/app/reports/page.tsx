@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
+  buildReportDocxBlob,
+  buildReportDocxFileName,
   buildReportsCsv,
   buildReportsCsvFileName,
   buildReportFileName,
+  buildReportPdfBlob,
+  buildReportPdfFileName,
   buildReportText,
-  buildReportWordFileName,
-  buildReportWordHtml,
   getReportsSignature,
   StrategyReport,
   readReports,
@@ -78,33 +80,65 @@ export default function ReportsPage() {
     }
   };
 
-  const onExportReportTxt = (report: StrategyReport, silent = false) => {
-    if (actionBusyReportId) return false;
-    setActionBusyReportId(report.id);
+  const onExportReportTxt = (report: StrategyReport, silent = false, skipBusy = false) => {
+    if (!skipBusy && actionBusyReportId) return false;
+    if (!skipBusy) {
+      setActionBusyReportId(report.id);
+    }
     const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
-    window.setTimeout(() => {
-      setActionBusyReportId((current) => (current === report.id ? null : current));
-    }, 240);
+    if (!skipBusy) {
+      window.setTimeout(() => {
+        setActionBusyReportId((current) => (current === report.id ? null : current));
+      }, 240);
+    }
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
     }
     return ok;
   };
 
-  const onExportReportDoc = (report: StrategyReport, silent = false) => {
-    if (actionBusyReportId) return false;
-    setActionBusyReportId(report.id);
-    const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
-      "\ufeff",
-      buildReportWordHtml(report),
-    ]);
-    window.setTimeout(() => {
-      setActionBusyReportId((current) => (current === report.id ? null : current));
-    }, 240);
-    if (!silent) {
-      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف DOC بنجاح." : "تعذر تنزيل ملف DOC.");
+  const onExportReportDoc = async (report: StrategyReport, silent = false, skipBusy = false) => {
+    if ((!skipBusy && actionBusyReportId) || typeof window === "undefined") return false;
+    if (!skipBusy) {
+      setActionBusyReportId(report.id);
     }
-    return ok;
+    try {
+      const blob = await buildReportDocxBlob(report);
+      triggerBlobDownload(buildReportDocxFileName(report), blob);
+      if (!silent) {
+        pushExportFeedback("ok", "تم تنزيل ملف DOCX بنجاح.");
+      }
+      return true;
+    } catch {
+      if (!silent) {
+        pushExportFeedback("error", "تعذر تنزيل ملف DOCX.");
+      }
+      return false;
+    } finally {
+      if (!skipBusy) {
+        setActionBusyReportId((current) => (current === report.id ? null : current));
+      }
+    }
+  };
+
+  const onExportReportPdf = async (report: StrategyReport, silent = false) => {
+    if (actionBusyReportId || typeof window === "undefined") return false;
+    setActionBusyReportId(report.id);
+    try {
+      const blob = await buildReportPdfBlob(report);
+      triggerBlobDownload(buildReportPdfFileName(report), blob);
+      if (!silent) {
+        pushExportFeedback("ok", "تم تنزيل ملف PDF بنجاح.");
+      }
+      return true;
+    } catch {
+      if (!silent) {
+        pushExportFeedback("error", "تعذر تنزيل ملف PDF.");
+      }
+      return false;
+    } finally {
+      setActionBusyReportId((current) => (current === report.id ? null : current));
+    }
   };
 
   const onCopyReport = async (report: StrategyReport) => {
@@ -137,15 +171,15 @@ export default function ReportsPage() {
   };
 
   const onExportReportBundle = async (report: StrategyReport) => {
-    if (bundleExportingId) return;
+    if (bundleExportingId || actionBusyReportId) return;
     setBundleExportingId(report.id);
-    const txtOk = onExportReportTxt(report, true);
+    const txtOk = onExportReportTxt(report, true, true);
     await wait(120);
-    const docOk = onExportReportDoc(report, true);
+    const docOk = await onExportReportDoc(report, true, true);
     setBundleExportingId(null);
     pushExportFeedback(
       txtOk && docOk ? "ok" : "error",
-      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOC)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
+      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOCX)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
     );
   };
 
@@ -168,18 +202,23 @@ export default function ReportsPage() {
     if (typeof window === "undefined") return false;
     try {
       const blob = new Blob(payload, { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      window.URL.revokeObjectURL(url);
+      triggerBlobDownload(fileName, blob);
       return true;
     } catch {
       return false;
     }
+  };
+
+  const triggerBlobDownload = (fileName: string, blob: Blob) => {
+    if (typeof window === "undefined") return;
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -347,7 +386,15 @@ export default function ReportsPage() {
                             disabled
                             title={quickActionBlockedHint}
                           >
-                            DOC
+                            DOCX
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                            disabled
+                            title={quickActionBlockedHint}
+                          >
+                            PDF
                           </button>
                           <button
                             type="button"
@@ -387,10 +434,18 @@ export default function ReportsPage() {
                           <button
                             type="button"
                             className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => onExportReportDoc(report)}
+                            onClick={() => void onExportReportDoc(report)}
                             disabled={bundleExportingId === report.id || actionBusyReportId === report.id}
                           >
-                            {actionBusyReportId === report.id ? "..." : "DOC"}
+                            {actionBusyReportId === report.id ? "..." : "DOCX"}
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn"
+                            onClick={() => void onExportReportPdf(report)}
+                            disabled={bundleExportingId === report.id || actionBusyReportId === report.id}
+                          >
+                            {actionBusyReportId === report.id ? "..." : "PDF"}
                           </button>
                           <button
                             type="button"
@@ -564,7 +619,7 @@ export default function ReportsPage() {
 
             .reports-actions-row {
               display: grid;
-              grid-template-columns: repeat(4, minmax(0, 1fr));
+              grid-template-columns: repeat(5, minmax(0, 1fr));
               gap: 8px;
             }
 

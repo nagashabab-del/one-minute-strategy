@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
+    "docx": "^9.6.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.0",
     "next": "16.1.6",
     "openai": "^6.25.0",
     "react": "19.2.3",

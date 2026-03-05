@@ -340,8 +340,157 @@ export function buildReportFileName(report: StrategyReport): string {
 }
 
 export function buildReportWordFileName(report: StrategyReport): string {
+  return buildReportDocxFileName(report);
+}
+
+export function buildReportDocxFileName(report: StrategyReport): string {
   const baseName = buildReportBaseName(report);
-  return `oms-report-${baseName}.doc`;
+  return `oms-report-${baseName}.docx`;
+}
+
+export async function buildReportDocxBlob(report: StrategyReport): Promise<Blob> {
+  const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
+
+  const heading = (title: string) =>
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.RIGHT,
+      bidirectional: true,
+      spacing: { before: 260, after: 110 },
+      children: [new TextRun({ text: title, bold: true, size: 26 })],
+    });
+  const body = (text: string) =>
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      bidirectional: true,
+      spacing: { after: 110 },
+      children: [new TextRun({ text, size: 24 })],
+    });
+  const bullet = (text: string) =>
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      bidirectional: true,
+      spacing: { after: 90 },
+      bullet: { level: 0 },
+      children: [new TextRun({ text, size: 24 })],
+    });
+  const compliance = report.regulatoryCompliance
+    ? [
+        heading("الالتزام التنظيمي"),
+        body(`الحالة: ${report.regulatoryCompliance.readiness}`),
+        body(
+          `مستوى الإكمال: ${report.regulatoryCompliance.completedCount}/${report.regulatoryCompliance.requiredCount}`
+        ),
+        body(
+          `المسارات المفتوحة: ${
+            report.regulatoryCompliance.pendingPaths.length
+              ? report.regulatoryCompliance.pendingPaths.join("، ")
+              : "لا توجد"
+          }`
+        ),
+      ]
+    : [];
+
+  const doc = new Document({
+    creator: "One Minute Strategy",
+    title: report.title,
+    description: `Strategy report ${report.id}`,
+    sections: [
+      {
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            bidirectional: true,
+            spacing: { after: 90 },
+            children: [new TextRun({ text: "One Minute Strategy", bold: true, size: 22 })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            bidirectional: true,
+            spacing: { after: 110 },
+            children: [new TextRun({ text: report.title, bold: true, size: 38 })],
+          }),
+          body(`المعرّف: ${report.id}`),
+          body(`تاريخ التحديث: ${report.date}`),
+          body(`الحالة: ${report.status}`),
+          heading("القرار التنفيذي"),
+          body(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد."),
+          ...compliance,
+          heading("أبرز ملاحظات المستشارين"),
+          ...report.advisorsHighlights.map((line) => bullet(line)),
+          heading("التوصيات التنفيذية"),
+          ...report.recommendations.map((line) => bullet(line)),
+          heading("المخاطر"),
+          ...report.risks.map((line) => bullet(line)),
+        ],
+      },
+    ],
+  });
+
+  return Packer.toBlob(doc);
+}
+
+export function buildReportPdfFileName(report: StrategyReport): string {
+  const baseName = buildReportBaseName(report);
+  return `oms-report-${baseName}.pdf`;
+}
+
+export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("PDF export is available in browser only.");
+  }
+
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-99999px";
+  iframe.style.top = "0";
+  iframe.style.width = "794px";
+  iframe.style.height = "1123px";
+  iframe.style.opacity = "0";
+
+  document.body.appendChild(iframe);
+  try {
+    const html = buildReportWordHtml(report);
+    const doc = iframe.contentDocument;
+    if (!doc) throw new Error("Cannot initialize PDF sandbox.");
+    doc.open();
+    doc.write(html);
+    doc.close();
+    await waitForMs(90);
+    const body = doc.body;
+    if (!body) throw new Error("No report content for PDF export.");
+
+    const canvas = await html2canvas(body, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      windowWidth: Math.max(body.scrollWidth, 794),
+      windowHeight: body.scrollHeight,
+    });
+    const imageData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imageWidth = pageWidth;
+    const imageHeight = (canvas.height * imageWidth) / canvas.width;
+
+    let heightLeft = imageHeight;
+    let yPosition = 0;
+    pdf.addImage(imageData, "PNG", 0, yPosition, imageWidth, imageHeight, undefined, "FAST");
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      yPosition = heightLeft - imageHeight;
+      pdf.addPage();
+      pdf.addImage(imageData, "PNG", 0, yPosition, imageWidth, imageHeight, undefined, "FAST");
+      heightLeft -= pageHeight;
+    }
+
+    return pdf.output("blob");
+  } finally {
+    document.body.removeChild(iframe);
+  }
 }
 
 export function buildReportWordHtml(report: StrategyReport): string {
@@ -520,4 +669,14 @@ function normalizeFileToken(value: string, maxLength: number): string {
     .replace(/^-+/, "")
     .replace(/-+$/, "");
   return normalized.slice(0, maxLength);
+}
+
+function waitForMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+    window.setTimeout(resolve, ms);
+  });
 }

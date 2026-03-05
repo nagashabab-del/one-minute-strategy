@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
+  buildReportDocxBlob,
+  buildReportDocxFileName,
   buildReportFileName,
+  buildReportPdfBlob,
+  buildReportPdfFileName,
   buildReportText,
-  buildReportWordFileName,
-  buildReportWordHtml,
   getReportsSignature,
   StrategyReport,
   readReportById,
@@ -83,12 +85,14 @@ export default function ReportDetailsPage() {
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
-  const onExportTxt = (silent = false) => {
-    if (isActionBusy) return false;
+  const onExportTxt = (silent = false, skipBusy = false) => {
+    if (!skipBusy && isActionBusy) return false;
     if (inGapMode) return false;
-    setIsActionBusy(true);
+    if (!skipBusy) setIsActionBusy(true);
     const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
-    window.setTimeout(() => setIsActionBusy(false), 240);
+    if (!skipBusy) {
+      window.setTimeout(() => setIsActionBusy(false), 240);
+    }
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
     }
@@ -121,35 +125,57 @@ export default function ReportDetailsPage() {
       window.setTimeout(() => setIsActionBusy(false), 240);
     }
   };
-  const onPrintPdf = () => {
-    if (inGapMode || typeof window === "undefined") return;
-    window.print();
+  const onExportDoc = async (silent = false, skipBusy = false) => {
+    if (!skipBusy && isActionBusy) return false;
+    if (inGapMode) return false;
+    if (!skipBusy) setIsActionBusy(true);
+    try {
+      const blob = await buildReportDocxBlob(report);
+      triggerBlobDownload(buildReportDocxFileName(report), blob);
+      if (!silent) {
+        pushExportFeedback("ok", "تم تنزيل ملف DOCX بنجاح.");
+      }
+      return true;
+    } catch {
+      if (!silent) {
+        pushExportFeedback("error", "تعذر تنزيل ملف DOCX.");
+      }
+      return false;
+    } finally {
+      if (!skipBusy) setIsActionBusy(false);
+    }
   };
-  const onExportDoc = (silent = false) => {
+  const onExportPdf = async (silent = false) => {
     if (isActionBusy) return false;
     if (inGapMode) return false;
     setIsActionBusy(true);
-    const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
-      "\ufeff",
-      buildReportWordHtml(report),
-    ]);
-    window.setTimeout(() => setIsActionBusy(false), 240);
-    if (!silent) {
-      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف DOC بنجاح." : "تعذر تنزيل ملف DOC.");
+    try {
+      const blob = await buildReportPdfBlob(report);
+      triggerBlobDownload(buildReportPdfFileName(report), blob);
+      if (!silent) {
+        pushExportFeedback("ok", "تم تنزيل ملف PDF بنجاح.");
+      }
+      return true;
+    } catch {
+      if (!silent) {
+        pushExportFeedback("error", "تعذر تنزيل ملف PDF.");
+      }
+      return false;
+    } finally {
+      setIsActionBusy(false);
     }
-    return ok;
   };
   const onExportBundle = async () => {
     if (inGapMode) return;
-    if (isBundleExporting) return;
+    if (isBundleExporting || isActionBusy) return;
     setIsBundleExporting(true);
-    const txtOk = onExportTxt(true);
+    const txtOk = onExportTxt(true, true);
     await wait(120);
-    const docOk = onExportDoc(true);
+    const docOk = await onExportDoc(true, true);
     setIsBundleExporting(false);
     pushExportFeedback(
       txtOk && docOk ? "ok" : "error",
-      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOC)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
+      txtOk && docOk ? "تم تنزيل الحزمة (TXT + DOCX)." : "تم تنزيل جزء من الحزمة أو فشل التصدير."
     );
   };
 
@@ -157,18 +183,23 @@ export default function ReportDetailsPage() {
     if (typeof window === "undefined") return false;
     try {
       const blob = new Blob(payload, { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      window.URL.revokeObjectURL(url);
+      triggerBlobDownload(fileName, blob);
       return true;
     } catch {
       return false;
     }
+  };
+
+  const triggerBlobDownload = (fileName: string, blob: Blob) => {
+    if (typeof window === "undefined") return;
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -193,11 +224,20 @@ export default function ReportDetailsPage() {
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
-            onClick={() => onExportDoc()}
+            onClick={() => void onExportDoc()}
             disabled={isBundleExporting || inGapMode || isActionBusy}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {isActionBusy ? "..." : "تصدير Word (.doc)"}
+            {isActionBusy ? "..." : "تصدير Word (.docx)"}
+          </button>
+          <button
+            type="button"
+            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
+            onClick={() => void onExportPdf()}
+            disabled={inGapMode || isActionBusy || isBundleExporting}
+            title={inGapMode ? quickActionBlockedHint : undefined}
+          >
+            {isActionBusy ? "..." : "تصدير PDF"}
           </button>
           <button
             type="button"
@@ -217,18 +257,8 @@ export default function ReportDetailsPage() {
           >
             {isActionBusy ? "..." : "نسخ التقرير"}
           </button>
-          <button
-            type="button"
-            className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
-            onClick={onPrintPdf}
-            disabled={inGapMode}
-            title={inGapMode ? quickActionBlockedHint : undefined}
-          >
-            تصدير PDF (طباعة)
-          </button>
         </div>
         {inGapMode ? <div className="report-lock-note">{quickActionBlockedHint}</div> : null}
-        <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر &quot;Save as PDF&quot;.</div>
         {exportFeedback ? (
           <div className={`report-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
         ) : null}
@@ -372,12 +402,6 @@ export default function ReportDetailsPage() {
           background: rgba(70, 20, 33, 0.52);
         }
 
-        .report-print-note {
-          margin-top: 6px;
-          color: var(--oms-text-faint);
-          font-size: 12px;
-        }
-
         .report-kpi-value {
           font-size: 24px;
         }
@@ -508,7 +532,6 @@ export default function ReportDetailsPage() {
 
           .report-head-actions,
           .report-lock-note,
-          .report-print-note,
           .report-nonprint {
             display: none !important;
           }
