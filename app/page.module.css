@@ -2,134 +2,116 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 28px;
-  background-image:
-    radial-gradient(circle at 22% 22%, rgba(104, 81, 193, 0.24), transparent 42%),
-    radial-gradient(circle at 82% 86%, rgba(0, 116, 173, 0.2), transparent 36%),
-    linear-gradient(180deg, rgba(4, 10, 22, 0.56), rgba(4, 10, 22, 0.76)),
-    url("/landing-hero-bg.png");
+  padding: 24px;
+  background:
+    radial-gradient(circle at 20% 16%, rgba(108, 91, 181, 0.34), transparent 40%),
+    radial-gradient(circle at 92% 12%, rgba(10, 67, 99, 0.28), transparent 34%),
+    linear-gradient(180deg, #071226 0%, #07142c 100%);
+}
+
+.stage {
+  width: min(1080px, 100%);
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  min-height: 560px;
+  border-radius: 6px;
+  border: 1px solid rgba(126, 152, 181, 0.28);
+  box-shadow:
+    0 34px 70px rgba(3, 8, 20, 0.68),
+    inset 0 0 0 1px rgba(156, 181, 205, 0.12);
+  background-image: url("/landing-hero-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-.glassCard {
-  width: min(1160px, 100%);
-  border-radius: 18px;
-  border: 1px solid rgba(188, 206, 243, 0.24);
-  background: linear-gradient(140deg, rgba(11, 17, 33, 0.36), rgba(8, 13, 27, 0.32));
-  backdrop-filter: blur(12px) saturate(110%);
-  -webkit-backdrop-filter: blur(12px) saturate(110%);
-  box-shadow:
-    0 40px 90px rgba(3, 8, 20, 0.58),
-    inset 0 0 0 1px rgba(217, 229, 255, 0.06);
-  padding: 24px;
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 8, 14, 0.56), rgba(2, 8, 14, 0.82));
 }
 
-.cardGrid {
+.contentGrid {
+  position: relative;
+  z-index: 1;
+  min-height: 560px;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 24px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 28px;
+  padding: 56px 56px 44px;
 }
 
-.brandPane {
-  border-radius: 14px;
-  border: 1px solid rgba(176, 196, 241, 0.18);
-  background: linear-gradient(170deg, rgba(8, 13, 26, 0.4), rgba(8, 13, 26, 0.18));
-  padding: 34px 30px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: right;
-  direction: rtl;
-}
-
-.brandTag {
-  margin: 0;
-  color: rgba(211, 224, 255, 0.76);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.brandTitle {
-  margin: 12px 0 0;
-  color: #f5f8ff;
-  font-size: clamp(34px, 4.2vw, 54px);
-  line-height: 1.18;
-  font-weight: 900;
-}
-
-.brandDescription {
-  margin: 14px 0 0;
-  color: rgba(220, 231, 255, 0.82);
-  font-size: clamp(16px, 1.7vw, 21px);
-  line-height: 1.9;
-  font-weight: 300;
-}
-
-.loginPane {
-  border-radius: 14px;
-  border: 1px solid rgba(176, 196, 241, 0.2);
-  background: linear-gradient(170deg, rgba(5, 9, 20, 0.52), rgba(5, 9, 20, 0.36));
-  padding: 24px 22px;
-  direction: rtl;
-  text-align: right;
+.authPane {
+  direction: ltr;
 }
 
 .logoWrap {
   display: inline-flex;
   align-items: center;
+  margin-bottom: 18px;
   text-decoration: none;
 }
 
 .logo {
   width: auto;
-  height: 42px;
+  height: 34px;
+}
+
+.welcomeTitle {
+  margin: 0;
+  color: #eef4ff;
+  font-size: clamp(46px, 5.4vw, 56px);
+  line-height: 1.02;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.welcomeSubtitle {
+  margin: 10px 0 0;
+  color: rgba(226, 235, 248, 0.86);
+  font-size: 17px;
+  font-weight: 300;
 }
 
 .loginForm {
-  margin-top: 20px;
+  margin-top: 26px;
 }
 
 .inputStack {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .fieldLabel {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(229, 238, 255, 0.72);
+  padding-bottom: 6px;
 }
 
 .fieldText {
-  color: rgba(222, 232, 255, 0.92);
-  font-size: 14px;
+  color: rgba(232, 240, 255, 0.88);
+  font-size: 12px;
   font-weight: 600;
 }
 
 .fieldInput {
-  min-height: 42px;
-  border-radius: 10px;
-  border: 1px solid rgba(161, 180, 225, 0.28);
-  background: rgba(8, 14, 29, 0.72);
-  color: #f7faff;
+  min-height: 30px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: rgba(243, 247, 255, 0.95);
   font-size: 14px;
   font-weight: 500;
-  padding: 0 12px;
   text-align: right;
   direction: rtl;
-  outline: none;
 }
 
 .fieldInput::placeholder {
-  color: rgba(206, 221, 255, 0.62);
-}
-
-.fieldInput:focus {
-  border-color: rgba(134, 172, 250, 0.62);
-  box-shadow: 0 0 0 3px rgba(93, 133, 214, 0.16);
+  color: rgba(213, 226, 255, 0.64);
 }
 
 .fieldInput:disabled {
@@ -142,13 +124,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(224, 236, 255, 0.86);
-  font-size: 13px;
+  color: rgba(232, 238, 250, 0.86);
+  font-size: 12px;
 }
 
 .rememberRow input {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .actionRow {
@@ -160,100 +142,146 @@
 
 .loginBtn,
 .googleBtn {
-  min-height: 40px;
-  border-radius: 10px;
+  min-height: 36px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition: filter 0.16s ease, transform 0.16s ease;
+  transition: filter 0.16s ease;
 }
 
 .loginBtn:hover,
 .googleBtn:hover {
   filter: brightness(1.06);
-  transform: translateY(-1px);
 }
 
 .loginBtn:disabled,
 .googleBtn:disabled {
   opacity: 0.56;
   cursor: not-allowed;
-  transform: none;
 }
 
 .loginBtn {
+  color: #e9f4ff;
+  letter-spacing: 0.05em;
   border: 1px solid rgba(124, 180, 227, 0.6);
-  color: #ecf6ff;
-  letter-spacing: 0.04em;
   background: linear-gradient(180deg, #3f8bcf 0%, #2c6ea8 100%);
 }
 
 .googleBtn {
-  border: 1px solid rgba(183, 201, 238, 0.4);
-  color: #f2f7ff;
-  background: rgba(8, 15, 30, 0.7);
+  color: #f3f7ff;
+  border: 1px solid rgba(232, 237, 247, 0.52);
+  background: rgba(7, 12, 22, 0.44);
 }
 
 .errorText {
   margin: 10px 0 0;
-  color: #ffd4d8;
+  color: #ffd5d9;
   font-size: 12px;
   line-height: 1.6;
 }
 
 .registerRow {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .registerRow a {
-  width: 100%;
-  min-height: 38px;
-  border: 1px solid rgba(184, 202, 238, 0.34);
-  border-radius: 10px;
+  min-height: 32px;
+  border: 1px solid rgba(191, 206, 228, 0.34);
+  border-radius: 4px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(234, 242, 255, 0.95);
-  font-size: 13px;
+  color: rgba(232, 241, 255, 0.95);
+  font-size: 11px;
   font-weight: 700;
-  background: rgba(4, 10, 22, 0.46);
+  text-align: center;
+  padding: 0 16px;
+  background: rgba(3, 9, 17, 0.28);
+}
+
+.copyPane {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  text-align: right;
+  padding-right: 6px;
+}
+
+.copyTitle {
+  margin: 0;
+  color: #eef4ff;
+  font-size: clamp(42px, 4.9vw, 56px);
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.copyDescription {
+  margin: 16px 0 0;
+  color: rgba(217, 228, 255, 0.82);
+  font-size: clamp(17px, 1.6vw, 24px);
+  line-height: 1.88;
+  font-weight: 300;
+}
+
+.footer {
+  margin-top: 14px;
+  text-align: center;
+  color: rgba(203, 217, 255, 0.66);
+  font-size: 15px;
+  letter-spacing: 0.01em;
 }
 
 @media (max-width: 980px) {
-  .glassCard {
-    padding: 16px;
-  }
-
-  .cardGrid {
+  .contentGrid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 18px;
+    padding: 30px 26px;
   }
 
-  .brandPane,
-  .loginPane {
-    padding: 22px 18px;
+  .copyPane {
+    align-items: flex-start;
+    text-align: right;
+    padding-right: 0;
   }
 }
 
 @media (max-width: 680px) {
   .page {
-    padding: 12px;
+    padding: 14px;
   }
 
-  .brandTitle {
-    font-size: clamp(28px, 8vw, 38px);
+  .card,
+  .contentGrid {
+    min-height: 560px;
   }
 
-  .brandDescription {
-    font-size: 15px;
-    line-height: 1.85;
+  .contentGrid {
+    padding: 24px 14px;
+  }
+
+  .welcomeTitle {
+    font-size: clamp(36px, 10vw, 46px);
+  }
+
+  .copyTitle {
+    font-size: clamp(32px, 9vw, 42px);
+  }
+
+  .copyDescription {
+    font-size: 16px;
   }
 
   .actionRow {
     grid-template-columns: 1fr;
+  }
+
+  .registerRow a {
+    width: 100%;
   }
 }

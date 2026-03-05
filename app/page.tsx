@@ -107,94 +107,102 @@ export default function LandingPage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.glassCard}>
-        <div className={styles.cardGrid}>
-          <aside className={styles.brandPane}>
-            <p className={styles.brandTag}>One Minute Strategy</p>
-            <h1 className={styles.brandTitle}>
-              القرار في دقيقة
-              <br />
-              والتنفيذ تحت السيطرة
-            </h1>
-            <p className={styles.brandDescription}>
-              منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
-              <br />
-              في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
-            </p>
-          </aside>
+      <section className={styles.stage} aria-label="Landing hero">
+        <div className={styles.card}>
+          <div className={styles.overlay} />
 
-          <section className={styles.loginPane}>
-            <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
-              <Image
-                src="/landing-logo.svg"
-                alt="One Minute Strategy"
-                width={182}
-                height={52}
-                className={styles.logo}
-                priority
-              />
-            </Link>
-
-            <form className={styles.loginForm} onSubmit={handlePasswordLogin} dir="rtl">
-              <div className={styles.inputStack}>
-                <label className={styles.fieldLabel}>
-                  <span className={styles.fieldText}>اسم المستخدم</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={identifier}
-                    onChange={(event) => setIdentifier(event.target.value)}
-                    autoComplete="username"
-                    placeholder="ادخل اسم المستخدم"
-                    disabled={!canSubmit}
-                  />
-                </label>
-
-                <label className={styles.fieldLabel}>
-                  <span className={styles.fieldText}>كلمة المرور</span>
-                  <input
-                    type="password"
-                    className={styles.fieldInput}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="current-password"
-                    placeholder="ادخل كلمة المرور"
-                    disabled={!canSubmit}
-                  />
-                </label>
-              </div>
-
-              <label className={styles.rememberRow}>
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(event) => setRemember(event.target.checked)}
-                  disabled={!canSubmit}
+          <div className={styles.contentGrid}>
+            <section className={styles.authPane}>
+              <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
+                <Image
+                  src="/landing-logo.svg"
+                  alt="One Minute Strategy"
+                  width={178}
+                  height={50}
+                  className={styles.logo}
+                  priority
                 />
-                <span>تذكرني</span>
-              </label>
+              </Link>
 
-              <div className={styles.actionRow}>
-                <button type="submit" className={styles.loginBtn} disabled={!canSubmit}>
-                  {isSubmitting ? "جاري تسجيل الدخول..." : "LOGIN"}
-                </button>
-                <button
-                  type="button"
-                  className={styles.googleBtn}
-                  onClick={handleGoogleLogin}
-                  disabled={!canSubmit}
-                >
-                  {isGoogleLoading ? "Redirecting..." : "تسجيل الدخول عبر Google"}
-                </button>
+              <h1 className={styles.welcomeTitle}>Welcome!</h1>
+              <p className={styles.welcomeSubtitle}>Today will be great.</p>
+
+              <form className={styles.loginForm} onSubmit={handlePasswordLogin} dir="rtl">
+                <div className={styles.inputStack}>
+                  <label className={styles.fieldLabel}>
+                    <span className={styles.fieldText}>اسم المستخدم</span>
+                    <input
+                      className={styles.fieldInput}
+                      value={identifier}
+                      onChange={(event) => setIdentifier(event.target.value)}
+                      autoComplete="username"
+                      placeholder="ادخل اسم المستخدم"
+                      disabled={!canSubmit}
+                    />
+                  </label>
+
+                  <label className={styles.fieldLabel}>
+                    <span className={styles.fieldText}>كلمة المرور</span>
+                    <input
+                      type="password"
+                      className={styles.fieldInput}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      autoComplete="current-password"
+                      placeholder="ادخل كلمة المرور"
+                      disabled={!canSubmit}
+                    />
+                  </label>
+                </div>
+
+                <label className={styles.rememberRow}>
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(event) => setRemember(event.target.checked)}
+                    disabled={!canSubmit}
+                  />
+                  <span>تذكرني</span>
+                </label>
+
+                <div className={styles.actionRow}>
+                  <button type="submit" className={styles.loginBtn} disabled={!canSubmit}>
+                    {isSubmitting ? "جاري تسجيل الدخول..." : "LOGIN"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.googleBtn}
+                    onClick={handleGoogleLogin}
+                    disabled={!canSubmit}
+                  >
+                    {isGoogleLoading ? "Redirecting..." : "تسجيل الدخول عبر Google"}
+                  </button>
+                </div>
+
+                {errorMessage ? <p className={styles.errorText}>{errorMessage}</p> : null}
+              </form>
+
+              <div className={styles.registerRow}>
+                <Link href="/sign-up">مستخدم جديد؟ سجل الآن</Link>
               </div>
+            </section>
 
-              {errorMessage ? <p className={styles.errorText}>{errorMessage}</p> : null}
-            </form>
-
-            <div className={styles.registerRow}>
-              <Link href="/sign-up">مستخدم جديد؟ سجل الآن</Link>
-            </div>
-          </section>
+            <aside className={styles.copyPane} dir="rtl">
+              <h2 className={styles.copyTitle}>
+                القرار في دقيقة
+                <br />
+                والتنفيذ تحت السيطرة
+              </h2>
+              <p className={styles.copyDescription}>
+                منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
+                <br />
+                في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
+              </p>
+            </aside>
+          </div>
         </div>
+
+        <footer className={styles.footer}>one minute 2026</footer>
       </section>
     </main>
   );
