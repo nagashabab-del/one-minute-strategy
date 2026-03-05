@@ -6,8 +6,23 @@ import {
   type StrategyReadinessSummary,
 } from "../../../lib/strategy-readiness";
 
-export type StrategyProjectSnapshot = StrategyReadinessInput;
+export type StrategyProjectSnapshot = StrategyReadinessInput & {
+  stage?: string;
+};
 export type { StrategyReadinessField, StrategyReadinessMode, StrategyReadinessSummary };
+
+export type StrategyWorkspaceStage =
+  | "welcome"
+  | "projects_hub"
+  | "init"
+  | "round1"
+  | "round2"
+  | "dialogue"
+  | "addition"
+  | "done"
+  | "advanced_scope"
+  | "advanced_boq"
+  | "advanced_plan";
 
 export type ActiveStrategyProject = {
   id: string;
@@ -26,6 +41,33 @@ type ProjectRegistry = {
 
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
+const WORKSPACE_STAGE_ORDER: StrategyWorkspaceStage[] = [
+  "welcome",
+  "projects_hub",
+  "init",
+  "round1",
+  "round2",
+  "dialogue",
+  "addition",
+  "done",
+  "advanced_scope",
+  "advanced_boq",
+  "advanced_plan",
+];
+
+const WORKSPACE_STAGE_LABEL: Record<StrategyWorkspaceStage, string> = {
+  welcome: "الانطلاق",
+  projects_hub: "مركز المشاريع",
+  init: "تهيئة المشروع",
+  round1: "الجولة الأولى",
+  round2: "جولة المتابعة",
+  dialogue: "جلسة الحوار",
+  addition: "الإضافة قبل التحليل",
+  done: "التحليل النهائي",
+  advanced_scope: "النطاق المتقدم",
+  advanced_boq: "جدول الكميات",
+  advanced_plan: "الخطة المتقدمة",
+};
 
 export function readActiveStrategyProject(): ActiveStrategyProject {
   if (typeof window === "undefined") {
@@ -64,6 +106,26 @@ export function readActiveStrategyProjectId(): string {
 
 export function evaluateStrategyReadiness(snapshot: StrategyProjectSnapshot): StrategyReadinessSummary {
   return evaluateSharedStrategyReadiness(snapshot);
+}
+
+export function readWorkspaceStage(snapshot: StrategyProjectSnapshot): StrategyWorkspaceStage | null {
+  if (typeof snapshot.stage !== "string") return null;
+  return isStrategyWorkspaceStage(snapshot.stage) ? snapshot.stage : null;
+}
+
+export function workspaceStageLabel(stage: StrategyWorkspaceStage | null): string {
+  if (!stage) return "غير محدد";
+  return WORKSPACE_STAGE_LABEL[stage];
+}
+
+export function hasStrategyWorkspaceProgress(snapshot: StrategyProjectSnapshot): boolean {
+  const stage = readWorkspaceStage(snapshot);
+  if (!stage) return false;
+  return stage !== "welcome" && stage !== "projects_hub";
+}
+
+function isStrategyWorkspaceStage(value: string): value is StrategyWorkspaceStage {
+  return WORKSPACE_STAGE_ORDER.includes(value as StrategyWorkspaceStage);
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {

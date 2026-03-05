@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StrategyEntryActions } from "./_components/entry-actions";
 import { StrategyReadinessChecklist, StrategyReadinessPanel } from "./_components/readiness-gate";
 import { StrategyStageGrid } from "./_components/stage-grid";
 
@@ -16,11 +16,7 @@ export default function StrategyPage() {
           اتبع المراحل من اليمين إلى اليسار: موجز المشروع ← جلسة المستشارين ← القرار التنفيذي ← إعداد
           التشغيل.
         </p>
-        <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link href="/app/strategy/brief" className="oms-btn oms-btn-primary">
-            ابدأ من موجز المشروع
-          </Link>
-        </div>
+        <StrategyEntryActions />
       </section>
 
       <StrategyReadinessPanel stageLabel="مركز الاستراتيجية" compact />
