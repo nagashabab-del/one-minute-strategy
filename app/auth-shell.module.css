@@ -1,0 +1,84 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 24% 20%, rgba(95, 74, 179, 0.28), transparent 42%),
+    radial-gradient(circle at 82% 88%, rgba(0, 122, 171, 0.2), transparent 36%),
+    linear-gradient(180deg, #061125 0%, #051126 46%, #031022 100%);
+}
+
+.card {
+  width: min(1080px, 100%);
+  min-height: 560px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(118, 146, 180, 0.28);
+  box-shadow:
+    0 32px 80px rgba(3, 8, 18, 0.72),
+    inset 0 0 0 1px rgba(155, 178, 206, 0.12);
+  background-image: url("/landing-hero-bg.png");
+  background-size: cover;
+  background-position: center;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 55%, rgba(3, 9, 20, 0.28), transparent 36%),
+    linear-gradient(180deg, rgba(2, 8, 14, 0.58), rgba(2, 8, 14, 0.84));
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  width: min(460px, calc(100% - 30px));
+  margin: 52px 0 0 60px;
+}
+
+.logoWrap {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  margin-bottom: 14px;
+}
+
+.logo {
+  width: auto;
+  height: 28px;
+}
+
+.missingKeyCard {
+  border-radius: 14px;
+  border: 1px solid rgba(138, 160, 255, 0.32);
+  background: linear-gradient(180deg, rgba(12, 20, 36, 0.88), rgba(10, 16, 28, 0.8));
+  padding: 14px 16px;
+  text-align: center;
+  line-height: 1.8;
+  color: #f5f8ff;
+}
+
+@media (max-width: 920px) {
+  .panel {
+    margin: 30px 0 0 30px;
+    width: min(460px, calc(100% - 20px));
+  }
+}
+
+@media (max-width: 680px) {
+  .page {
+    padding: 14px;
+  }
+
+  .card {
+    min-height: 560px;
+  }
+
+  .panel {
+    margin: 18px auto 0;
+    width: calc(100% - 20px);
+  }
+}
