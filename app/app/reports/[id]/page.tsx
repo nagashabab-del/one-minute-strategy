@@ -39,6 +39,7 @@ export default function ReportDetailsPage() {
   );
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
   const [isBundleExporting, setIsBundleExporting] = useState(false);
+  const [isActionBusy, setIsActionBusy] = useState(false);
 
   if (reportsSignature === "server") {
     return (
@@ -83,15 +84,19 @@ export default function ReportDetailsPage() {
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
   const onExportTxt = (silent = false) => {
+    if (isActionBusy) return false;
     if (inGapMode) return false;
+    setIsActionBusy(true);
     const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+    window.setTimeout(() => setIsActionBusy(false), 240);
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
     }
     return ok;
   };
   const onCopyReport = async () => {
-    if (inGapMode || typeof window === "undefined") return;
+    if (inGapMode || typeof window === "undefined" || isActionBusy) return;
+    setIsActionBusy(true);
     const text = buildReportText(report);
 
     try {
@@ -112,6 +117,8 @@ export default function ReportDetailsPage() {
       pushExportFeedback("ok", "تم نسخ التقرير للحافظة.");
     } catch {
       pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام التصدير النصي.");
+    } finally {
+      window.setTimeout(() => setIsActionBusy(false), 240);
     }
   };
   const onPrintPdf = () => {
@@ -119,11 +126,14 @@ export default function ReportDetailsPage() {
     window.print();
   };
   const onExportDoc = (silent = false) => {
+    if (isActionBusy) return false;
     if (inGapMode) return false;
+    setIsActionBusy(true);
     const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
       "\ufeff",
       buildReportWordHtml(report),
     ]);
+    window.setTimeout(() => setIsActionBusy(false), 240);
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف DOC بنجاح." : "تعذر تنزيل ملف DOC.");
     }
@@ -175,25 +185,25 @@ export default function ReportDetailsPage() {
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => onExportTxt()}
-            disabled={isBundleExporting || inGapMode}
+            disabled={isBundleExporting || inGapMode || isActionBusy}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            تصدير نصي (.txt)
+            {isActionBusy ? "..." : "تصدير نصي (.txt)"}
           </button>
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => onExportDoc()}
-            disabled={isBundleExporting || inGapMode}
+            disabled={isBundleExporting || inGapMode || isActionBusy}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            تصدير Word (.doc)
+            {isActionBusy ? "..." : "تصدير Word (.doc)"}
           </button>
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onExportBundle()}
-            disabled={isBundleExporting || inGapMode}
+            disabled={isBundleExporting || inGapMode || isActionBusy}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
             {isBundleExporting ? "جاري تصدير الحزمة..." : "تصدير الحزمة"}
@@ -202,10 +212,10 @@ export default function ReportDetailsPage() {
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={onCopyReport}
-            disabled={inGapMode}
+            disabled={inGapMode || isActionBusy || isBundleExporting}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            نسخ التقرير
+            {isActionBusy ? "..." : "نسخ التقرير"}
           </button>
           <button
             type="button"

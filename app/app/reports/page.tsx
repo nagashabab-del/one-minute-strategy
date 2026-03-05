@@ -40,6 +40,7 @@ export default function ReportsPage() {
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
   const [bundleExportingId, setBundleExportingId] = useState<string | null>(null);
+  const [actionBusyReportId, setActionBusyReportId] = useState<string | null>(null);
   const [isCsvExporting, setIsCsvExporting] = useState(false);
 
   const statusCounts = useMemo(
@@ -78,7 +79,12 @@ export default function ReportsPage() {
   };
 
   const onExportReportTxt = (report: StrategyReport, silent = false) => {
+    if (actionBusyReportId) return false;
+    setActionBusyReportId(report.id);
     const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+    window.setTimeout(() => {
+      setActionBusyReportId((current) => (current === report.id ? null : current));
+    }, 240);
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
     }
@@ -86,10 +92,15 @@ export default function ReportsPage() {
   };
 
   const onExportReportDoc = (report: StrategyReport, silent = false) => {
+    if (actionBusyReportId) return false;
+    setActionBusyReportId(report.id);
     const ok = triggerDownload(buildReportWordFileName(report), "application/msword;charset=utf-8", [
       "\ufeff",
       buildReportWordHtml(report),
     ]);
+    window.setTimeout(() => {
+      setActionBusyReportId((current) => (current === report.id ? null : current));
+    }, 240);
     if (!silent) {
       pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف DOC بنجاح." : "تعذر تنزيل ملف DOC.");
     }
@@ -97,7 +108,8 @@ export default function ReportsPage() {
   };
 
   const onCopyReport = async (report: StrategyReport) => {
-    if (inGapMode || typeof window === "undefined") return;
+    if (inGapMode || typeof window === "undefined" || actionBusyReportId) return;
+    setActionBusyReportId(report.id);
     const text = buildReportText(report);
     try {
       if (navigator.clipboard?.writeText) {
@@ -117,6 +129,10 @@ export default function ReportsPage() {
       pushExportFeedback("ok", "تم نسخ محتوى التقرير للحافظة.");
     } catch {
       pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام تصدير TXT.");
+    } finally {
+      window.setTimeout(() => {
+        setActionBusyReportId((current) => (current === report.id ? null : current));
+      }, 240);
     }
   };
 
@@ -364,23 +380,23 @@ export default function ReportsPage() {
                             type="button"
                             className="oms-btn oms-btn-ghost reports-export-btn"
                             onClick={() => onExportReportTxt(report)}
-                            disabled={bundleExportingId === report.id}
+                            disabled={bundleExportingId === report.id || actionBusyReportId === report.id}
                           >
-                            TXT
+                            {actionBusyReportId === report.id ? "..." : "TXT"}
                           </button>
                           <button
                             type="button"
                             className="oms-btn oms-btn-ghost reports-export-btn"
                             onClick={() => onExportReportDoc(report)}
-                            disabled={bundleExportingId === report.id}
+                            disabled={bundleExportingId === report.id || actionBusyReportId === report.id}
                           >
-                            DOC
+                            {actionBusyReportId === report.id ? "..." : "DOC"}
                           </button>
                           <button
                             type="button"
                             className="oms-btn oms-btn-ghost reports-export-btn"
                             onClick={() => void onExportReportBundle(report)}
-                            disabled={bundleExportingId !== null}
+                            disabled={bundleExportingId !== null || actionBusyReportId !== null}
                           >
                             {bundleExportingId === report.id ? "جاري..." : "حزمة"}
                           </button>
@@ -388,8 +404,9 @@ export default function ReportsPage() {
                             type="button"
                             className="oms-btn oms-btn-ghost reports-export-btn"
                             onClick={() => void onCopyReport(report)}
+                            disabled={actionBusyReportId === report.id || bundleExportingId !== null}
                           >
-                            نسخ
+                            {actionBusyReportId === report.id ? "..." : "نسخ"}
                           </button>
                         </div>
                       </>
