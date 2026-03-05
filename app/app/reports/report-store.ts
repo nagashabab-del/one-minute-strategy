@@ -480,17 +480,15 @@ export function buildReportsCsv(reports: StrategyReport[]): string {
 
 export function buildReportsCsvFileName(): string {
   const today = new Date().toISOString().slice(0, 10);
-  return `oms-reports-${today}.csv`;
+  return `oms-report-portfolio-${today}-mixed.csv`;
 }
 
 function buildReportBaseName(report: StrategyReport): string {
-  const normalizedTitle = report.title
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[\\/:*?"<>|]/g, "")
-    .slice(0, 48);
+  const normalizedTitle = normalizeFileToken(report.title, 48);
+  const normalizedId = normalizeFileToken(report.id, 24);
   const normalizedDate = (report.date || "").replace(/[^\d-]/g, "").slice(0, 10) || "date";
-  return `${normalizedTitle || report.id}-${normalizedDate}`;
+  const status = statusSlug(report.status);
+  return `${normalizedTitle || normalizedId || "project"}-${normalizedDate}-${status}`;
 }
 
 function escapeHtml(value: string): string {
@@ -505,4 +503,21 @@ function escapeHtml(value: string): string {
 function csvCell(value: string): string {
   const escaped = value.replaceAll('"', '""');
   return `"${escaped}"`;
+}
+
+function statusSlug(status: StrategyReport["status"]): string {
+  if (status === "معتمد") return "approved";
+  if (status === "مكتمل") return "completed";
+  return "draft";
+}
+
+function normalizeFileToken(value: string, maxLength: number): string {
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+  return normalized.slice(0, maxLength);
 }
