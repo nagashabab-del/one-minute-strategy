@@ -157,7 +157,7 @@ export default function ReportDetailsPage() {
             تصدير PDF (طباعة)
           </button>
         </div>
-        <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر "Save as PDF".</div>
+        <div className="report-print-note">للتصدير PDF: اضغط الزر ثم اختر &quot;Save as PDF&quot;.</div>
         {copyFeedback === "error" ? (
           <div className="report-copy-feedback">تعذّر النسخ التلقائي. يمكنك استخدام التصدير النصي.</div>
         ) : null}
