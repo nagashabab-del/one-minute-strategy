@@ -96,6 +96,30 @@ export default function ReportsPage() {
     return ok;
   };
 
+  const onCopyReport = async (report: StrategyReport) => {
+    if (inGapMode || typeof window === "undefined") return;
+    const text = buildReportText(report);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      pushExportFeedback("ok", "تم نسخ محتوى التقرير للحافظة.");
+    } catch {
+      pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام تصدير TXT.");
+    }
+  };
+
   const onExportReportBundle = async (report: StrategyReport) => {
     if (bundleExportingId) return;
     setBundleExportingId(report.id);
@@ -317,6 +341,14 @@ export default function ReportsPage() {
                           >
                             حزمة
                           </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                            disabled
+                            title={quickActionBlockedHint}
+                          >
+                            نسخ
+                          </button>
                         </div>
                       </>
                     ) : (
@@ -351,6 +383,13 @@ export default function ReportsPage() {
                             disabled={bundleExportingId !== null}
                           >
                             {bundleExportingId === report.id ? "جاري..." : "حزمة"}
+                          </button>
+                          <button
+                            type="button"
+                            className="oms-btn oms-btn-ghost reports-export-btn"
+                            onClick={() => void onCopyReport(report)}
+                          >
+                            نسخ
                           </button>
                         </div>
                       </>
@@ -508,7 +547,7 @@ export default function ReportsPage() {
 
             .reports-actions-row {
               display: grid;
-              grid-template-columns: repeat(3, minmax(0, 1fr));
+              grid-template-columns: repeat(4, minmax(0, 1fr));
               gap: 8px;
             }
 
