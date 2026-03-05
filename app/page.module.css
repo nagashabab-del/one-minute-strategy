@@ -22,18 +22,16 @@
   box-shadow:
     0 34px 70px rgba(3, 8, 20, 0.68),
     inset 0 0 0 1px rgba(156, 181, 205, 0.12);
-  background:
-    radial-gradient(circle at 77% 24%, rgba(151, 177, 86, 0.18), transparent 26%),
-    radial-gradient(circle at 67% 54%, rgba(62, 103, 62, 0.22), transparent 30%),
-    linear-gradient(170deg, rgba(62, 87, 94, 0.6), rgba(12, 20, 20, 0.72));
+  background-image: url("/landing-hero-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .overlay {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(2, 8, 14, 0.52), rgba(2, 8, 14, 0.8)),
-    radial-gradient(circle at 45% 52%, rgba(252, 190, 84, 0.12), transparent 25%);
+  background: linear-gradient(180deg, rgba(2, 8, 14, 0.56), rgba(2, 8, 14, 0.82));
 }
 
 .panel {
