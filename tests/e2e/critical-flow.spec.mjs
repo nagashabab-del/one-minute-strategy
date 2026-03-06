@@ -24,6 +24,14 @@ const registrySnapshot = {
 
 const projectSnapshot = {
   project: projectTitle,
+  eventType: "مؤتمر",
+  venueType: "قاعة مغلقة",
+  startAt: "2026-03-10T19:00",
+  endAt: "2026-03-10T22:00",
+  budget: "150000",
+  scopeSite: "منصة رئيسية مع منطقة استقبال",
+  scopeTechnical: "صوت وإضاءة وشاشات عرض",
+  scopeProgram: "جلسة افتتاح + عروض خبراء + ختام",
   reportText: "تقرير تنفيذي أولي للمراجعة.",
   advancedApproved: true,
   analysis: {
