@@ -135,6 +135,8 @@ export default function ReportDetailsPage() {
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
+  const isFinancialReport = report.reportType === "financial" && Boolean(report.financial);
+  const financial = isFinancialReport ? report.financial : null;
   const onExportTxt = ({ silent = false, skipBusy = false }: ExportActionOptions = {}): ExportActionResult => {
     if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
@@ -466,25 +468,60 @@ export default function ReportDetailsPage() {
         <h1 className="oms-page-title" style={{ marginTop: 12 }}>
           {report.title}
         </h1>
-        <p className="oms-page-subtitle">تاريخ التحديث: {report.date}</p>
+        <p className="oms-page-subtitle">
+          نوع التقرير: {report.reportType === "financial" ? "مالي" : "استراتيجي"} · تاريخ التحديث: {report.date}
+        </p>
 
         <div className="report-overview">
-          <article className="oms-kpi-card">
-            <div className="oms-kpi-label">حالة التقرير</div>
-            <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
-          </article>
-          <article className="oms-kpi-card">
-            <div className="oms-kpi-label">ملاحظات المستشارين</div>
-            <div className="oms-kpi-value report-kpi-value">{highlightsCount}</div>
-          </article>
-          <article className="oms-kpi-card">
-            <div className="oms-kpi-label">المخاطر الفعلية</div>
-            <div className="oms-kpi-value report-kpi-value">{riskCount}</div>
-          </article>
-          <article className="oms-kpi-card">
-            <div className="oms-kpi-label">التوصيات</div>
-            <div className="oms-kpi-value report-kpi-value">{recommendationCount}</div>
-          </article>
+          {financial ? (
+            <>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">حالة التقرير</div>
+                <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">إجمالي المخطط</div>
+                <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.plannedTotal)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">إجمالي الالتزام</div>
+                <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.committedTotal)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">المتاح</div>
+                <div className="oms-kpi-value report-kpi-value">
+                  {formatSignedCurrency(financial.kpis.remainingAfterCommitment)}
+                </div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">الانحراف</div>
+                <div className="oms-kpi-value report-kpi-value">{formatPercent(financial.kpis.variancePct)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">العهد المفتوحة</div>
+                <div className="oms-kpi-value report-kpi-value">{financial.kpis.openAdvancesCount}</div>
+              </article>
+            </>
+          ) : (
+            <>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">حالة التقرير</div>
+                <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">ملاحظات المستشارين</div>
+                <div className="oms-kpi-value report-kpi-value">{highlightsCount}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">المخاطر الفعلية</div>
+                <div className="oms-kpi-value report-kpi-value">{riskCount}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">التوصيات</div>
+                <div className="oms-kpi-value report-kpi-value">{recommendationCount}</div>
+              </article>
+            </>
+          )}
         </div>
       </section>
 
@@ -492,6 +529,71 @@ export default function ReportDetailsPage() {
         <h2 className="oms-section-title">القرار التنفيذي</h2>
         <p className="oms-text">{report.executiveDecision}</p>
       </section>
+
+      {financial ? (
+        <section className="oms-panel report-financial-board">
+          <div className="report-risk-head">
+            <h2 className="oms-section-title">لوحة المؤشرات المالية</h2>
+            <span className="report-risk-badge">بنود فعالة: {financial.lines.length}</span>
+          </div>
+
+          <div className="financial-board-grid">
+            <article className="financial-chart-card span-2">
+              <h3 className="financial-chart-title">اتجاه المخطط مقابل الالتزام</h3>
+              <FinancialTrendChart points={financial.trend} />
+            </article>
+            <article className="financial-chart-card">
+              <h3 className="financial-chart-title">توزيع الالتزامات</h3>
+              <FinancialDonutChart
+                slices={financial.composition}
+                centerLabel={formatCurrency(financial.kpis.committedTotal)}
+              />
+            </article>
+            <article className="financial-chart-card span-2">
+              <h3 className="financial-chart-title">أعلى البنود (مخطط/التزام)</h3>
+              <FinancialBarsChart rows={financial.lines.slice(0, 6)} />
+            </article>
+            <article className="financial-chart-card">
+              <h3 className="financial-chart-title">الربحية بعد الضريبة</h3>
+              <div className="financial-profit-card">
+                <div>
+                  <span>مخطط</span>
+                  <strong>{formatSignedCurrency(financial.kpis.plannedProfitAfterVat)}</strong>
+                </div>
+                <div>
+                  <span>فعلي</span>
+                  <strong>{formatSignedCurrency(financial.kpis.actualProfitAfterVat)}</strong>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div className="financial-lines-table-wrap">
+            <table className="financial-lines-table">
+              <thead>
+                <tr>
+                  <th>البند</th>
+                  <th>المخطط</th>
+                  <th>الالتزام</th>
+                  <th>المتاح</th>
+                  <th>الانحراف</th>
+                </tr>
+              </thead>
+              <tbody>
+                {financial.lines.slice(0, 10).map((line) => (
+                  <tr key={line.id}>
+                    <td>{line.title}</td>
+                    <td>{formatCurrency(line.plannedWithVat)}</td>
+                    <td>{formatCurrency(line.committed)}</td>
+                    <td>{formatSignedCurrency(line.available)}</td>
+                    <td>{formatPercent(line.variancePct)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {report.regulatoryCompliance ? (
         <section className="oms-panel">
@@ -665,6 +767,193 @@ export default function ReportDetailsPage() {
           background: linear-gradient(150deg, rgba(24,36,64,0.92), rgba(16,24,42,0.88));
         }
 
+        .report-financial-board {
+          background: linear-gradient(155deg, rgba(19, 33, 60, 0.92), rgba(9, 16, 30, 0.9));
+        }
+
+        .financial-board-grid {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .financial-chart-card {
+          border-radius: 12px;
+          border: 1px solid rgba(128, 164, 230, 0.24);
+          background: linear-gradient(170deg, rgba(12, 22, 42, 0.9), rgba(7, 14, 28, 0.82));
+          padding: 10px;
+          min-height: 188px;
+        }
+
+        .financial-chart-card.span-2 {
+          grid-column: span 2;
+        }
+
+        .financial-chart-title {
+          margin: 0 0 8px;
+          color: #d6e8ff;
+          font-size: 13px;
+          font-weight: 900;
+        }
+
+        .financial-profit-card {
+          margin-top: 10px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .financial-profit-card div {
+          border-radius: 10px;
+          border: 1px solid rgba(122, 188, 255, 0.26);
+          background: rgba(8, 18, 35, 0.76);
+          padding: 8px 10px;
+          display: grid;
+          gap: 4px;
+        }
+
+        .financial-profit-card span {
+          color: #8da7c9;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .financial-profit-card strong {
+          color: #f2f7ff;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .financial-lines-table-wrap {
+          margin-top: 10px;
+          overflow: auto;
+          border-radius: 10px;
+          border: 1px solid rgba(128, 164, 230, 0.24);
+        }
+
+        .financial-lines-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 620px;
+        }
+
+        .financial-lines-table th,
+        .financial-lines-table td {
+          border-bottom: 1px solid rgba(128, 164, 230, 0.2);
+          padding: 8px 10px;
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .financial-lines-table th {
+          color: #9fb4d5;
+          font-size: 12px;
+          font-weight: 800;
+          background: rgba(16, 30, 58, 0.84);
+        }
+
+        .financial-lines-table td {
+          color: #e8f1ff;
+          font-size: 13px;
+        }
+
+        .financial-svg-wrap svg {
+          width: 100%;
+          height: 180px;
+          display: block;
+        }
+
+        .financial-chart-legend {
+          margin-top: 8px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          color: #a9c0df;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .financial-chart-legend span {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .financial-chart-legend i {
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+        }
+
+        .financial-bars {
+          display: grid;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .financial-bars-row {
+          display: grid;
+          gap: 4px;
+        }
+
+        .financial-bars-label {
+          color: #bfd4f1;
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .financial-bars-track {
+          position: relative;
+          min-height: 18px;
+          border-radius: 999px;
+          background: rgba(26, 44, 72, 0.74);
+          overflow: hidden;
+        }
+
+        .financial-bars-planned,
+        .financial-bars-committed {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          border-radius: 999px;
+        }
+
+        .financial-bars-planned {
+          background: linear-gradient(90deg, rgba(88, 138, 255, 0.82), rgba(120, 210, 255, 0.86));
+          opacity: 0.86;
+        }
+
+        .financial-bars-committed {
+          background: linear-gradient(90deg, rgba(68, 214, 170, 0.88), rgba(108, 239, 216, 0.92));
+          mix-blend-mode: screen;
+        }
+
+        .financial-donut-wrap {
+          display: grid;
+          justify-items: center;
+        }
+
+        .financial-donut {
+          width: 164px;
+          height: 164px;
+        }
+
+        .financial-donut-center {
+          margin-top: -96px;
+          min-height: 84px;
+          display: grid;
+          place-items: center;
+          color: #f3f8ff;
+          font-size: 17px;
+          font-weight: 900;
+          text-align: center;
+        }
+
         .report-sections {
           margin-top: 12px;
           display: grid;
@@ -731,6 +1020,14 @@ export default function ReportDetailsPage() {
           .report-sections {
             grid-template-columns: 1fr;
           }
+
+          .financial-board-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .financial-chart-card.span-2 {
+            grid-column: span 1;
+          }
         }
 
         @media (max-width: 640px) {
@@ -740,6 +1037,10 @@ export default function ReportDetailsPage() {
 
           .report-overview {
             grid-template-columns: 1fr;
+          }
+
+          .financial-lines-table {
+            min-width: 520px;
           }
         }
 
@@ -797,6 +1098,149 @@ function statusClass(status: StrategyReport["status"]) {
   if (status === "معتمد") return "is-approved";
   if (status === "مكتمل") return "is-complete";
   return "is-draft";
+}
+
+function FinancialTrendChart({ points }: { points: NonNullable<StrategyReport["financial"]>["trend"] }) {
+  const chartWidth = 620;
+  const chartHeight = 220;
+  const padding = 24;
+  const safePoints = points.length > 0 ? points : [{ label: "—", planned: 0, committed: 0 }];
+  const maxValue = Math.max(
+    1,
+    ...safePoints.flatMap((point) => [point.planned, point.committed]).map((value) => Math.max(0, value))
+  );
+  const xStep = safePoints.length > 1 ? (chartWidth - padding * 2) / (safePoints.length - 1) : 0;
+  const toY = (value: number) => chartHeight - padding - (Math.max(0, value) / maxValue) * (chartHeight - padding * 2);
+
+  const plannedPath = safePoints
+    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${padding + idx * xStep} ${toY(point.planned)}`)
+    .join(" ");
+  const committedPath = safePoints
+    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${padding + idx * xStep} ${toY(point.committed)}`)
+    .join(" ");
+
+  return (
+    <div className="financial-svg-wrap">
+      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="اتجاه المخطط مقابل الالتزام">
+        <rect x={0} y={0} width={chartWidth} height={chartHeight} fill="transparent" />
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const y = chartHeight - padding - ratio * (chartHeight - padding * 2);
+          return <line key={ratio} x1={padding} y1={y} x2={chartWidth - padding} y2={y} stroke="rgba(119,154,219,.25)" />;
+        })}
+        <path d={plannedPath} fill="none" stroke="#7ec9ff" strokeWidth={3} strokeLinecap="round" />
+        <path d={committedPath} fill="none" stroke="#6ed9ba" strokeWidth={3} strokeLinecap="round" />
+      </svg>
+      <div className="financial-chart-legend">
+        <span><i style={{ background: "#7ec9ff" }} /> المخطط</span>
+        <span><i style={{ background: "#6ed9ba" }} /> الالتزام</span>
+      </div>
+    </div>
+  );
+}
+
+function FinancialBarsChart({ rows }: { rows: NonNullable<StrategyReport["financial"]>["lines"] }) {
+  const source = rows.length ? rows : [];
+  const max = Math.max(
+    1,
+    ...source.flatMap((row) => [Math.max(0, row.plannedWithVat), Math.max(0, row.committed)])
+  );
+
+  return (
+    <div className="financial-bars">
+      {source.map((row) => {
+        const plannedPct = (Math.max(0, row.plannedWithVat) / max) * 100;
+        const committedPct = (Math.max(0, row.committed) / max) * 100;
+        return (
+          <div key={row.id} className="financial-bars-row">
+            <div className="financial-bars-label">{row.title}</div>
+            <div className="financial-bars-track">
+              <div className="financial-bars-planned" style={{ width: `${plannedPct}%` }} />
+              <div className="financial-bars-committed" style={{ width: `${committedPct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FinancialDonutChart({
+  slices,
+  centerLabel,
+}: {
+  slices: NonNullable<StrategyReport["financial"]>["composition"];
+  centerLabel: string;
+}) {
+  const chartSize = 180;
+  const radius = 62;
+  const circumference = 2 * Math.PI * radius;
+  const total = Math.max(1, slices.reduce((sum, slice) => sum + Math.max(0, slice.value), 0));
+  const colors = ["#73c8ff", "#70e0b8", "#9cb6ff", "#b495ff"];
+  const donutSegments = slices.reduce<{
+    segments: Array<{ label: string; idx: number; dash: number; offset: number }>;
+    offset: number;
+  }>(
+    (state, slice, idx) => {
+      const value = Math.max(0, slice.value);
+      const ratio = value / total;
+      const dash = ratio * circumference;
+      return {
+        segments: [...state.segments, { label: slice.label, idx, dash, offset: state.offset }],
+        offset: state.offset + dash,
+      };
+    },
+    { segments: [], offset: 0 }
+  ).segments;
+
+  return (
+    <div className="financial-donut-wrap">
+      <svg viewBox={`0 0 ${chartSize} ${chartSize}`} className="financial-donut" role="img" aria-label="توزيع الالتزامات">
+        <circle cx={chartSize / 2} cy={chartSize / 2} r={radius} fill="none" stroke="rgba(115, 162, 243, .22)" strokeWidth={18} />
+        {donutSegments.map((segment) => (
+            <circle
+              key={segment.label}
+              cx={chartSize / 2}
+              cy={chartSize / 2}
+              r={radius}
+              fill="none"
+              stroke={colors[segment.idx % colors.length]}
+              strokeWidth={18}
+              strokeDasharray={`${segment.dash} ${Math.max(circumference - segment.dash, 0)}`}
+              strokeDashoffset={-segment.offset}
+              transform={`rotate(-90 ${chartSize / 2} ${chartSize / 2})`}
+              strokeLinecap="round"
+            />
+        ))}
+      </svg>
+      <div className="financial-donut-center">{centerLabel}</div>
+      <div className="financial-chart-legend">
+        {slices.map((slice, idx) => (
+          <span key={slice.label}>
+            <i style={{ background: colors[idx % colors.length] }} /> {slice.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("ar-SA", {
+    style: "currency",
+    currency: "SAR",
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Number.isFinite(value) ? value : 0));
+}
+
+function formatSignedCurrency(value: number) {
+  const safe = Number.isFinite(value) ? value : 0;
+  const sign = safe < 0 ? "-" : safe > 0 ? "+" : "";
+  return `${sign}${formatCurrency(Math.abs(safe))}`;
+}
+
+function formatPercent(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(1)}%`;
 }
 
 function complianceClass(readiness: NonNullable<StrategyReport["regulatoryCompliance"]>["readiness"]) {

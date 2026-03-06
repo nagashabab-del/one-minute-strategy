@@ -85,7 +85,8 @@ export default function ReportsPage() {
       const matchesQuery =
         normalizedQuery.length === 0 ||
         item.title.toLowerCase().includes(normalizedQuery) ||
-        item.executiveDecision.toLowerCase().includes(normalizedQuery);
+        item.executiveDecision.toLowerCase().includes(normalizedQuery) ||
+        (item.reportType === "financial" ? "مالي".includes(normalizedQuery) : "استراتيجي".includes(normalizedQuery));
       return matchesStatus && matchesQuery;
     });
 
@@ -611,7 +612,12 @@ export default function ReportsPage() {
                   <div className="reports-card-main">
                     <div className="reports-card-head">
                       <h2 className="reports-card-title">{report.title}</h2>
-                      <span className={`reports-status ${statusClass(report.status)}`}>{report.status}</span>
+                      <div className="reports-card-badges">
+                        <span className={`reports-type-badge type-${report.reportType}`}>
+                          {report.reportType === "financial" ? "مالي" : "استراتيجي"}
+                        </span>
+                        <span className={`reports-status ${statusClass(report.status)}`}>{report.status}</span>
+                      </div>
                     </div>
                     <div className="reports-card-meta">تاريخ التحديث: {report.date}</div>
                     <p className="reports-card-preview">{truncate(report.executiveDecision, 130)}</p>
@@ -854,6 +860,37 @@ export default function ReportsPage() {
               justify-content: space-between;
               gap: 8px;
               flex-wrap: wrap;
+            }
+
+            .reports-card-badges {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+
+            .reports-type-badge {
+              min-height: 24px;
+              border-radius: 999px;
+              padding: 0 9px;
+              border: 1px solid var(--oms-border-strong);
+              font-size: 12px;
+              font-weight: 800;
+              display: inline-flex;
+              align-items: center;
+              white-space: nowrap;
+            }
+
+            .reports-type-badge.type-financial {
+              border-color: rgba(108, 218, 255, 0.58);
+              color: #ccf2ff;
+              background: rgba(18, 54, 79, 0.72);
+            }
+
+            .reports-type-badge.type-strategy {
+              border-color: rgba(184, 162, 255, 0.58);
+              color: #e4d9ff;
+              background: rgba(43, 28, 78, 0.72);
             }
 
             .reports-card-title {

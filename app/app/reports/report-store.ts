@@ -8,8 +8,54 @@ import {
   subscribeWorkspaceBackendSync,
 } from "../_lib/workspace-backend";
 
+export type ReportType = "strategy" | "financial";
+
+export type FinancialReportLine = {
+  id: string;
+  title: string;
+  owner: string;
+  plannedNet: number;
+  actualNet: number;
+  plannedVat: number;
+  actualVat: number;
+  plannedWithVat: number;
+  actualWithVat: number;
+  reserved: number;
+  committed: number;
+  available: number;
+  variancePct: number | null;
+};
+
+export type FinancialReportPayload = {
+  kpis: {
+    plannedTotal: number;
+    actualTotal: number;
+    reservedTotal: number;
+    committedTotal: number;
+    remainingAfterCommitment: number;
+    variancePct: number | null;
+    plannedVatTotal: number;
+    actualVatTotal: number;
+    openAdvancesCount: number;
+    overdueAdvances: number;
+    settlementRate: number | null;
+    openIncreaseRequests: number;
+    plannedRevenue: number;
+    actualRevenue: number;
+    plannedProfitBeforeVat: number;
+    actualProfitBeforeVat: number;
+    plannedProfitAfterVat: number;
+    actualProfitAfterVat: number;
+  };
+  composition: Array<{ label: string; value: number }>;
+  trend: Array<{ label: string; planned: number; committed: number }>;
+  lines: FinancialReportLine[];
+};
+
 export type StrategyReport = {
   id: string;
+  projectId: string;
+  reportType: ReportType;
   title: string;
   date: string;
   status: "مسودة" | "مكتمل" | "معتمد";
@@ -17,6 +63,7 @@ export type StrategyReport = {
   advisorsHighlights: string[];
   risks: string[];
   recommendations: string[];
+  financial?: FinancialReportPayload;
   regulatoryCompliance?: {
     readiness: "جاهز" | "جزئي" | "خطر";
     requiredCount: number;
@@ -88,7 +135,35 @@ type BudgetCommitmentSnapshot = {
   expiryDate?: string;
 };
 
+type BudgetLineSnapshot = {
+  id?: string;
+  title?: string;
+  owner?: string;
+  planned?: number;
+  actual?: number;
+  vatApplicable?: boolean;
+  vatRate?: number;
+};
+
+type BudgetAdvanceSnapshot = {
+  id?: string;
+  lineId?: string;
+  approvedAmount?: number;
+  status?: string;
+  dueDate?: string;
+};
+
+type BudgetIncreaseSnapshot = {
+  status?: string;
+};
+
 type BudgetSnapshot = {
+  lines?: BudgetLineSnapshot[];
+  advances?: BudgetAdvanceSnapshot[];
+  budgetIncreases?: BudgetIncreaseSnapshot[];
+  plannedRevenue?: number;
+  actualRevenue?: number;
+  updatedAt?: string;
   regulatoryCommitments?: BudgetCommitmentSnapshot[];
 };
 
@@ -238,6 +313,10 @@ function planTrackerKey(projectId: string) {
   return `${PLAN_TRACKER_PREFIX}${projectId}`;
 }
 
+function financialReportId(projectId: string) {
+  return `${projectId}__financial`;
+}
+
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
   try {
@@ -254,7 +333,7 @@ function toIsoDate(value?: string): string {
   return asDate.toISOString().slice(0, 10);
 }
 
-function deriveStatus(snapshot: ProjectSnapshot): StrategyReport["status"] {
+function deriveStrategyStatus(snapshot: ProjectSnapshot): StrategyReport["status"] {
   if (snapshot.advancedApproved) return "معتمد";
   if (snapshot.reportText?.trim() || snapshot.analysis?.executive_decision?.decision?.trim()) return "مكتمل";
   return "مسودة";
@@ -310,6 +389,204 @@ function deriveRecommendations(snapshot: ProjectSnapshot): string[] {
   return recs.length ? recs.slice(0, 5) : ["لا توجد توصيات منشورة بعد."];
 }
 
+function positive(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
+function normalizeVatRate(value: unknown) {
+  if (typeof value !== "number" || Number.isNaN(value)) return 15;
+  return Math.max(0, Math.min(100, value));
+}
+
+function computeVatAmount(amount: number, line: BudgetLineSnapshot) {
+  if (!line.vatApplicable) return 0;
+  return (positive(amount) * normalizeVatRate(line.vatRate)) / 100;
+}
+
+function isReservedAdvance(item: BudgetAdvanceSnapshot) {
+  return item.status === "معتمدة" || item.status === "مصروفة";
+}
+
+function isClosedAdvance(item: BudgetAdvanceSnapshot) {
+  return item.status === "مسواة" || item.status === "ملغاة";
+}
+
+function isOverdueAdvance(item: BudgetAdvanceSnapshot) {
+  if (isClosedAdvance(item)) return false;
+  if (!item.dueDate) return false;
+  return item.dueDate < new Date().toISOString().slice(0, 10);
+}
+
+function buildFinancialPayload(budgetSnapshot: BudgetSnapshot): FinancialReportPayload | null {
+  const lines = Array.isArray(budgetSnapshot.lines) ? budgetSnapshot.lines : [];
+  const advances = Array.isArray(budgetSnapshot.advances) ? budgetSnapshot.advances : [];
+  const increases = Array.isArray(budgetSnapshot.budgetIncreases) ? budgetSnapshot.budgetIncreases : [];
+
+  if (lines.length === 0 && advances.length === 0 && increases.length === 0) return null;
+
+  const reservedByLine: Record<string, number> = {};
+  for (const item of advances) {
+    if (!isReservedAdvance(item) || !item.lineId) continue;
+    reservedByLine[item.lineId] = (reservedByLine[item.lineId] ?? 0) + positive(item.approvedAmount ?? 0);
+  }
+
+  const lineRows: FinancialReportLine[] = lines.map((line, idx) => {
+    const plannedNet = positive(line.planned ?? 0);
+    const actualNet = positive(line.actual ?? 0);
+    const plannedVat = computeVatAmount(plannedNet, line);
+    const actualVat = computeVatAmount(actualNet, line);
+    const plannedWithVat = plannedNet + plannedVat;
+    const actualWithVat = actualNet + actualVat;
+    const reserved = line.id ? reservedByLine[line.id] ?? 0 : 0;
+    const committed = actualWithVat + reserved;
+    const available = plannedWithVat - committed;
+    const variancePct = plannedWithVat > 0 ? ((committed - plannedWithVat) / plannedWithVat) * 100 : null;
+
+    return {
+      id: line.id?.trim() || `line-${idx + 1}`,
+      title: line.title?.trim() || `بند ${idx + 1}`,
+      owner: line.owner?.trim() || "غير محدد",
+      plannedNet,
+      actualNet,
+      plannedVat,
+      actualVat,
+      plannedWithVat,
+      actualWithVat,
+      reserved,
+      committed,
+      available,
+      variancePct,
+    };
+  });
+
+  const plannedTotal = lineRows.reduce((sum, row) => sum + row.plannedWithVat, 0);
+  const actualTotal = lineRows.reduce((sum, row) => sum + row.actualWithVat, 0);
+  const plannedVatTotal = lineRows.reduce((sum, row) => sum + row.plannedVat, 0);
+  const actualVatTotal = lineRows.reduce((sum, row) => sum + row.actualVat, 0);
+  const reservedTotal = lineRows.reduce((sum, row) => sum + row.reserved, 0);
+  const committedTotal = actualTotal + reservedTotal;
+  const remainingAfterCommitment = plannedTotal - committedTotal;
+  const variancePct = plannedTotal > 0 ? ((committedTotal - plannedTotal) / plannedTotal) * 100 : null;
+  const openAdvancesCount = advances.filter((item) => !isClosedAdvance(item)).length;
+  const overdueAdvances = advances.filter((item) => isOverdueAdvance(item)).length;
+  const settlementBaseCount = advances.filter((item) => item.status !== "ملغاة").length;
+  const settlementRate =
+    settlementBaseCount > 0
+      ? (advances.filter((item) => item.status === "مسواة").length / settlementBaseCount) * 100
+      : null;
+  const openIncreaseRequests = increases.filter(
+    (item) => item.status === "طلب جديد" || item.status === "تحت المراجعة" || item.status === "معتمد"
+  ).length;
+  const plannedRevenue = positive(budgetSnapshot.plannedRevenue ?? 0);
+  const actualRevenue = positive(budgetSnapshot.actualRevenue ?? 0);
+  const plannedNetTotal = lineRows.reduce((sum, row) => sum + row.plannedNet, 0);
+  const actualNetTotal = lineRows.reduce((sum, row) => sum + row.actualNet, 0);
+  const plannedProfitBeforeVat = plannedRevenue - plannedNetTotal;
+  const actualProfitBeforeVat = actualRevenue - actualNetTotal;
+  const plannedProfitAfterVat = plannedRevenue - plannedTotal;
+  const actualProfitAfterVat = actualRevenue - actualTotal;
+
+  const rankedByPlanned = [...lineRows].sort((a, b) => b.plannedWithVat - a.plannedWithVat).slice(0, 8);
+  const trend = rankedByPlanned.map((row, idx) => ({
+    label: row.title || `بند ${idx + 1}`,
+    planned: row.plannedWithVat,
+    committed: row.committed,
+  }));
+
+  const composition = [
+    { label: "المصروف الفعلي", value: actualTotal },
+    { label: "العهد المحجوزة", value: reservedTotal },
+    { label: "المتاح", value: Math.max(0, remainingAfterCommitment) },
+  ].filter((item) => item.value > 0);
+
+  return {
+    kpis: {
+      plannedTotal,
+      actualTotal,
+      reservedTotal,
+      committedTotal,
+      remainingAfterCommitment,
+      variancePct,
+      plannedVatTotal,
+      actualVatTotal,
+      openAdvancesCount,
+      overdueAdvances,
+      settlementRate,
+      openIncreaseRequests,
+      plannedRevenue,
+      actualRevenue,
+      plannedProfitBeforeVat,
+      actualProfitBeforeVat,
+      plannedProfitAfterVat,
+      actualProfitAfterVat,
+    },
+    composition,
+    trend,
+    lines: lineRows,
+  };
+}
+
+function deriveFinancialStatus(snapshot: ProjectSnapshot, financial: FinancialReportPayload): StrategyReport["status"] {
+  if (snapshot.advancedApproved && financial.lines.length > 0) return "معتمد";
+  if (financial.lines.length > 0 || financial.kpis.openAdvancesCount > 0) return "مكتمل";
+  return "مسودة";
+}
+
+function deriveFinancialDecision(financial: FinancialReportPayload): string {
+  const varianceLabel =
+    financial.kpis.variancePct === null ? "غير متاح" : `${financial.kpis.variancePct.toFixed(1)}%`;
+  const remaining = financial.kpis.remainingAfterCommitment;
+  const remainingLabel =
+    remaining < 0 ? "يوجد عجز تشغيلي" : remaining === 0 ? "لا يوجد هامش متبقٍ" : "يوجد هامش متبقٍ";
+
+  return `الوضع المالي الحالي يوضح التزامًا قدره ${Math.round(
+    financial.kpis.committedTotal
+  )} مقابل مخطط ${Math.round(financial.kpis.plannedTotal)} بانحراف ${varianceLabel}. ${remainingLabel}.`;
+}
+
+function deriveFinancialHighlights(financial: FinancialReportPayload): string[] {
+  const topLine = [...financial.lines].sort((a, b) => b.committed - a.committed)[0];
+  const items = [
+    `إجمالي المخطط (شامل الضريبة): ${Math.round(financial.kpis.plannedTotal)}`,
+    `إجمالي الالتزام الفعلي + العهد: ${Math.round(financial.kpis.committedTotal)}`,
+    `العهد المفتوحة: ${financial.kpis.openAdvancesCount} (المتأخرة: ${financial.kpis.overdueAdvances})`,
+    topLine ? `أعلى بند صرفًا: ${topLine.title} بقيمة ${Math.round(topLine.committed)}` : "",
+  ].filter(Boolean);
+  return items.length ? items : ["لا توجد مؤشرات مالية منشورة بعد."];
+}
+
+function deriveFinancialRisks(financial: FinancialReportPayload): string[] {
+  const riskyLines = financial.lines.filter((line) => (line.variancePct ?? 0) > 10).slice(0, 3);
+  const items: string[] = [];
+  if (financial.kpis.remainingAfterCommitment < 0) {
+    items.push("تجاوز الالتزامات للمخطط المعتمد (عجز تشغيلي).");
+  }
+  if (financial.kpis.overdueAdvances > 0) {
+    items.push(`يوجد ${financial.kpis.overdueAdvances} عهدة متأخرة عن التسوية.`);
+  }
+  for (const line of riskyLines) {
+    items.push(`انحراف مرتفع في بند ${line.title} بمقدار ${line.variancePct?.toFixed(1)}%.`);
+  }
+  return items.length ? items : ["لا توجد مخاطر مالية حرجة حاليًا."];
+}
+
+function deriveFinancialRecommendations(financial: FinancialReportPayload): string[] {
+  const items: string[] = [];
+  if (financial.kpis.remainingAfterCommitment < 0) {
+    items.push("تجميد المصروفات غير الحرجة وإعادة توزيع البنود قبل أي اعتماد إضافي.");
+  } else {
+    items.push("الاستمرار في المراقبة الأسبوعية مع الحفاظ على هامش المتاح لكل بند.");
+  }
+  if (financial.kpis.overdueAdvances > 0) {
+    items.push("إغلاق العهد المتأخرة بخطة تسوية زمنية وربط الصرف القادم بالتسوية.");
+  }
+  if (financial.kpis.openIncreaseRequests > 0) {
+    items.push("ترتيب أولويات طلبات رفع الميزانية وربط كل طلب بأثره المالي المتوقع.");
+  }
+  return items;
+}
+
 function deriveRegulatoryCompliance(projectId: string): StrategyReport["regulatoryCompliance"] | undefined {
   const budgetSnapshot = safeParse<BudgetSnapshot>(localStorage.getItem(budgetTrackerKey(projectId)), {});
   const planSnapshot = safeParse<PlanSnapshot>(localStorage.getItem(planTrackerKey(projectId)), {});
@@ -356,26 +633,53 @@ export function readReports(): StrategyReport[] {
 
   const reports = registry.projects
     .filter((project) => !project.isArchived)
-    .map<StrategyReport | null>((project) => {
+    .flatMap<StrategyReport>((project) => {
       const snapshot = safeParse<ProjectSnapshot>(localStorage.getItem(projectDataKey(project.id)), {});
-      const hasAnyContent =
+      const budgetSnapshot = safeParse<BudgetSnapshot>(localStorage.getItem(budgetTrackerKey(project.id)), {});
+      const baseTitle = snapshot.project?.trim() || project.name || "مشروع بدون اسم";
+      const strategyDate = toIsoDate(project.updatedAt);
+      const financialDate = toIsoDate(budgetSnapshot.updatedAt || project.updatedAt);
+      const regulatoryCompliance = deriveRegulatoryCompliance(project.id);
+      const records: StrategyReport[] = [];
+
+      const hasStrategyContent =
         !!snapshot.project?.trim() || !!snapshot.reportText?.trim() || !!snapshot.analysis?.executive_decision;
+      if (hasStrategyContent) {
+        records.push({
+          id: project.id,
+          projectId: project.id,
+          reportType: "strategy",
+          title: baseTitle,
+          date: strategyDate,
+          status: deriveStrategyStatus(snapshot),
+          executiveDecision: deriveExecutiveDecision(snapshot),
+          advisorsHighlights: deriveAdvisorHighlights(snapshot),
+          risks: deriveRisks(snapshot),
+          recommendations: deriveRecommendations(snapshot),
+          regulatoryCompliance,
+        });
+      }
 
-      if (!hasAnyContent) return null;
+      const financialPayload = buildFinancialPayload(budgetSnapshot);
+      if (financialPayload) {
+        records.push({
+          id: financialReportId(project.id),
+          projectId: project.id,
+          reportType: "financial",
+          title: `${baseTitle} · تقرير مالي تنفيذي`,
+          date: financialDate,
+          status: deriveFinancialStatus(snapshot, financialPayload),
+          executiveDecision: deriveFinancialDecision(financialPayload),
+          advisorsHighlights: deriveFinancialHighlights(financialPayload),
+          risks: deriveFinancialRisks(financialPayload),
+          recommendations: deriveFinancialRecommendations(financialPayload),
+          financial: financialPayload,
+          regulatoryCompliance,
+        });
+      }
 
-      return {
-        id: project.id,
-        title: snapshot.project?.trim() || project.name || "مشروع بدون اسم",
-        date: toIsoDate(project.updatedAt),
-        status: deriveStatus(snapshot),
-        executiveDecision: deriveExecutiveDecision(snapshot),
-        advisorsHighlights: deriveAdvisorHighlights(snapshot),
-        risks: deriveRisks(snapshot),
-        recommendations: deriveRecommendations(snapshot),
-        regulatoryCompliance: deriveRegulatoryCompliance(project.id),
-      };
-    })
-    .filter((item): item is StrategyReport => item !== null);
+      return records;
+    });
 
   return reports.sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -435,6 +739,7 @@ export function buildReportText(report: StrategyReport): string {
   sections.push(`====================`);
   sections.push(`عنوان التقرير: ${report.title}`);
   sections.push(`المعرّف: ${report.id}`);
+  sections.push(`النوع: ${report.reportType === "financial" ? "مالي" : "استراتيجي"}`);
   sections.push(`تاريخ التحديث: ${report.date}`);
   sections.push(`الحالة: ${report.status}`);
   sections.push("");
@@ -478,6 +783,30 @@ export function buildReportText(report: StrategyReport): string {
   sections.push("-------");
   for (const line of report.risks) {
     sections.push(`- ${line}`);
+  }
+
+  if (report.reportType === "financial" && report.financial) {
+    sections.push("");
+    sections.push("ملخص مالي");
+    sections.push("---------");
+    sections.push(`إجمالي المخطط: ${Math.round(report.financial.kpis.plannedTotal)}`);
+    sections.push(`إجمالي الالتزام: ${Math.round(report.financial.kpis.committedTotal)}`);
+    sections.push(`المتاح: ${Math.round(report.financial.kpis.remainingAfterCommitment)}`);
+    sections.push(
+      `الانحراف: ${
+        report.financial.kpis.variancePct === null ? "غير متاح" : `${report.financial.kpis.variancePct.toFixed(1)}%`
+      }`
+    );
+    sections.push(`العهد المفتوحة: ${report.financial.kpis.openAdvancesCount}`);
+    sections.push("");
+    sections.push("بنود الميزانية (أعلى 10)");
+    sections.push("----------------------");
+    for (const row of report.financial.lines.slice(0, 10)) {
+      const variance = row.variancePct === null ? "—" : `${row.variancePct.toFixed(1)}%`;
+      sections.push(
+        `- ${row.title} | مخطط: ${Math.round(row.plannedWithVat)} | التزام: ${Math.round(row.committed)} | متاح: ${Math.round(row.available)} | انحراف: ${variance}`
+      );
+    }
   }
 
   return sections.join("\n");
@@ -540,6 +869,31 @@ export async function buildReportDocxBlob(report: StrategyReport): Promise<Blob>
           ),
         ]
       : [];
+    const financialSection =
+      report.reportType === "financial" && report.financial
+        ? [
+            heading("ملخص مالي"),
+            body(`إجمالي المخطط: ${Math.round(report.financial.kpis.plannedTotal)}`),
+            body(`إجمالي الالتزام: ${Math.round(report.financial.kpis.committedTotal)}`),
+            body(`المتاح: ${Math.round(report.financial.kpis.remainingAfterCommitment)}`),
+            body(
+              `الانحراف: ${
+                report.financial.kpis.variancePct === null
+                  ? "غير متاح"
+                  : `${report.financial.kpis.variancePct.toFixed(1)}%`
+              }`
+            ),
+            body(`العهد المفتوحة: ${report.financial.kpis.openAdvancesCount}`),
+            heading("بنود الميزانية (أعلى 10)"),
+            ...report.financial.lines.slice(0, 10).map((row) =>
+              bullet(
+                `${row.title} | مخطط: ${Math.round(row.plannedWithVat)} | التزام: ${Math.round(
+                  row.committed
+                )} | متاح: ${Math.round(row.available)}`
+              )
+            ),
+          ]
+        : [];
 
     const doc = new Document({
       creator: "One Minute Strategy",
@@ -561,10 +915,12 @@ export async function buildReportDocxBlob(report: StrategyReport): Promise<Blob>
               children: [new TextRun({ text: report.title, bold: true, size: 38 })],
             }),
             body(`المعرّف: ${report.id}`),
+            body(`النوع: ${report.reportType === "financial" ? "مالي" : "استراتيجي"}`),
             body(`تاريخ التحديث: ${report.date}`),
             body(`الحالة: ${report.status}`),
             heading("القرار التنفيذي"),
             body(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد."),
+            ...financialSection,
             ...compliance,
             heading("أبرز ملاحظات المستشارين"),
             ...report.advisorsHighlights.map((line) => bullet(line)),
@@ -725,6 +1081,35 @@ function buildReportHtml(
       </section>
     `
     : "";
+  const financial =
+    report.reportType === "financial" && report.financial
+      ? `
+      <section class="panel">
+        <h2>ملخص مالي</h2>
+        <p>إجمالي المخطط: ${Math.round(report.financial.kpis.plannedTotal)}</p>
+        <p>إجمالي الالتزام: ${Math.round(report.financial.kpis.committedTotal)}</p>
+        <p>المتاح: ${Math.round(report.financial.kpis.remainingAfterCommitment)}</p>
+        <p>الانحراف: ${
+          report.financial.kpis.variancePct === null ? "غير متاح" : `${report.financial.kpis.variancePct.toFixed(1)}%`
+        }</p>
+      </section>
+
+      <section class="panel">
+        <h2>بنود الميزانية (أعلى 10)</h2>
+        <ul>
+          ${report.financial.lines
+            .slice(0, 10)
+            .map(
+              (row) =>
+                `<li>${escapeHtml(row.title)} | مخطط: ${Math.round(row.plannedWithVat)} | التزام: ${Math.round(
+                  row.committed
+                )} | متاح: ${Math.round(row.available)}</li>`
+            )
+            .join("")}
+        </ul>
+      </section>
+    `
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -772,9 +1157,9 @@ function buildReportHtml(
 <body>
   <div class="brand">One Minute Strategy</div>
   <h1>${escapeHtml(report.title)}</h1>
-  <div class="meta">المعرّف: ${escapeHtml(report.id)} | التاريخ: ${escapeHtml(report.date)} | الحالة: ${escapeHtml(
-    report.status
-  )}</div>
+  <div class="meta">المعرّف: ${escapeHtml(report.id)} | النوع: ${
+    report.reportType === "financial" ? "مالي" : "استراتيجي"
+  } | التاريخ: ${escapeHtml(report.date)} | الحالة: ${escapeHtml(report.status)}</div>
 
   <section class="panel">
     <h2>القرار التنفيذي</h2>
@@ -782,6 +1167,7 @@ function buildReportHtml(
   </section>
 
   ${compliance}
+  ${financial}
 
   <section class="panel">
     <h2>أبرز ملاحظات المستشارين</h2>
@@ -804,6 +1190,7 @@ function buildReportHtml(
 export function buildReportsCsv(reports: StrategyReport[]): string {
   const header = [
     "المعرف",
+    "نوع التقرير",
     "العنوان",
     "التاريخ",
     "الحالة",
@@ -815,6 +1202,10 @@ export function buildReportsCsv(reports: StrategyReport[]): string {
     "الامتثال المكتمل",
     "الامتثال المطلوب",
     "المسارات المفتوحة",
+    "المخطط المالي",
+    "الالتزام المالي",
+    "المتاح المالي",
+    "الانحراف المالي",
   ];
 
   const rows = reports.map((report) => {
@@ -825,9 +1216,28 @@ export function buildReportsCsv(reports: StrategyReport[]): string {
     const complianceCompleted = String(report.regulatoryCompliance?.completedCount ?? 0);
     const complianceRequired = String(report.regulatoryCompliance?.requiredCount ?? 0);
     const pendingPaths = report.regulatoryCompliance?.pendingPaths.join(" | ") || "";
+    const plannedTotal =
+      report.reportType === "financial" && report.financial
+        ? String(Math.round(report.financial.kpis.plannedTotal))
+        : "";
+    const committedTotal =
+      report.reportType === "financial" && report.financial
+        ? String(Math.round(report.financial.kpis.committedTotal))
+        : "";
+    const remaining =
+      report.reportType === "financial" && report.financial
+        ? String(Math.round(report.financial.kpis.remainingAfterCommitment))
+        : "";
+    const variance =
+      report.reportType === "financial" && report.financial
+        ? report.financial.kpis.variancePct === null
+          ? ""
+          : report.financial.kpis.variancePct.toFixed(1)
+        : "";
 
     return [
       report.id,
+      report.reportType === "financial" ? "مالي" : "استراتيجي",
       report.title,
       report.date,
       report.status,
@@ -839,6 +1249,10 @@ export function buildReportsCsv(reports: StrategyReport[]): string {
       complianceCompleted,
       complianceRequired,
       pendingPaths,
+      plannedTotal,
+      committedTotal,
+      remaining,
+      variance,
     ];
   });
 
