@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
@@ -39,6 +40,8 @@ const STAGE_CACHE_TTL_MS: Record<Stage, number> = {
 };
 const MAX_STAGE_CACHE_ENTRIES = 120;
 const stageCache = new Map<string, CacheEntry>();
+const DEMO_MODE_ENABLED =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
 let openaiClient: OpenAI | null = null;
 
 function normalizeReportText(text: string) {
@@ -76,6 +79,18 @@ function normalizeReportText(text: string) {
 
 function jsonError(status: number, error: string, code: string) {
   return NextResponse.json({ ok: false, error, code }, { status });
+}
+
+async function canAccessStrategyApi() {
+  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  if (!clerkConfigured) return DEMO_MODE_ENABLED;
+
+  try {
+    const authResult = await auth();
+    return Boolean(authResult.userId);
+  } catch {
+    return false;
+  }
 }
 
 function getOpenAIClient() {
@@ -147,6 +162,10 @@ async function requestModelJson(client: OpenAI, prompt: string) {
 
 export async function POST(req: Request) {
   try {
+    if (!(await canAccessStrategyApi())) {
+      return jsonError(401, "تسجيل الدخول مطلوب للوصول إلى التحليل الاستراتيجي.", "AUTH_REQUIRED");
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return jsonError(500, "مفتاح OPENAI_API_KEY غير موجود في إعدادات البيئة.", "CONFIG_MISSING_OPENAI_KEY");
     }

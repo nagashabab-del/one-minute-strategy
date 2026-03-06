@@ -35,7 +35,7 @@ export default function SignUpPage() {
               path="/sign-up"
               routing="path"
               signInUrl="/sign-in"
-              forceRedirectUrl="/app"
+              fallbackRedirectUrl="/app"
               appearance={authAppearance}
             />
           )}

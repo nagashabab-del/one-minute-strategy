@@ -20,6 +20,8 @@ const WORKSPACE_KV_PREFIX = process.env.OMS_WORKSPACE_KV_PREFIX?.trim() || "oms:
 const KV_REST_API_URL = process.env.KV_REST_API_URL?.trim() ?? "";
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN?.trim() ?? "";
 const hasKvConfig = KV_REST_API_URL.length > 0 && KV_REST_API_TOKEN.length > 0;
+const DEMO_MODE_ENABLED =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
 let inMemoryStore: WorkspaceStoreFile | null = null;
 
 function jsonError(status: number, error: string, code: string) {
@@ -28,12 +30,14 @@ function jsonError(status: number, error: string, code: string) {
 
 async function resolveWorkspaceUserKey() {
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-  if (!clerkConfigured) return "demo-user";
+  if (!clerkConfigured) {
+    return DEMO_MODE_ENABLED ? "demo-user" : null;
+  }
   try {
     const authResult = await auth();
-    return authResult.userId ?? "demo-user";
+    return authResult.userId ?? null;
   } catch {
-    return "demo-user";
+    return null;
   }
 }
 
@@ -152,6 +156,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const userKey = await resolveWorkspaceUserKey();
+    if (!userKey) {
+      return jsonError(401, "تسجيل الدخول مطلوب للوصول إلى مساحة العمل.", "AUTH_REQUIRED");
+    }
     const data = await readWorkspaceForUser(userKey);
     return NextResponse.json({ ok: true, data });
   } catch {
@@ -162,6 +169,9 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const userKey = await resolveWorkspaceUserKey();
+    if (!userKey) {
+      return jsonError(401, "تسجيل الدخول مطلوب لحفظ مساحة العمل.", "AUTH_REQUIRED");
+    }
     const body = await req.json();
     const workspace = body?.workspace;
     if (!isWorkspaceSnapshot(workspace)) {

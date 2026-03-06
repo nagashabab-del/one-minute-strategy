@@ -61,7 +61,7 @@ export default function AppAuthGate({ children }: { children: React.ReactNode })
     <>
       <SignedIn>{children}</SignedIn>
       <SignedOut>
-        <RedirectToSignIn redirectUrl="/app" />
+        <RedirectToSignIn />
       </SignedOut>
     </>
   );
