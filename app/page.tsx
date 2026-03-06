@@ -281,23 +281,24 @@ function LandingShell({ authPane }: { authPane: ReactNode }) {
 function MarketingCopy() {
   return (
     <aside className={styles.copyPane} dir="rtl">
-      <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
-        <Image
-          src="/landing-logo.svg"
-          alt="One Minute Strategy"
-          width={236}
-          height={68}
-          className={styles.logo}
-          priority
-        />
-      </Link>
-      <div className={styles.copyTextBlock}>
+      <div className={styles.copyStack}>
+        <Link href="/" className={styles.logoWrap} aria-label="One Minute Strategy home">
+          <Image
+            src="/landing-logo.svg"
+            alt="One Minute Strategy"
+            width={248}
+            height={72}
+            className={styles.logo}
+            priority
+          />
+        </Link>
         <h2 className={styles.copyTitle}>
           <span className={styles.copyLine}>القرار في دقيقة</span>
           <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
         </h2>
         <p className={styles.copyDescription}>
-          منصة استراتيجية تجمع التحليل، القرار، والتنفيذ في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
+          <span className={styles.copyDescriptionLine}>منصة استراتيجية تجمع التحليل، القرار، والتنفيذ</span>
+          <span className={styles.copyDescriptionLine}>في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.</span>
         </p>
       </div>
     </aside>
