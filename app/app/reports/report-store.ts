@@ -98,6 +98,11 @@ const EXPORT_ACTION_LABELS: Record<ReportExportAction, string> = {
   bundle: "تصدير الحزمة",
   copy: "نسخ التقرير",
 };
+const BUNDLE_ACTION_SHORT_LABELS: Record<BundleExportAction, string> = {
+  txt: "TXT",
+  docx: "DOCX",
+  pdf: "PDF",
+};
 
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
@@ -133,11 +138,21 @@ export function getReportExportSuccessMessage(action: ReportExportAction): strin
   return "تم نسخ محتوى التقرير للحافظة.";
 }
 
+export function formatBundleActions(actions: BundleExportAction[]): string {
+  const normalizedActions = normalizeBundleFailedActions(actions);
+  return normalizedActions.map((action) => BUNDLE_ACTION_SHORT_LABELS[action]).join(" + ");
+}
+
+export function getBundleRetryButtonLabel(actions: BundleExportAction[]): string {
+  const formatted = formatBundleActions(actions);
+  if (!formatted) return "إعادة المحاولة";
+  return `إعادة (${formatted})`;
+}
+
 export function createBundlePartialError(failedActions: Array<ReportExportAction>): ReportExportError {
   const normalizedActions = normalizeBundleFailedActions(failedActions);
-  const labels = normalizedActions.map((action) => EXPORT_ACTION_LABELS[action]);
   return new ReportExportError("BUNDLE_PARTIAL", "Bundle export failed partially.", {
-    details: labels.join("، "),
+    details: formatBundleActions(normalizedActions),
     failedActions: normalizedActions,
   });
 }
@@ -160,8 +175,10 @@ export function getReportExportErrorMessage(action: ReportExportAction, error: u
   const exportError = toReportExportError(error);
 
   if (exportError.code === "BUNDLE_PARTIAL") {
-    return exportError.details
-      ? `فشل جزء من الحزمة: ${exportError.details}. يمكنك إعادة المحاولة للعناصر الفاشلة فقط.`
+    const failedActions = normalizeBundleFailedActions(exportError.failedActions ?? []);
+    const failedLabel = formatBundleActions(failedActions);
+    return failedLabel
+      ? `فشل تصدير عناصر من الحزمة: ${failedLabel}.`
       : "فشل جزء من الحزمة. يمكنك إعادة المحاولة للعناصر الفاشلة فقط.";
   }
   if (exportError.code === "BUNDLE_RETRY_EMPTY") {
