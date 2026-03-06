@@ -255,7 +255,8 @@
 
 .copyDescriptionLine {
   display: block;
-  white-space: nowrap;
+  white-space: normal;
+  text-wrap: balance;
 }
 
 .footer {
@@ -308,10 +309,6 @@
 
   .copyStack {
     width: 100%;
-  }
-
-  .copyDescriptionLine {
-    white-space: normal;
   }
 
   .copyTitle {

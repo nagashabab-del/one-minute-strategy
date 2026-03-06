@@ -297,7 +297,8 @@ function MarketingCopy() {
           <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
         </h2>
         <p className={styles.copyDescription}>
-          <span className={styles.copyDescriptionLine}>حل استراتيجي يجمع التحليل والقرار والتنفيذ في منصة واحدة.</span>
+          <span className={styles.copyDescriptionLine}>حل استراتيجي يجمع التحليل والقرار والتنفيذ</span>
+          <span className={styles.copyDescriptionLine}>في منصة واحدة.</span>
         </p>
       </div>
     </aside>
