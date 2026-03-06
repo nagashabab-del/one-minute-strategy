@@ -441,17 +441,19 @@ export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> 
   }
 
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+  const pdfWidth = 794;
+  const pdfHeight = 1123;
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.left = "-99999px";
   iframe.style.top = "0";
-  iframe.style.width = "794px";
-  iframe.style.height = "1123px";
+  iframe.style.width = `${pdfWidth}px`;
+  iframe.style.height = `${pdfHeight}px`;
   iframe.style.opacity = "0";
 
   document.body.appendChild(iframe);
   try {
-    const html = buildReportWordHtml(report);
+    const html = buildReportPdfHtml(report);
     const doc = iframe.contentDocument;
     if (!doc) throw new Error("Cannot initialize PDF sandbox.");
     doc.open();
@@ -462,28 +464,32 @@ export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> 
     if (!body) throw new Error("No report content for PDF export.");
 
     const canvas = await html2canvas(body, {
-      scale: 2,
+      scale: 2.4,
       backgroundColor: "#ffffff",
       useCORS: true,
-      windowWidth: Math.max(body.scrollWidth, 794),
+      width: pdfWidth,
+      windowWidth: Math.max(body.scrollWidth, pdfWidth),
       windowHeight: body.scrollHeight,
+      scrollX: 0,
+      scrollY: 0,
     });
     const imageData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const imageWidth = pageWidth;
+    const margin = 28;
+    const imageWidth = pageWidth - margin * 2;
     const imageHeight = (canvas.height * imageWidth) / canvas.width;
 
     let heightLeft = imageHeight;
     let yPosition = 0;
-    pdf.addImage(imageData, "PNG", 0, yPosition, imageWidth, imageHeight, undefined, "FAST");
+    pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
     heightLeft -= pageHeight;
 
     while (heightLeft > 0) {
       yPosition = heightLeft - imageHeight;
       pdf.addPage();
-      pdf.addImage(imageData, "PNG", 0, yPosition, imageWidth, imageHeight, undefined, "FAST");
+      pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
       heightLeft -= pageHeight;
     }
 
@@ -494,6 +500,38 @@ export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> 
 }
 
 export function buildReportWordHtml(report: StrategyReport): string {
+  return buildReportHtml(report, {
+    bodyMargin: 24,
+    panelMarginBottom: 12,
+    headingOneSize: 28,
+    headingTwoSize: 20,
+    lineHeight: 1.7,
+    fontSize: 16,
+  });
+}
+
+function buildReportPdfHtml(report: StrategyReport): string {
+  return buildReportHtml(report, {
+    bodyMargin: 18,
+    panelMarginBottom: 10,
+    headingOneSize: 24,
+    headingTwoSize: 18,
+    lineHeight: 1.6,
+    fontSize: 14,
+  });
+}
+
+function buildReportHtml(
+  report: StrategyReport,
+  options: {
+    bodyMargin: number;
+    panelMarginBottom: number;
+    headingOneSize: number;
+    headingTwoSize: number;
+    lineHeight: number;
+    fontSize: number;
+  }
+): string {
   const highlights = report.advisorsHighlights
     .map((line) => `<li>${escapeHtml(line)}</li>`)
     .join("");
@@ -522,31 +560,40 @@ export function buildReportWordHtml(report: StrategyReport): string {
   <meta charset="utf-8" />
   <title>${escapeHtml(report.title)}</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-      margin: 24px;
+      margin: ${options.bodyMargin}px;
       color: #111827;
-      line-height: 1.7;
+      line-height: ${options.lineHeight};
+      font-size: ${options.fontSize}px;
       direction: rtl;
       text-align: right;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    h1 { margin: 0 0 8px; font-size: 28px; }
-    h2 { margin: 0 0 10px; font-size: 20px; }
+    h1 { margin: 0 0 8px; font-size: ${options.headingOneSize}px; }
+    h2 { margin: 0 0 10px; font-size: ${options.headingTwoSize}px; page-break-after: avoid; }
     p { margin: 0 0 8px; }
     ul { margin: 0; padding-right: 20px; }
-    li { margin-bottom: 6px; }
+    li { margin-bottom: 6px; page-break-inside: avoid; }
     .meta { color: #4b5563; margin-bottom: 14px; font-size: 14px; }
     .panel {
       border: 1px solid #d1d5db;
       border-radius: 10px;
       padding: 14px;
-      margin-bottom: 12px;
+      margin-bottom: ${options.panelMarginBottom}px;
       background: #ffffff;
+      page-break-inside: avoid;
     }
     .brand {
       font-size: 12px;
       color: #6b7280;
       margin-bottom: 6px;
+    }
+    @media print {
+      body { margin: 12mm; }
+      .panel { page-break-inside: avoid; }
     }
   </style>
 </head>
