@@ -51,19 +51,20 @@
 }
 
 .logoWrap {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: min(100%, 580px);
-  margin: 0 0 16px auto;
+  justify-self: stretch;
+  width: 100%;
+  margin: 0;
   text-decoration: none;
+  direction: ltr;
 }
 
 .logo {
   display: block;
   width: auto;
-  height: 50px;
-  margin-inline-end: -6px;
+  height: 58px;
 }
 
 .loginForm {
@@ -221,17 +222,19 @@
 .copyStack {
   width: min(100%, 600px);
   display: grid;
-  justify-items: end;
+  justify-items: stretch;
   gap: 14px;
 }
 
 .copyTitle {
+  width: 100%;
   margin: 0;
   color: #eef4ff;
   font-size: clamp(31px, 3.45vw, 44px);
   line-height: 1.16;
   font-weight: 900;
   letter-spacing: -0.01em;
+  text-align: right;
 }
 
 .copyLine {
@@ -240,12 +243,14 @@
 }
 
 .copyDescription {
+  width: 100%;
   margin: 0;
   color: rgba(217, 228, 255, 0.82);
   font-size: clamp(18px, 1.55vw, 24px);
   line-height: 1.78;
   font-weight: 400;
   max-width: none;
+  text-align: right;
 }
 
 .copyDescriptionLine {
@@ -294,12 +299,11 @@
   }
 
   .logoWrap {
-    width: auto;
+    width: 100%;
   }
 
   .logo {
-    height: 46px;
-    margin-inline-end: -2px;
+    height: 52px;
   }
 
   .copyStack {
