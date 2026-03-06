@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy:staging": "bash scripts/deploy-staging.sh"
+    "deploy:staging": "bash scripts/deploy-staging.sh",
+    "e2e": "playwright test -c playwright.config.mjs",
+    "e2e:headed": "playwright test --headed -c playwright.config.mjs",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
