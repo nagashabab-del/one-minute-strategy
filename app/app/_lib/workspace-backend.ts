@@ -6,6 +6,7 @@ export const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
 const WORKSPACE_API_ENDPOINT = "/api/workspace";
 const WORKSPACE_SYNC_EVENT = "oms-workspace-backend-sync";
 const WORKSPACE_SCHEMA_VERSION = 1;
+const WORKSPACE_PATCH_FLAG = "__oms_workspace_storage_patch_v1__";
 
 type ProjectsRegistryShape = {
   projects?: Array<{
@@ -28,6 +29,7 @@ let hydrationPromise: Promise<void> | null = null;
 let persistTimer: number | null = null;
 let persistInFlight = false;
 let lastPersistSignature = "";
+let applyingSnapshot = false;
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -61,6 +63,15 @@ function parseProjectIds(registryRaw: string): string[] {
     .filter((item) => item && typeof item.id === "string" && item.id.trim().length > 0 && item.isArchived !== true)
     .map((item) => String(item.id));
   return Array.from(new Set(ids));
+}
+
+function isWorkspaceStorageKey(key: string | null): boolean {
+  if (!key) return false;
+  if (key === PROJECTS_REGISTRY_KEY) return true;
+  if (key.startsWith(PROJECT_DATA_KEY_PREFIX)) return true;
+  if (key.startsWith(BUDGET_TRACKER_PREFIX)) return true;
+  if (key.startsWith(PLAN_TRACKER_PREFIX)) return true;
+  return false;
 }
 
 function dispatchWorkspaceSyncEvent() {
@@ -113,16 +124,21 @@ function applyWorkspaceSnapshot(snapshot: WorkspaceBackendSnapshot): boolean {
     return false;
   }
 
-  window.localStorage.setItem(PROJECTS_REGISTRY_KEY, snapshot.registryRaw ?? "");
+  applyingSnapshot = true;
+  try {
+    window.localStorage.setItem(PROJECTS_REGISTRY_KEY, snapshot.registryRaw ?? "");
 
-  for (const [projectId, value] of Object.entries(snapshot.projectDataById ?? {})) {
-    window.localStorage.setItem(projectDataKey(projectId), value ?? "");
-  }
-  for (const [projectId, value] of Object.entries(snapshot.budgetById ?? {})) {
-    window.localStorage.setItem(budgetTrackerKey(projectId), value ?? "");
-  }
-  for (const [projectId, value] of Object.entries(snapshot.planById ?? {})) {
-    window.localStorage.setItem(planTrackerKey(projectId), value ?? "");
+    for (const [projectId, value] of Object.entries(snapshot.projectDataById ?? {})) {
+      window.localStorage.setItem(projectDataKey(projectId), value ?? "");
+    }
+    for (const [projectId, value] of Object.entries(snapshot.budgetById ?? {})) {
+      window.localStorage.setItem(budgetTrackerKey(projectId), value ?? "");
+    }
+    for (const [projectId, value] of Object.entries(snapshot.planById ?? {})) {
+      window.localStorage.setItem(planTrackerKey(projectId), value ?? "");
+    }
+  } finally {
+    applyingSnapshot = false;
   }
 
   return true;
@@ -190,4 +206,44 @@ export function subscribeWorkspaceBackendSync(callback: () => void) {
   const onSync = () => callback();
   window.addEventListener(WORKSPACE_SYNC_EVENT, onSync);
   return () => window.removeEventListener(WORKSPACE_SYNC_EVENT, onSync);
+}
+
+export function installWorkspaceSyncBridge() {
+  if (!isBrowser()) return;
+  const storage = window.localStorage as Storage & { [WORKSPACE_PATCH_FLAG]?: boolean };
+  if (storage[WORKSPACE_PATCH_FLAG]) return;
+  storage[WORKSPACE_PATCH_FLAG] = true;
+
+  const proto = Object.getPrototypeOf(storage) as Storage;
+  const originalSetItem = proto.setItem;
+  const originalRemoveItem = proto.removeItem;
+  const originalClear = proto.clear;
+
+  proto.setItem = function patchedSetItem(key: string, value: string) {
+    originalSetItem.call(this, key, value);
+    if (this !== window.localStorage || applyingSnapshot || !isWorkspaceStorageKey(key)) return;
+    scheduleWorkspacePersist();
+    dispatchWorkspaceSyncEvent();
+  };
+
+  proto.removeItem = function patchedRemoveItem(key: string) {
+    originalRemoveItem.call(this, key);
+    if (this !== window.localStorage || applyingSnapshot || !isWorkspaceStorageKey(key)) return;
+    scheduleWorkspacePersist();
+    dispatchWorkspaceSyncEvent();
+  };
+
+  proto.clear = function patchedClear() {
+    originalClear.call(this);
+    if (this !== window.localStorage || applyingSnapshot) return;
+    scheduleWorkspacePersist();
+    dispatchWorkspaceSyncEvent();
+  };
+
+  window.addEventListener("storage", (event) => {
+    if (!isWorkspaceStorageKey(event.key)) return;
+    dispatchWorkspaceSyncEvent();
+  });
+  void hydrateWorkspaceFromBackend();
+  scheduleWorkspacePersist();
 }

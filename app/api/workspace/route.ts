@@ -16,6 +16,10 @@ type WorkspaceStoreFile = {
 };
 
 const WORKSPACE_STORE_PATH = process.env.OMS_WORKSPACE_STORE_PATH ?? "/tmp/oms_workspace_store_v1.json";
+const WORKSPACE_KV_PREFIX = process.env.OMS_WORKSPACE_KV_PREFIX?.trim() || "oms:workspace:v1";
+const KV_REST_API_URL = process.env.KV_REST_API_URL?.trim() ?? "";
+const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN?.trim() ?? "";
+const hasKvConfig = KV_REST_API_URL.length > 0 && KV_REST_API_TOKEN.length > 0;
 let inMemoryStore: WorkspaceStoreFile | null = null;
 
 function jsonError(status: number, error: string, code: string) {
@@ -49,6 +53,50 @@ function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
   );
 }
 
+function workspaceKvKey(userKey: string) {
+  return `${WORKSPACE_KV_PREFIX}:user:${userKey}`;
+}
+
+async function kvPipeline(command: string[]): Promise<unknown> {
+  const response = await fetch(`${KV_REST_API_URL}/pipeline`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${KV_REST_API_TOKEN}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify([command]),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`KV_HTTP_${response.status}`);
+  }
+
+  const payload = (await response.json()) as Array<{ result?: unknown; error?: string }>;
+  const item = Array.isArray(payload) ? payload[0] : undefined;
+  if (item?.error) {
+    throw new Error(item.error);
+  }
+  return item?.result ?? null;
+}
+
+async function readWorkspaceFromKv(userKey: string): Promise<WorkspaceSnapshot | null> {
+  if (!hasKvConfig) return null;
+  const result = await kvPipeline(["GET", workspaceKvKey(userKey)]);
+  if (typeof result !== "string") return null;
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    return isWorkspaceSnapshot(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeWorkspaceToKv(userKey: string, snapshot: WorkspaceSnapshot) {
+  if (!hasKvConfig) return;
+  await kvPipeline(["SET", workspaceKvKey(userKey), JSON.stringify(snapshot)]);
+}
+
 async function readWorkspaceStore(): Promise<WorkspaceStoreFile> {
   if (inMemoryStore) return inMemoryStore;
   try {
@@ -72,13 +120,39 @@ async function writeWorkspaceStore(store: WorkspaceStoreFile) {
   }
 }
 
+async function readWorkspaceForUser(userKey: string): Promise<WorkspaceSnapshot | null> {
+  if (hasKvConfig) {
+    try {
+      return await readWorkspaceFromKv(userKey);
+    } catch {
+      // Fallback for local/dev and transient KV failures.
+    }
+  }
+  const store = await readWorkspaceStore();
+  return store.users[userKey] ?? null;
+}
+
+async function writeWorkspaceForUser(userKey: string, snapshot: WorkspaceSnapshot) {
+  if (hasKvConfig) {
+    try {
+      await writeWorkspaceToKv(userKey, snapshot);
+      return;
+    } catch {
+      // Fallback for local/dev and transient KV failures.
+    }
+  }
+
+  const store = await readWorkspaceStore();
+  store.users[userKey] = snapshot;
+  await writeWorkspaceStore(store);
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const userKey = await resolveWorkspaceUserKey();
-    const store = await readWorkspaceStore();
-    const data = store.users[userKey] ?? null;
+    const data = await readWorkspaceForUser(userKey);
     return NextResponse.json({ ok: true, data });
   } catch {
     return jsonError(500, "تعذر قراءة بيانات مساحة العمل.", "WORKSPACE_READ_FAILED");
@@ -94,16 +168,14 @@ export async function PUT(req: Request) {
       return jsonError(400, "بيانات مساحة العمل غير صالحة.", "INVALID_WORKSPACE_PAYLOAD");
     }
 
-    const store = await readWorkspaceStore();
-    store.users[userKey] = {
+    await writeWorkspaceForUser(userKey, {
       schemaVersion: workspace.schemaVersion,
       updatedAt: workspace.updatedAt,
       registryRaw: workspace.registryRaw,
       projectDataById: workspace.projectDataById,
       budgetById: workspace.budgetById,
       planById: workspace.planById,
-    };
-    await writeWorkspaceStore(store);
+    });
 
     return NextResponse.json({ ok: true });
   } catch {
