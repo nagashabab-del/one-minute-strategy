@@ -16,19 +16,27 @@ export type StrategyReport = {
 };
 
 export type ReportExportAction = "txt" | "docx" | "pdf" | "csv" | "bundle" | "copy";
+export type BundleExportAction = "txt" | "docx" | "pdf";
 export type ReportExportStatus = "pending" | "success" | "error";
+export const BUNDLE_EXPORT_ACTIONS: ReadonlyArray<BundleExportAction> = ["txt", "docx", "pdf"];
 
 export class ReportExportError extends Error {
   code: string;
   details?: string;
   cause?: unknown;
+  failedActions?: BundleExportAction[];
 
-  constructor(code: string, message: string, options?: { details?: string; cause?: unknown }) {
+  constructor(
+    code: string,
+    message: string,
+    options?: { details?: string; cause?: unknown; failedActions?: BundleExportAction[] }
+  ) {
     super(message);
     this.name = "ReportExportError";
     this.code = code;
     this.details = options?.details;
     this.cause = options?.cause;
+    this.failedActions = options?.failedActions;
   }
 }
 
@@ -126,12 +134,18 @@ export function getReportExportSuccessMessage(action: ReportExportAction): strin
 }
 
 export function createBundlePartialError(failedActions: Array<ReportExportAction>): ReportExportError {
-  const labels = failedActions
-    .map((action) => EXPORT_ACTION_LABELS[action])
-    .filter((label) => label !== EXPORT_ACTION_LABELS.bundle && label !== EXPORT_ACTION_LABELS.copy);
+  const normalizedActions = normalizeBundleFailedActions(failedActions);
+  const labels = normalizedActions.map((action) => EXPORT_ACTION_LABELS[action]);
   return new ReportExportError("BUNDLE_PARTIAL", "Bundle export failed partially.", {
     details: labels.join("، "),
+    failedActions: normalizedActions,
   });
+}
+
+export function getBundleFailedActions(error: unknown): BundleExportAction[] {
+  const exportError = toReportExportError(error);
+  if (exportError.code !== "BUNDLE_PARTIAL") return [];
+  return normalizeBundleFailedActions(exportError.failedActions ?? []);
 }
 
 export function toReportExportError(error: unknown, fallbackCode = "UNKNOWN"): ReportExportError {
@@ -147,8 +161,11 @@ export function getReportExportErrorMessage(action: ReportExportAction, error: u
 
   if (exportError.code === "BUNDLE_PARTIAL") {
     return exportError.details
-      ? `فشل جزء من الحزمة: ${exportError.details}.`
-      : "فشل جزء من الحزمة. يمكنك إعادة المحاولة.";
+      ? `فشل جزء من الحزمة: ${exportError.details}. يمكنك إعادة المحاولة للعناصر الفاشلة فقط.`
+      : "فشل جزء من الحزمة. يمكنك إعادة المحاولة للعناصر الفاشلة فقط.";
+  }
+  if (exportError.code === "BUNDLE_RETRY_EMPTY") {
+    return "لا توجد عناصر فاشلة لإعادة محاولتها ضمن الحزمة.";
   }
   if (exportError.code === "REPORT_NOT_FOUND") {
     return "لم يعد التقرير متوفرًا. حدّث الصفحة ثم أعد المحاولة.";
@@ -810,6 +827,13 @@ function buildReportBaseName(report: StrategyReport): string {
   const normalizedDate = (report.date || "").replace(/[^\d-]/g, "").slice(0, 10) || "date";
   const status = statusSlug(report.status);
   return `${normalizedTitle || normalizedId || "project"}-${normalizedDate}-${status}`;
+}
+
+function normalizeBundleFailedActions(actions: Array<ReportExportAction | BundleExportAction>): BundleExportAction[] {
+  const filtered = actions.filter((action): action is BundleExportAction =>
+    action === "txt" || action === "docx" || action === "pdf"
+  );
+  return Array.from(new Set(filtered));
 }
 
 function escapeHtml(value: string): string {

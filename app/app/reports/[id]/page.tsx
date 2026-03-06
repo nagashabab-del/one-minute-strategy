@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
+  BUNDLE_EXPORT_ACTIONS,
+  BundleExportAction,
   buildReportDocxBlob,
   buildReportDocxFileName,
   buildReportFileName,
@@ -11,6 +13,7 @@ import {
   buildReportPdfFileName,
   buildReportText,
   createBundlePartialError,
+  getBundleFailedActions,
   getReportExportErrorMessage,
   getReportExportPendingMessage,
   getReportExportSuccessMessage,
@@ -31,6 +34,7 @@ type ExportFeedback = {
   text: string;
   action: ReportExportAction;
 };
+type ExportRetryTarget = { action: ReportExportAction; bundleFailedActions?: BundleExportAction[] };
 type ExportActionOptions = { silent?: boolean; skipBusy?: boolean };
 type ExportActionResult = { ok: true } | { ok: false; error: unknown };
 
@@ -54,9 +58,10 @@ export default function ReportDetailsPage() {
     [reportId, reportsSignature]
   );
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
-  const [retryTarget, setRetryTarget] = useState<ReportExportAction | null>(null);
+  const [retryTarget, setRetryTarget] = useState<ExportRetryTarget | null>(null);
   const [isBundleExporting, setIsBundleExporting] = useState(false);
-  const [isActionBusy, setIsActionBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<ReportExportAction | null>(null);
+  const hasBusyAction = busyAction !== null;
 
   if (reportsSignature === "server") {
     return (
@@ -99,11 +104,11 @@ export default function ReportDetailsPage() {
     });
   };
 
-  const markExportSuccess = (action: ReportExportAction) => {
+  const markExportSuccess = (action: ReportExportAction, textOverride?: string) => {
     setRetryTarget(null);
     setExportFeedback({
       status: "success",
-      text: getReportExportSuccessMessage(action),
+      text: textOverride ?? getReportExportSuccessMessage(action),
       action,
     });
     if (typeof window !== "undefined") {
@@ -116,7 +121,8 @@ export default function ReportDetailsPage() {
   };
 
   const markExportError = (action: ReportExportAction, error: unknown) => {
-    setRetryTarget(action);
+    const bundleFailedActions = action === "bundle" ? getBundleFailedActions(error) : undefined;
+    setRetryTarget({ action, bundleFailedActions });
     setExportFeedback({
       status: "error",
       text: getReportExportErrorMessage(action, error),
@@ -124,11 +130,13 @@ export default function ReportDetailsPage() {
     });
   };
 
+  const isActionBusy = (action: ReportExportAction) => busyAction === action;
+
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
   const onExportTxt = ({ silent = false, skipBusy = false }: ExportActionOptions = {}): ExportActionResult => {
-    if (!skipBusy && isActionBusy) {
+    if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
     }
     if (inGapMode) {
@@ -137,7 +145,7 @@ export default function ReportDetailsPage() {
     if (!silent) {
       markExportPending("txt");
     }
-    if (!skipBusy) setIsActionBusy(true);
+    if (!skipBusy) setBusyAction("txt");
     try {
       triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
       if (!silent) {
@@ -151,7 +159,9 @@ export default function ReportDetailsPage() {
       return { ok: false, error };
     } finally {
       if (!skipBusy) {
-        window.setTimeout(() => setIsActionBusy(false), 240);
+        window.setTimeout(() => {
+          setBusyAction((current) => (current === "txt" ? null : current));
+        }, 240);
       }
     }
   };
@@ -164,14 +174,14 @@ export default function ReportDetailsPage() {
     if (typeof window === "undefined") {
       return { ok: false, error: new ReportExportError("BROWSER_ONLY", "Copy is available in browser only.") };
     }
-    if (!skipBusy && isActionBusy) {
+    if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
     }
     if (!silent) {
       markExportPending("copy");
     }
     if (!skipBusy) {
-      setIsActionBusy(true);
+      setBusyAction("copy");
     }
     const text = buildReportText(report);
 
@@ -205,14 +215,16 @@ export default function ReportDetailsPage() {
       return { ok: false, error: normalizedError };
     } finally {
       if (!skipBusy) {
-        window.setTimeout(() => setIsActionBusy(false), 240);
+        window.setTimeout(() => {
+          setBusyAction((current) => (current === "copy" ? null : current));
+        }, 240);
       }
     }
   };
   const onExportDoc = async (
     { silent = false, skipBusy = false }: ExportActionOptions = {}
   ): Promise<ExportActionResult> => {
-    if (!skipBusy && isActionBusy) {
+    if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
     }
     if (inGapMode) {
@@ -221,7 +233,7 @@ export default function ReportDetailsPage() {
     if (!silent) {
       markExportPending("docx");
     }
-    if (!skipBusy) setIsActionBusy(true);
+    if (!skipBusy) setBusyAction("docx");
     try {
       const blob = await buildReportDocxBlob(report);
       triggerBlobDownload(buildReportDocxFileName(report), blob);
@@ -235,13 +247,15 @@ export default function ReportDetailsPage() {
       }
       return { ok: false, error };
     } finally {
-      if (!skipBusy) setIsActionBusy(false);
+      if (!skipBusy) {
+        setBusyAction((current) => (current === "docx" ? null : current));
+      }
     }
   };
   const onExportPdf = async (
     { silent = false, skipBusy = false }: ExportActionOptions = {}
   ): Promise<ExportActionResult> => {
-    if (!skipBusy && isActionBusy) {
+    if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
     }
     if (inGapMode) {
@@ -250,7 +264,7 @@ export default function ReportDetailsPage() {
     if (!silent) {
       markExportPending("pdf");
     }
-    if (!skipBusy) setIsActionBusy(true);
+    if (!skipBusy) setBusyAction("pdf");
     try {
       const blob = await buildReportPdfBlob(report);
       triggerBlobDownload(buildReportPdfFileName(report), blob);
@@ -264,32 +278,53 @@ export default function ReportDetailsPage() {
       }
       return { ok: false, error };
     } finally {
-      if (!skipBusy) setIsActionBusy(false);
+      if (!skipBusy) {
+        setBusyAction((current) => (current === "pdf" ? null : current));
+      }
     }
   };
-  const onExportBundle = async () => {
+  const onExportBundle = async (retryActions?: BundleExportAction[]) => {
     if (inGapMode) return;
-    if (isBundleExporting || isActionBusy) return;
+    if (isBundleExporting || hasBusyAction) return;
+
+    const targetActions =
+      retryActions && retryActions.length > 0
+        ? BUNDLE_EXPORT_ACTIONS.filter((action) => retryActions.includes(action))
+        : [...BUNDLE_EXPORT_ACTIONS];
+
+    if (targetActions.length === 0) {
+      markExportError("bundle", new ReportExportError("BUNDLE_RETRY_EMPTY", "No failed actions available for retry."));
+      return;
+    }
+
     markExportPending("bundle");
     setIsBundleExporting(true);
     const failedActions: Array<ReportExportAction> = [];
-    const txtResult = onExportTxt({ silent: true, skipBusy: true });
-    if (!txtResult.ok) {
-      failedActions.push("txt");
+
+    for (let index = 0; index < targetActions.length; index += 1) {
+      const action = targetActions[index];
+      if (action === "txt") {
+        const txtResult = onExportTxt({ silent: true, skipBusy: true });
+        if (!txtResult.ok) failedActions.push("txt");
+      } else if (action === "docx") {
+        const docResult = await onExportDoc({ silent: true, skipBusy: true });
+        if (!docResult.ok) failedActions.push("docx");
+      } else if (action === "pdf") {
+        const pdfResult = await onExportPdf({ silent: true, skipBusy: true });
+        if (!pdfResult.ok) failedActions.push("pdf");
+      }
+      if (index < targetActions.length - 1) {
+        await wait(120);
+      }
     }
-    await wait(120);
-    const docResult = await onExportDoc({ silent: true, skipBusy: true });
-    if (!docResult.ok) {
-      failedActions.push("docx");
-    }
-    await wait(120);
-    const pdfResult = await onExportPdf({ silent: true, skipBusy: true });
-    if (!pdfResult.ok) {
-      failedActions.push("pdf");
-    }
+
     setIsBundleExporting(false);
     if (failedActions.length === 0) {
-      markExportSuccess("bundle");
+      const successMessage =
+        targetActions.length === BUNDLE_EXPORT_ACTIONS.length
+          ? undefined
+          : "تمت إعادة تصدير العناصر الفاشلة من الحزمة بنجاح.";
+      markExportSuccess("bundle", successMessage);
       return;
     }
     markExportError("bundle", createBundlePartialError(failedActions));
@@ -297,23 +332,23 @@ export default function ReportDetailsPage() {
 
   const onRetryLastFailedExport = () => {
     if (!retryTarget) return;
-    if (retryTarget === "txt") {
+    if (retryTarget.action === "txt") {
       onExportTxt();
       return;
     }
-    if (retryTarget === "docx") {
+    if (retryTarget.action === "docx") {
       void onExportDoc();
       return;
     }
-    if (retryTarget === "pdf") {
+    if (retryTarget.action === "pdf") {
       void onExportPdf();
       return;
     }
-    if (retryTarget === "bundle") {
-      void onExportBundle();
+    if (retryTarget.action === "bundle") {
+      void onExportBundle(retryTarget.bundleFailedActions);
       return;
     }
-    if (retryTarget === "copy") {
+    if (retryTarget.action === "copy") {
       void onCopyReport();
     }
   };
@@ -366,34 +401,34 @@ export default function ReportDetailsPage() {
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => onExportTxt()}
-            disabled={isBundleExporting || inGapMode || isActionBusy}
+            disabled={isBundleExporting || inGapMode || hasBusyAction}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {isActionBusy ? "..." : "تصدير نصي (.txt)"}
+            {isActionBusy("txt") ? "جاري تصدير TXT..." : "تصدير نصي (.txt)"}
           </button>
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onExportDoc()}
-            disabled={isBundleExporting || inGapMode || isActionBusy}
+            disabled={isBundleExporting || inGapMode || hasBusyAction}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {isActionBusy ? "..." : "تصدير Word (.docx)"}
+            {isActionBusy("docx") ? "جاري تصدير DOCX..." : "تصدير Word (.docx)"}
           </button>
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onExportPdf()}
-            disabled={inGapMode || isActionBusy || isBundleExporting}
+            disabled={inGapMode || hasBusyAction || isBundleExporting}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {isActionBusy ? "..." : "تصدير PDF"}
+            {isActionBusy("pdf") ? "جاري تصدير PDF..." : "تصدير PDF"}
           </button>
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onExportBundle()}
-            disabled={isBundleExporting || inGapMode || isActionBusy}
+            disabled={isBundleExporting || inGapMode || hasBusyAction}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
             {isBundleExporting ? "جاري تصدير الحزمة..." : "تصدير الحزمة"}
@@ -402,10 +437,10 @@ export default function ReportDetailsPage() {
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
             onClick={() => void onCopyReport()}
-            disabled={inGapMode || isActionBusy || isBundleExporting}
+            disabled={inGapMode || hasBusyAction || isBundleExporting}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
-            {isActionBusy ? "..." : "نسخ التقرير"}
+            {isActionBusy("copy") ? "جاري نسخ التقرير..." : "نسخ التقرير"}
           </button>
         </div>
         {inGapMode ? <div className="report-lock-note">{quickActionBlockedHint}</div> : null}
@@ -417,7 +452,7 @@ export default function ReportDetailsPage() {
                 type="button"
                 className="report-feedback-retry"
                 onClick={() => void onRetryLastFailedExport()}
-                disabled={isBundleExporting || isActionBusy}
+                disabled={isBundleExporting || hasBusyAction}
               >
                 إعادة المحاولة
               </button>
