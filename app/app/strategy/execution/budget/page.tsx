@@ -1608,19 +1608,19 @@ export default function StrategyExecutionBudgetPage() {
         }
 
         .budget-row-stats {
+          grid-column: 1 / -1;
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-sm);
           background: rgba(9, 15, 28, 0.72);
           padding: 8px;
           display: grid;
-          gap: 4px;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
         }
 
         .budget-row-stat {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
+          display: grid;
+          gap: 2px;
           font-size: 13px;
           color: var(--oms-text-muted);
         }
@@ -1632,8 +1632,9 @@ export default function StrategyExecutionBudgetPage() {
         }
 
         .budget-row-actions {
+          grid-column: 1 / -1;
           display: flex;
-          justify-content: flex-end;
+          justify-content: flex-start;
         }
 
         .advance-create {
@@ -2224,12 +2225,17 @@ export default function StrategyExecutionBudgetPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             align-items: stretch;
           }
+
+          .budget-row-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
 
         @media (max-width: 720px) {
           .budget-kpi-grid,
           .budget-revenue-grid,
           .budget-row,
+          .budget-row-stats,
           .advance-create,
           .increase-request-form,
           .regulatory-fields,
