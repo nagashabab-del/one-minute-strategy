@@ -46,22 +46,27 @@
 
 .authPane {
   direction: ltr;
+  display: grid;
+  align-content: center;
 }
 
 .logoWrap {
   display: inline-flex;
   align-items: center;
-  margin-bottom: 14px;
+  justify-content: flex-end;
+  width: min(100%, 580px);
+  margin: 0 0 16px auto;
   text-decoration: none;
 }
 
 .logo {
   width: auto;
-  height: 37px;
+  height: 50px;
 }
 
 .loginForm {
-  margin-top: 2px;
+  width: min(100%, 440px);
+  margin: 0 auto;
 }
 
 .inputStack {
@@ -181,6 +186,9 @@
 
 .registerRow {
   margin-top: 10px;
+  width: min(100%, 440px);
+  margin-inline: auto;
+  text-align: right;
 }
 
 .registerRow a {
@@ -205,28 +213,35 @@
   justify-content: center;
   align-items: flex-end;
   text-align: right;
-  padding-right: 6px;
+  padding-right: 0;
+}
+
+.copyTextBlock {
+  width: min(100%, 580px);
+  margin-left: auto;
 }
 
 .copyTitle {
   margin: 0;
   color: #eef4ff;
-  font-size: clamp(29px, 3.5vw, 41px);
-  line-height: 1.2;
-  font-weight: 800;
+  font-size: clamp(31px, 3.45vw, 44px);
+  line-height: 1.16;
+  font-weight: 900;
+  letter-spacing: -0.01em;
 }
 
 .copyLine {
   display: block;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .copyDescription {
   margin: 16px 0 0;
   color: rgba(217, 228, 255, 0.82);
-  font-size: clamp(17px, 1.6vw, 24px);
-  line-height: 1.88;
-  font-weight: 300;
+  font-size: clamp(18px, 1.55vw, 24px);
+  line-height: 1.78;
+  font-weight: 400;
+  max-width: 28ch;
 }
 
 .footer {
@@ -244,8 +259,12 @@
     padding: 30px 26px;
   }
 
+  .authPane {
+    align-content: start;
+  }
+
   .copyPane {
-    align-items: flex-start;
+    align-items: flex-end;
     text-align: right;
     padding-right: 0;
   }
@@ -265,16 +284,25 @@
     padding: 24px 14px;
   }
 
+  .logoWrap {
+    width: 100%;
+  }
+
+  .logo {
+    height: 44px;
+  }
+
+  .copyTextBlock {
+    width: 100%;
+  }
+
   .copyTitle {
     font-size: clamp(28px, 8vw, 36px);
   }
 
-  .copyLine {
-    white-space: normal;
-  }
-
   .copyDescription {
     font-size: 16px;
+    max-width: 100%;
   }
 
   .actionRow {

@@ -285,21 +285,21 @@ function MarketingCopy() {
         <Image
           src="/landing-logo.svg"
           alt="One Minute Strategy"
-          width={178}
-          height={50}
+          width={236}
+          height={68}
           className={styles.logo}
           priority
         />
       </Link>
-      <h2 className={styles.copyTitle}>
-        <span className={styles.copyLine}>القرار في دقيقة</span>
-        <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
-      </h2>
-      <p className={styles.copyDescription}>
-        منصة استراتيجية تجمع التحليل، القرار، والتنفيذ
-        <br />
-        في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
-      </p>
+      <div className={styles.copyTextBlock}>
+        <h2 className={styles.copyTitle}>
+          <span className={styles.copyLine}>القرار في دقيقة</span>
+          <span className={styles.copyLine}>والتنفيذ تحت السيطرة</span>
+        </h2>
+        <p className={styles.copyDescription}>
+          منصة استراتيجية تجمع التحليل، القرار، والتنفيذ في رحلة واحدة لإدارة المشاريع والفعاليات بوضوح كامل.
+        </p>
+      </div>
     </aside>
   );
 }
