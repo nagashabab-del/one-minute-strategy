@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import FirstRunOnboardingWizard from "./_components/first-run-onboarding-wizard";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "./_components/strategy-readiness-banner";
 import {
   isReadinessBlockedHref,
   READINESS_LOCK_REASON,
   resolveQuickStartForReadiness,
 } from "./_lib/readiness-lock";
+import { completeFirstRunOnboarding, shouldShowFirstRunOnboarding } from "./_lib/onboarding-state";
 import { readReports } from "./reports/report-store";
 
 type PriorityItem = {
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
   const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const [showFirstRunOnboarding, setShowFirstRunOnboarding] = useState<boolean>(() => shouldShowFirstRunOnboarding());
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
   const completedCount = reports.filter((item) => item.status === "مكتمل").length;
@@ -41,8 +44,21 @@ export default function DashboardPage() {
     openRiskCount,
   });
 
+  const closeOnboarding = (skipped: boolean) => {
+    completeFirstRunOnboarding(skipped);
+    setShowFirstRunOnboarding(false);
+  };
+
   return (
     <main>
+      {showFirstRunOnboarding ? (
+        <FirstRunOnboardingWizard
+          quickStartHref={quickStart.href}
+          onSkip={() => closeOnboarding(true)}
+          onComplete={() => closeOnboarding(false)}
+        />
+      ) : null}
+
       <h1 className="oms-page-title">لوحة التحكم التنفيذية</h1>
       <p className="oms-page-subtitle">
         مركز قيادة القرار والتنفيذ: راقب الجاهزية، اعرف الأولويات، واتخذ الإجراء التالي فورًا.
