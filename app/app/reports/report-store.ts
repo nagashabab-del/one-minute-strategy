@@ -15,6 +15,23 @@ export type StrategyReport = {
   };
 };
 
+export type ReportExportAction = "txt" | "docx" | "pdf" | "csv" | "bundle" | "copy";
+export type ReportExportStatus = "pending" | "success" | "error";
+
+export class ReportExportError extends Error {
+  code: string;
+  details?: string;
+  cause?: unknown;
+
+  constructor(code: string, message: string, options?: { details?: string; cause?: unknown }) {
+    super(message);
+    this.name = "ReportExportError";
+    this.code = code;
+    this.details = options?.details;
+    this.cause = options?.cause;
+  }
+}
+
 type ProjectsRegistry = {
   activeProjectId: string;
   projects: Array<{
@@ -65,6 +82,15 @@ type PlanSnapshot = {
   };
 };
 
+const EXPORT_ACTION_LABELS: Record<ReportExportAction, string> = {
+  txt: "تصدير TXT",
+  docx: "تصدير DOCX",
+  pdf: "تصدير PDF",
+  csv: "تصدير CSV",
+  bundle: "تصدير الحزمة",
+  copy: "نسخ التقرير",
+};
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
@@ -83,6 +109,82 @@ const ADVISOR_LABELS: Record<string, string> = {
   marketing_advisor: "المستشار التسويقي",
   risk_advisor: "مستشار المخاطر",
 };
+
+export function getReportExportPendingMessage(action: ReportExportAction): string {
+  if (action === "copy") return "جاري نسخ التقرير للحافظة...";
+  if (action === "bundle") return "جاري تجهيز الحزمة (TXT + DOCX + PDF)...";
+  return `جاري تنفيذ ${EXPORT_ACTION_LABELS[action]}...`;
+}
+
+export function getReportExportSuccessMessage(action: ReportExportAction): string {
+  if (action === "txt") return "تم تنزيل ملف TXT بنجاح.";
+  if (action === "docx") return "تم تنزيل ملف DOCX بنجاح.";
+  if (action === "pdf") return "تم تنزيل ملف PDF بنجاح.";
+  if (action === "csv") return "تم تنزيل ملف CSV بنجاح.";
+  if (action === "bundle") return "تم تنزيل الحزمة (TXT + DOCX + PDF).";
+  return "تم نسخ محتوى التقرير للحافظة.";
+}
+
+export function createBundlePartialError(failedActions: Array<ReportExportAction>): ReportExportError {
+  const labels = failedActions
+    .map((action) => EXPORT_ACTION_LABELS[action])
+    .filter((label) => label !== EXPORT_ACTION_LABELS.bundle && label !== EXPORT_ACTION_LABELS.copy);
+  return new ReportExportError("BUNDLE_PARTIAL", "Bundle export failed partially.", {
+    details: labels.join("، "),
+  });
+}
+
+export function toReportExportError(error: unknown, fallbackCode = "UNKNOWN"): ReportExportError {
+  if (error instanceof ReportExportError) return error;
+  if (error instanceof Error) {
+    return new ReportExportError(fallbackCode, error.message || "Export failed.", { cause: error });
+  }
+  return new ReportExportError(fallbackCode, "Export failed.");
+}
+
+export function getReportExportErrorMessage(action: ReportExportAction, error: unknown): string {
+  const exportError = toReportExportError(error);
+
+  if (exportError.code === "BUNDLE_PARTIAL") {
+    return exportError.details
+      ? `فشل جزء من الحزمة: ${exportError.details}.`
+      : "فشل جزء من الحزمة. يمكنك إعادة المحاولة.";
+  }
+  if (exportError.code === "REPORT_NOT_FOUND") {
+    return "لم يعد التقرير متوفرًا. حدّث الصفحة ثم أعد المحاولة.";
+  }
+  if (exportError.code === "CSV_EMPTY_FILTER") {
+    return "لا توجد نتائج ضمن الفلتر الحالي لتصديرها.";
+  }
+  if (exportError.code === "ACTION_BUSY") {
+    return "يوجد إجراء تصدير آخر قيد التنفيذ. انتظر اكتماله ثم أعد المحاولة.";
+  }
+  if (exportError.code === "ACTION_BLOCKED") {
+    return "الإجراء غير متاح في الوضع الحالي.";
+  }
+  if (exportError.code === "BROWSER_ONLY") {
+    return "هذا الإجراء متاح من المتصفح فقط.";
+  }
+  if (exportError.code === "LIBRARY_LOAD_FAILED") {
+    return "تعذر تحميل مكوّنات التصدير. تحقق من الاتصال ثم أعد المحاولة.";
+  }
+  if (exportError.code === "PDF_SANDBOX_INIT_FAILED" || exportError.code === "PDF_CONTENT_MISSING") {
+    return "تعذر تجهيز محتوى PDF للتصدير. أعد المحاولة.";
+  }
+  if (exportError.code === "PDF_RENDER_FAILED") {
+    return "حدث خطأ أثناء توليد PDF. أعد المحاولة بعد لحظات.";
+  }
+  if (exportError.code === "DOWNLOAD_FAILED") {
+    return "تعذر بدء التنزيل من المتصفح. تحقق من إعدادات الحظر ثم أعد المحاولة.";
+  }
+  if (exportError.code === "COPY_BLOCKED") {
+    return "تعذر النسخ للحافظة. تأكد من صلاحية النسخ في المتصفح.";
+  }
+  if (exportError.code === "DOCX_BUILD_FAILED") {
+    return "تعذر توليد ملف DOCX. أعد المحاولة.";
+  }
+  return `تعذر تنفيذ ${EXPORT_ACTION_LABELS[action]}.`;
+}
 
 function projectDataKey(projectId: string) {
   return `${PROJECT_DATA_KEY_PREFIX}${projectId}`;
@@ -349,85 +451,89 @@ export function buildReportDocxFileName(report: StrategyReport): string {
 }
 
 export async function buildReportDocxBlob(report: StrategyReport): Promise<Blob> {
-  const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
+  try {
+    const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } = await import("docx");
 
-  const heading = (title: string) =>
-    new Paragraph({
-      heading: HeadingLevel.HEADING_2,
-      alignment: AlignmentType.RIGHT,
-      bidirectional: true,
-      spacing: { before: 260, after: 110 },
-      children: [new TextRun({ text: title, bold: true, size: 26 })],
-    });
-  const body = (text: string) =>
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      bidirectional: true,
-      spacing: { after: 110 },
-      children: [new TextRun({ text, size: 24 })],
-    });
-  const bullet = (text: string) =>
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      bidirectional: true,
-      spacing: { after: 90 },
-      bullet: { level: 0 },
-      children: [new TextRun({ text, size: 24 })],
-    });
-  const compliance = report.regulatoryCompliance
-    ? [
-        heading("الالتزام التنظيمي"),
-        body(`الحالة: ${report.regulatoryCompliance.readiness}`),
-        body(
-          `مستوى الإكمال: ${report.regulatoryCompliance.completedCount}/${report.regulatoryCompliance.requiredCount}`
-        ),
-        body(
-          `المسارات المفتوحة: ${
-            report.regulatoryCompliance.pendingPaths.length
-              ? report.regulatoryCompliance.pendingPaths.join("، ")
-              : "لا توجد"
-          }`
-        ),
-      ]
-    : [];
+    const heading = (title: string) =>
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        alignment: AlignmentType.RIGHT,
+        bidirectional: true,
+        spacing: { before: 260, after: 110 },
+        children: [new TextRun({ text: title, bold: true, size: 26 })],
+      });
+    const body = (text: string) =>
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        bidirectional: true,
+        spacing: { after: 110 },
+        children: [new TextRun({ text, size: 24 })],
+      });
+    const bullet = (text: string) =>
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        bidirectional: true,
+        spacing: { after: 90 },
+        bullet: { level: 0 },
+        children: [new TextRun({ text, size: 24 })],
+      });
+    const compliance = report.regulatoryCompliance
+      ? [
+          heading("الالتزام التنظيمي"),
+          body(`الحالة: ${report.regulatoryCompliance.readiness}`),
+          body(
+            `مستوى الإكمال: ${report.regulatoryCompliance.completedCount}/${report.regulatoryCompliance.requiredCount}`
+          ),
+          body(
+            `المسارات المفتوحة: ${
+              report.regulatoryCompliance.pendingPaths.length
+                ? report.regulatoryCompliance.pendingPaths.join("، ")
+                : "لا توجد"
+            }`
+          ),
+        ]
+      : [];
 
-  const doc = new Document({
-    creator: "One Minute Strategy",
-    title: report.title,
-    description: `Strategy report ${report.id}`,
-    sections: [
-      {
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            bidirectional: true,
-            spacing: { after: 90 },
-            children: [new TextRun({ text: "One Minute Strategy", bold: true, size: 22 })],
-          }),
-          new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            bidirectional: true,
-            spacing: { after: 110 },
-            children: [new TextRun({ text: report.title, bold: true, size: 38 })],
-          }),
-          body(`المعرّف: ${report.id}`),
-          body(`تاريخ التحديث: ${report.date}`),
-          body(`الحالة: ${report.status}`),
-          heading("القرار التنفيذي"),
-          body(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد."),
-          ...compliance,
-          heading("أبرز ملاحظات المستشارين"),
-          ...report.advisorsHighlights.map((line) => bullet(line)),
-          heading("التوصيات التنفيذية"),
-          ...report.recommendations.map((line) => bullet(line)),
-          heading("المخاطر"),
-          ...report.risks.map((line) => bullet(line)),
-        ],
-      },
-    ],
-  });
+    const doc = new Document({
+      creator: "One Minute Strategy",
+      title: report.title,
+      description: `Strategy report ${report.id}`,
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              bidirectional: true,
+              spacing: { after: 90 },
+              children: [new TextRun({ text: "One Minute Strategy", bold: true, size: 22 })],
+            }),
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              bidirectional: true,
+              spacing: { after: 110 },
+              children: [new TextRun({ text: report.title, bold: true, size: 38 })],
+            }),
+            body(`المعرّف: ${report.id}`),
+            body(`تاريخ التحديث: ${report.date}`),
+            body(`الحالة: ${report.status}`),
+            heading("القرار التنفيذي"),
+            body(report.executiveDecision || "لا يوجد قرار تنفيذي مولّد بعد."),
+            ...compliance,
+            heading("أبرز ملاحظات المستشارين"),
+            ...report.advisorsHighlights.map((line) => bullet(line)),
+            heading("التوصيات التنفيذية"),
+            ...report.recommendations.map((line) => bullet(line)),
+            heading("المخاطر"),
+            ...report.risks.map((line) => bullet(line)),
+          ],
+        },
+      ],
+    });
 
-  return Packer.toBlob(doc);
+    return Packer.toBlob(doc);
+  } catch (error) {
+    throw toReportExportError(error, "DOCX_BUILD_FAILED");
+  }
 }
 
 export function buildReportPdfFileName(report: StrategyReport): string {
@@ -437,10 +543,19 @@ export function buildReportPdfFileName(report: StrategyReport): string {
 
 export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> {
   if (typeof window === "undefined" || typeof document === "undefined") {
-    throw new Error("PDF export is available in browser only.");
+    throw new ReportExportError("BROWSER_ONLY", "PDF export is available in browser only.");
   }
 
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+  let html2canvas: (typeof import("html2canvas"))["default"];
+  let jsPDFCtor: (typeof import("jspdf"))["jsPDF"];
+  try {
+    const imports = await Promise.all([import("html2canvas"), import("jspdf")]);
+    html2canvas = imports[0].default;
+    jsPDFCtor = imports[1].jsPDF;
+  } catch (error) {
+    throw toReportExportError(error, "LIBRARY_LOAD_FAILED");
+  }
+
   const pdfWidth = 794;
   const pdfHeight = 1123;
   const iframe = document.createElement("iframe");
@@ -455,45 +570,55 @@ export async function buildReportPdfBlob(report: StrategyReport): Promise<Blob> 
   try {
     const html = buildReportPdfHtml(report);
     const doc = iframe.contentDocument;
-    if (!doc) throw new Error("Cannot initialize PDF sandbox.");
+    if (!doc) throw new ReportExportError("PDF_SANDBOX_INIT_FAILED", "Cannot initialize PDF sandbox.");
     doc.open();
     doc.write(html);
     doc.close();
     await waitForMs(90);
     const body = doc.body;
-    if (!body) throw new Error("No report content for PDF export.");
+    if (!body) throw new ReportExportError("PDF_CONTENT_MISSING", "No report content for PDF export.");
 
-    const canvas = await html2canvas(body, {
-      scale: 2.4,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      width: pdfWidth,
-      windowWidth: Math.max(body.scrollWidth, pdfWidth),
-      windowHeight: body.scrollHeight,
-      scrollX: 0,
-      scrollY: 0,
-    });
-    const imageData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 28;
-    const imageWidth = pageWidth - margin * 2;
-    const imageHeight = (canvas.height * imageWidth) / canvas.width;
-
-    let heightLeft = imageHeight;
-    let yPosition = 0;
-    pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      yPosition = heightLeft - imageHeight;
-      pdf.addPage();
-      pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
-      heightLeft -= pageHeight;
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(body, {
+        scale: 2.4,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        width: pdfWidth,
+        windowWidth: Math.max(body.scrollWidth, pdfWidth),
+        windowHeight: body.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+    } catch (error) {
+      throw toReportExportError(error, "PDF_RENDER_FAILED");
     }
 
-    return pdf.output("blob");
+    const imageData = canvas.toDataURL("image/png");
+    try {
+      const pdf = new jsPDFCtor({ orientation: "p", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 28;
+      const imageWidth = pageWidth - margin * 2;
+      const imageHeight = (canvas.height * imageWidth) / canvas.width;
+
+      let heightLeft = imageHeight;
+      let yPosition = 0;
+      pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        yPosition = heightLeft - imageHeight;
+        pdf.addPage();
+        pdf.addImage(imageData, "PNG", margin, yPosition + margin, imageWidth, imageHeight, undefined, "FAST");
+        heightLeft -= pageHeight;
+      }
+
+      return pdf.output("blob");
+    } catch (error) {
+      throw toReportExportError(error, "PDF_RENDER_FAILED");
+    }
   } finally {
     document.body.removeChild(iframe);
   }

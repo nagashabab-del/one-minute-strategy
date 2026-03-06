@@ -10,15 +10,29 @@ import {
   buildReportPdfBlob,
   buildReportPdfFileName,
   buildReportText,
+  createBundlePartialError,
+  getReportExportErrorMessage,
+  getReportExportPendingMessage,
+  getReportExportSuccessMessage,
   getReportsSignature,
+  ReportExportAction,
+  ReportExportError,
+  ReportExportStatus,
   StrategyReport,
+  toReportExportError,
   readReportById,
   subscribeReportsChanges,
 } from "../report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
 import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
 
-type ExportFeedback = { tone: "ok" | "error"; text: string };
+type ExportFeedback = {
+  status: ReportExportStatus;
+  text: string;
+  action: ReportExportAction;
+};
+type ExportActionOptions = { silent?: boolean; skipBusy?: boolean };
+type ExportActionResult = { ok: true } | { ok: false; error: unknown };
 
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string | string[] }>();
@@ -40,6 +54,7 @@ export default function ReportDetailsPage() {
     [reportId, reportsSignature]
   );
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
+  const [retryTarget, setRetryTarget] = useState<ReportExportAction | null>(null);
   const [isBundleExporting, setIsBundleExporting] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
 
@@ -75,32 +90,89 @@ export default function ReportDetailsPage() {
     );
   }
 
-  const pushExportFeedback = (tone: ExportFeedback["tone"], text: string) => {
-    setExportFeedback({ tone, text });
+  const markExportPending = (action: ReportExportAction) => {
+    setRetryTarget(null);
+    setExportFeedback({
+      status: "pending",
+      text: getReportExportPendingMessage(action),
+      action,
+    });
+  };
+
+  const markExportSuccess = (action: ReportExportAction) => {
+    setRetryTarget(null);
+    setExportFeedback({
+      status: "success",
+      text: getReportExportSuccessMessage(action),
+      action,
+    });
     if (typeof window !== "undefined") {
-      window.setTimeout(() => setExportFeedback(null), 2600);
+      window.setTimeout(() => {
+        setExportFeedback((current) =>
+          current && current.status === "success" && current.action === action ? null : current
+        );
+      }, 2600);
     }
+  };
+
+  const markExportError = (action: ReportExportAction, error: unknown) => {
+    setRetryTarget(action);
+    setExportFeedback({
+      status: "error",
+      text: getReportExportErrorMessage(action, error),
+      action,
+    });
   };
 
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
-  const onExportTxt = (silent = false, skipBusy = false) => {
-    if (!skipBusy && isActionBusy) return false;
-    if (inGapMode) return false;
-    if (!skipBusy) setIsActionBusy(true);
-    const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
-    if (!skipBusy) {
-      window.setTimeout(() => setIsActionBusy(false), 240);
+  const onExportTxt = ({ silent = false, skipBusy = false }: ExportActionOptions = {}): ExportActionResult => {
+    if (!skipBusy && isActionBusy) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (inGapMode) {
+      return { ok: false, error: new ReportExportError("ACTION_BLOCKED", "Action blocked in gap mode.") };
     }
     if (!silent) {
-      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
+      markExportPending("txt");
     }
-    return ok;
+    if (!skipBusy) setIsActionBusy(true);
+    try {
+      triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+      if (!silent) {
+        markExportSuccess("txt");
+      }
+      return { ok: true };
+    } catch (error) {
+      if (!silent) {
+        markExportError("txt", error);
+      }
+      return { ok: false, error };
+    } finally {
+      if (!skipBusy) {
+        window.setTimeout(() => setIsActionBusy(false), 240);
+      }
+    }
   };
-  const onCopyReport = async () => {
-    if (inGapMode || typeof window === "undefined" || isActionBusy) return;
-    setIsActionBusy(true);
+  const onCopyReport = async (
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (inGapMode) {
+      return { ok: false, error: new ReportExportError("ACTION_BLOCKED", "Action blocked in gap mode.") };
+    }
+    if (typeof window === "undefined") {
+      return { ok: false, error: new ReportExportError("BROWSER_ONLY", "Copy is available in browser only.") };
+    }
+    if (!skipBusy && isActionBusy) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (!silent) {
+      markExportPending("copy");
+    }
+    if (!skipBusy) {
+      setIsActionBusy(true);
+    }
     const text = buildReportText(report);
 
     try {
@@ -115,52 +187,82 @@ export default function ReportDetailsPage() {
         document.body.appendChild(textarea);
         textarea.focus();
         textarea.select();
-        document.execCommand("copy");
+        const didCopy = document.execCommand("copy");
         document.body.removeChild(textarea);
+        if (!didCopy) {
+          throw new ReportExportError("COPY_BLOCKED", "Fallback clipboard API failed.");
+        }
       }
-      pushExportFeedback("ok", "تم نسخ التقرير للحافظة.");
-    } catch {
-      pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام التصدير النصي.");
+      if (!silent) {
+        markExportSuccess("copy");
+      }
+      return { ok: true };
+    } catch (error) {
+      const normalizedError = toReportExportError(error, "COPY_BLOCKED");
+      if (!silent) {
+        markExportError("copy", normalizedError);
+      }
+      return { ok: false, error: normalizedError };
     } finally {
-      window.setTimeout(() => setIsActionBusy(false), 240);
+      if (!skipBusy) {
+        window.setTimeout(() => setIsActionBusy(false), 240);
+      }
     }
   };
-  const onExportDoc = async (silent = false, skipBusy = false) => {
-    if (!skipBusy && isActionBusy) return false;
-    if (inGapMode) return false;
+  const onExportDoc = async (
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (!skipBusy && isActionBusy) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (inGapMode) {
+      return { ok: false, error: new ReportExportError("ACTION_BLOCKED", "Action blocked in gap mode.") };
+    }
+    if (!silent) {
+      markExportPending("docx");
+    }
     if (!skipBusy) setIsActionBusy(true);
     try {
       const blob = await buildReportDocxBlob(report);
       triggerBlobDownload(buildReportDocxFileName(report), blob);
       if (!silent) {
-        pushExportFeedback("ok", "تم تنزيل ملف DOCX بنجاح.");
+        markExportSuccess("docx");
       }
-      return true;
-    } catch {
+      return { ok: true };
+    } catch (error) {
       if (!silent) {
-        pushExportFeedback("error", "تعذر تنزيل ملف DOCX.");
+        markExportError("docx", error);
       }
-      return false;
+      return { ok: false, error };
     } finally {
       if (!skipBusy) setIsActionBusy(false);
     }
   };
-  const onExportPdf = async (silent = false, skipBusy = false) => {
-    if (!skipBusy && isActionBusy) return false;
-    if (inGapMode) return false;
+  const onExportPdf = async (
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (!skipBusy && isActionBusy) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (inGapMode) {
+      return { ok: false, error: new ReportExportError("ACTION_BLOCKED", "Action blocked in gap mode.") };
+    }
+    if (!silent) {
+      markExportPending("pdf");
+    }
     if (!skipBusy) setIsActionBusy(true);
     try {
       const blob = await buildReportPdfBlob(report);
       triggerBlobDownload(buildReportPdfFileName(report), blob);
       if (!silent) {
-        pushExportFeedback("ok", "تم تنزيل ملف PDF بنجاح.");
+        markExportSuccess("pdf");
       }
-      return true;
-    } catch {
+      return { ok: true };
+    } catch (error) {
       if (!silent) {
-        pushExportFeedback("error", "تعذر تنزيل ملف PDF.");
+        markExportError("pdf", error);
       }
-      return false;
+      return { ok: false, error };
     } finally {
       if (!skipBusy) setIsActionBusy(false);
     }
@@ -168,42 +270,86 @@ export default function ReportDetailsPage() {
   const onExportBundle = async () => {
     if (inGapMode) return;
     if (isBundleExporting || isActionBusy) return;
+    markExportPending("bundle");
     setIsBundleExporting(true);
-    const txtOk = onExportTxt(true, true);
+    const failedActions: Array<ReportExportAction> = [];
+    const txtResult = onExportTxt({ silent: true, skipBusy: true });
+    if (!txtResult.ok) {
+      failedActions.push("txt");
+    }
     await wait(120);
-    const docOk = await onExportDoc(true, true);
+    const docResult = await onExportDoc({ silent: true, skipBusy: true });
+    if (!docResult.ok) {
+      failedActions.push("docx");
+    }
     await wait(120);
-    const pdfOk = await onExportPdf(true, true);
+    const pdfResult = await onExportPdf({ silent: true, skipBusy: true });
+    if (!pdfResult.ok) {
+      failedActions.push("pdf");
+    }
     setIsBundleExporting(false);
-    pushExportFeedback(
-      txtOk && docOk && pdfOk ? "ok" : "error",
-      txtOk && docOk && pdfOk
-        ? "تم تنزيل الحزمة (TXT + DOCX + PDF)."
-        : "تم تنزيل جزء من الحزمة أو فشل التصدير."
-    );
+    if (failedActions.length === 0) {
+      markExportSuccess("bundle");
+      return;
+    }
+    markExportError("bundle", createBundlePartialError(failedActions));
+  };
+
+  const onRetryLastFailedExport = () => {
+    if (!retryTarget) return;
+    if (retryTarget === "txt") {
+      onExportTxt();
+      return;
+    }
+    if (retryTarget === "docx") {
+      void onExportDoc();
+      return;
+    }
+    if (retryTarget === "pdf") {
+      void onExportPdf();
+      return;
+    }
+    if (retryTarget === "bundle") {
+      void onExportBundle();
+      return;
+    }
+    if (retryTarget === "copy") {
+      void onCopyReport();
+    }
   };
 
   const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+      throw new ReportExportError("BROWSER_ONLY", "Download is available in browser only.");
+    }
     try {
       const blob = new Blob(payload, { type: mimeType });
       triggerBlobDownload(fileName, blob);
-      return true;
-    } catch {
-      return false;
+    } catch (error) {
+      throw toReportExportError(error, "DOWNLOAD_FAILED");
     }
   };
 
   const triggerBlobDownload = (fileName: string, blob: Blob) => {
-    if (typeof window === "undefined") return;
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    if (typeof window === "undefined") {
+      throw new ReportExportError("BROWSER_ONLY", "Download is available in browser only.");
+    }
+    let url: string | null = null;
+    try {
+      url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (error) {
+      throw toReportExportError(error, "DOWNLOAD_FAILED");
+    } finally {
+      if (url) {
+        window.URL.revokeObjectURL(url);
+      }
+    }
   };
 
   return (
@@ -255,7 +401,7 @@ export default function ReportDetailsPage() {
           <button
             type="button"
             className={`oms-btn oms-btn-ghost ${inGapMode ? "report-action-disabled" : ""}`}
-            onClick={onCopyReport}
+            onClick={() => void onCopyReport()}
             disabled={inGapMode || isActionBusy || isBundleExporting}
             title={inGapMode ? quickActionBlockedHint : undefined}
           >
@@ -264,7 +410,19 @@ export default function ReportDetailsPage() {
         </div>
         {inGapMode ? <div className="report-lock-note">{quickActionBlockedHint}</div> : null}
         {exportFeedback ? (
-          <div className={`report-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
+          <div className={`report-export-feedback state-${exportFeedback.status}`}>
+            <span>{exportFeedback.text}</span>
+            {exportFeedback.status === "error" && retryTarget ? (
+              <button
+                type="button"
+                className="report-feedback-retry"
+                onClick={() => void onRetryLastFailedExport()}
+                disabled={isBundleExporting || isActionBusy}
+              >
+                إعادة المحاولة
+              </button>
+            ) : null}
+          </div>
         ) : null}
         <div className="report-nonprint">
           <StrategyReadinessBanner contextLabel="التقارير" />
@@ -392,18 +550,45 @@ export default function ReportDetailsPage() {
           padding: 8px 10px;
           font-size: 12px;
           font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
         }
 
-        .report-export-feedback.tone-ok {
+        .report-export-feedback.state-pending {
+          border-color: rgba(130, 164, 255, 0.58);
+          color: #bfd3ff;
+          background: rgba(20, 34, 65, 0.52);
+        }
+
+        .report-export-feedback.state-success {
           border-color: rgba(88, 214, 165, 0.58);
           color: #78e3b9;
           background: rgba(14, 56, 45, 0.52);
         }
 
-        .report-export-feedback.tone-error {
+        .report-export-feedback.state-error {
           border-color: rgba(247, 106, 121, 0.58);
           color: #ffbcc4;
           background: rgba(70, 20, 33, 0.52);
+        }
+
+        .report-feedback-retry {
+          border: 1px solid rgba(247, 106, 121, 0.58);
+          background: rgba(255, 255, 255, 0.08);
+          color: #ffd8dd;
+          border-radius: 8px;
+          min-height: 30px;
+          padding: 0 10px;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .report-feedback-retry:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         .report-kpi-value {

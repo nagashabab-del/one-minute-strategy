@@ -11,8 +11,16 @@ import {
   buildReportPdfBlob,
   buildReportPdfFileName,
   buildReportText,
+  createBundlePartialError,
+  getReportExportErrorMessage,
+  getReportExportPendingMessage,
+  getReportExportSuccessMessage,
   getReportsSignature,
+  ReportExportAction,
+  ReportExportError,
+  ReportExportStatus,
   StrategyReport,
+  toReportExportError,
   readReports,
   subscribeReportsChanges,
 } from "./report-store";
@@ -21,7 +29,15 @@ import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../_lib/re
 
 type StatusFilter = "الكل" | StrategyReport["status"];
 type SortOption = "الأحدث" | "الأقدم" | "الحالة";
-type ExportFeedback = { tone: "ok" | "error"; text: string };
+type ExportFeedback = {
+  status: ReportExportStatus;
+  text: string;
+  action: ReportExportAction;
+  reportId?: string;
+};
+type ExportRetryTarget = { action: ReportExportAction; reportId?: string };
+type ExportActionOptions = { silent?: boolean; skipBusy?: boolean };
+type ExportActionResult = { ok: true } | { ok: false; error: unknown };
 
 export default function ReportsPage() {
   const reportsSignature = useSyncExternalStore(
@@ -41,6 +57,7 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
+  const [retryTarget, setRetryTarget] = useState<ExportRetryTarget | null>(null);
   const [bundleExportingId, setBundleExportingId] = useState<string | null>(null);
   const [actionBusyReportId, setActionBusyReportId] = useState<string | null>(null);
   const [isCsvExporting, setIsCsvExporting] = useState(false);
@@ -73,32 +90,91 @@ export default function ReportsPage() {
     });
   }, [reports, search, statusFilter, sortBy]);
 
-  const pushExportFeedback = (tone: ExportFeedback["tone"], text: string) => {
-    setExportFeedback({ tone, text });
+  const markExportPending = (action: ReportExportAction, reportId?: string) => {
+    setRetryTarget(null);
+    setExportFeedback({
+      status: "pending",
+      text: getReportExportPendingMessage(action),
+      action,
+      reportId,
+    });
+  };
+
+  const markExportSuccess = (action: ReportExportAction, reportId?: string) => {
+    setRetryTarget(null);
+    setExportFeedback({
+      status: "success",
+      text: getReportExportSuccessMessage(action),
+      action,
+      reportId,
+    });
     if (typeof window !== "undefined") {
-      window.setTimeout(() => setExportFeedback(null), 2600);
+      window.setTimeout(() => {
+        setExportFeedback((current) =>
+          current && current.status === "success" && current.action === action && current.reportId === reportId
+            ? null
+            : current
+        );
+      }, 2600);
     }
   };
 
-  const onExportReportTxt = (report: StrategyReport, silent = false, skipBusy = false) => {
-    if (!skipBusy && actionBusyReportId) return false;
+  const markExportError = (action: ReportExportAction, error: unknown, reportId?: string) => {
+    setRetryTarget({ action, reportId });
+    setExportFeedback({
+      status: "error",
+      text: getReportExportErrorMessage(action, error),
+      action,
+      reportId,
+    });
+  };
+
+  const onExportReportTxt = (
+    report: StrategyReport,
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): ExportActionResult => {
+    if (!skipBusy && actionBusyReportId) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (!silent) {
+      markExportPending("txt", report.id);
+    }
     if (!skipBusy) {
       setActionBusyReportId(report.id);
     }
-    const ok = triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
-    if (!skipBusy) {
-      window.setTimeout(() => {
-        setActionBusyReportId((current) => (current === report.id ? null : current));
-      }, 240);
+    try {
+      triggerDownload(buildReportFileName(report), "text/plain;charset=utf-8", [buildReportText(report)]);
+      if (!silent) {
+        markExportSuccess("txt", report.id);
+      }
+      return { ok: true };
+    } catch (error) {
+      if (!silent) {
+        markExportError("txt", error, report.id);
+      }
+      return { ok: false, error };
+    } finally {
+      if (!skipBusy) {
+        window.setTimeout(() => {
+          setActionBusyReportId((current) => (current === report.id ? null : current));
+        }, 240);
+      }
     }
-    if (!silent) {
-      pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف TXT بنجاح." : "تعذر تنزيل ملف TXT.");
-    }
-    return ok;
   };
 
-  const onExportReportDoc = async (report: StrategyReport, silent = false, skipBusy = false) => {
-    if ((!skipBusy && actionBusyReportId) || typeof window === "undefined") return false;
+  const onExportReportDoc = async (
+    report: StrategyReport,
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (!skipBusy && actionBusyReportId) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (typeof window === "undefined") {
+      return { ok: false, error: new ReportExportError("BROWSER_ONLY", "Export is available in browser only.") };
+    }
+    if (!silent) {
+      markExportPending("docx", report.id);
+    }
     if (!skipBusy) {
       setActionBusyReportId(report.id);
     }
@@ -106,14 +182,14 @@ export default function ReportsPage() {
       const blob = await buildReportDocxBlob(report);
       triggerBlobDownload(buildReportDocxFileName(report), blob);
       if (!silent) {
-        pushExportFeedback("ok", "تم تنزيل ملف DOCX بنجاح.");
+        markExportSuccess("docx", report.id);
       }
-      return true;
-    } catch {
+      return { ok: true };
+    } catch (error) {
       if (!silent) {
-        pushExportFeedback("error", "تعذر تنزيل ملف DOCX.");
+        markExportError("docx", error, report.id);
       }
-      return false;
+      return { ok: false, error };
     } finally {
       if (!skipBusy) {
         setActionBusyReportId((current) => (current === report.id ? null : current));
@@ -121,8 +197,19 @@ export default function ReportsPage() {
     }
   };
 
-  const onExportReportPdf = async (report: StrategyReport, silent = false, skipBusy = false) => {
-    if ((!skipBusy && actionBusyReportId) || typeof window === "undefined") return false;
+  const onExportReportPdf = async (
+    report: StrategyReport,
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (!skipBusy && actionBusyReportId) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (typeof window === "undefined") {
+      return { ok: false, error: new ReportExportError("BROWSER_ONLY", "Export is available in browser only.") };
+    }
+    if (!silent) {
+      markExportPending("pdf", report.id);
+    }
     if (!skipBusy) {
       setActionBusyReportId(report.id);
     }
@@ -130,14 +217,14 @@ export default function ReportsPage() {
       const blob = await buildReportPdfBlob(report);
       triggerBlobDownload(buildReportPdfFileName(report), blob);
       if (!silent) {
-        pushExportFeedback("ok", "تم تنزيل ملف PDF بنجاح.");
+        markExportSuccess("pdf", report.id);
       }
-      return true;
-    } catch {
+      return { ok: true };
+    } catch (error) {
       if (!silent) {
-        pushExportFeedback("error", "تعذر تنزيل ملف PDF.");
+        markExportError("pdf", error, report.id);
       }
-      return false;
+      return { ok: false, error };
     } finally {
       if (!skipBusy) {
         setActionBusyReportId((current) => (current === report.id ? null : current));
@@ -145,9 +232,25 @@ export default function ReportsPage() {
     }
   };
 
-  const onCopyReport = async (report: StrategyReport) => {
-    if (inGapMode || typeof window === "undefined" || actionBusyReportId) return;
-    setActionBusyReportId(report.id);
+  const onCopyReport = async (
+    report: StrategyReport,
+    { silent = false, skipBusy = false }: ExportActionOptions = {}
+  ): Promise<ExportActionResult> => {
+    if (inGapMode) {
+      return { ok: false, error: new ReportExportError("ACTION_BLOCKED", "Action blocked in gap mode.") };
+    }
+    if (typeof window === "undefined") {
+      return { ok: false, error: new ReportExportError("BROWSER_ONLY", "Copy is available in browser only.") };
+    }
+    if (!skipBusy && actionBusyReportId) {
+      return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
+    }
+    if (!silent) {
+      markExportPending("copy", report.id);
+    }
+    if (!skipBusy) {
+      setActionBusyReportId(report.id);
+    }
     const text = buildReportText(report);
     try {
       if (navigator.clipboard?.writeText) {
@@ -161,72 +264,145 @@ export default function ReportsPage() {
         document.body.appendChild(textarea);
         textarea.focus();
         textarea.select();
-        document.execCommand("copy");
+        const didCopy = document.execCommand("copy");
         document.body.removeChild(textarea);
+        if (!didCopy) {
+          throw new ReportExportError("COPY_BLOCKED", "Fallback clipboard API failed.");
+        }
       }
-      pushExportFeedback("ok", "تم نسخ محتوى التقرير للحافظة.");
-    } catch {
-      pushExportFeedback("error", "تعذر نسخ التقرير. يمكنك استخدام تصدير TXT.");
+      if (!silent) {
+        markExportSuccess("copy", report.id);
+      }
+      return { ok: true };
+    } catch (error) {
+      const normalizedError = toReportExportError(error, "COPY_BLOCKED");
+      if (!silent) {
+        markExportError("copy", normalizedError, report.id);
+      }
+      return { ok: false, error: normalizedError };
     } finally {
-      window.setTimeout(() => {
-        setActionBusyReportId((current) => (current === report.id ? null : current));
-      }, 240);
+      if (!skipBusy) {
+        window.setTimeout(() => {
+          setActionBusyReportId((current) => (current === report.id ? null : current));
+        }, 240);
+      }
     }
   };
 
   const onExportReportBundle = async (report: StrategyReport) => {
     if (bundleExportingId || actionBusyReportId) return;
+    markExportPending("bundle", report.id);
     setBundleExportingId(report.id);
-    const txtOk = onExportReportTxt(report, true, true);
+    const failedActions: Array<ReportExportAction> = [];
+    const txtResult = onExportReportTxt(report, { silent: true, skipBusy: true });
+    if (!txtResult.ok) {
+      failedActions.push("txt");
+    }
     await wait(120);
-    const docOk = await onExportReportDoc(report, true, true);
+    const docResult = await onExportReportDoc(report, { silent: true, skipBusy: true });
+    if (!docResult.ok) {
+      failedActions.push("docx");
+    }
     await wait(120);
-    const pdfOk = await onExportReportPdf(report, true, true);
+    const pdfResult = await onExportReportPdf(report, { silent: true, skipBusy: true });
+    if (!pdfResult.ok) {
+      failedActions.push("pdf");
+    }
     setBundleExportingId(null);
-    pushExportFeedback(
-      txtOk && docOk && pdfOk ? "ok" : "error",
-      txtOk && docOk && pdfOk
-        ? "تم تنزيل الحزمة (TXT + DOCX + PDF)."
-        : "تم تنزيل جزء من الحزمة أو فشل التصدير."
-    );
+    if (failedActions.length === 0) {
+      markExportSuccess("bundle", report.id);
+      return;
+    }
+    markExportError("bundle", createBundlePartialError(failedActions), report.id);
   };
 
   const onExportFilteredCsv = () => {
     if (isCsvExporting) return;
     if (filteredReports.length === 0) {
-      pushExportFeedback("error", "لا توجد نتائج ضمن الفلتر الحالي لتصديرها.");
+      markExportError("csv", new ReportExportError("CSV_EMPTY_FILTER", "No reports in current filter."));
       return;
     }
+    markExportPending("csv");
     setIsCsvExporting(true);
-    const ok = triggerDownload(buildReportsCsvFileName(), "text/csv;charset=utf-8", [
-      "\ufeff",
-      buildReportsCsv(filteredReports),
-    ]);
-    setIsCsvExporting(false);
-    pushExportFeedback(ok ? "ok" : "error", ok ? "تم تنزيل ملف CSV بنجاح." : "تعذر تنزيل ملف CSV.");
+    try {
+      triggerDownload(buildReportsCsvFileName(), "text/csv;charset=utf-8", ["\ufeff", buildReportsCsv(filteredReports)]);
+      markExportSuccess("csv");
+    } catch (error) {
+      markExportError("csv", error);
+    } finally {
+      setIsCsvExporting(false);
+    }
+  };
+
+  const onRetryLastFailedExport = () => {
+    if (!retryTarget) return;
+    if (retryTarget.action === "csv") {
+      onExportFilteredCsv();
+      return;
+    }
+    const retryReport = reports.find((item) => item.id === retryTarget.reportId);
+    if (!retryReport) {
+      markExportError(
+        retryTarget.action,
+        new ReportExportError("REPORT_NOT_FOUND", "Report not found while retrying."),
+        retryTarget.reportId
+      );
+      return;
+    }
+
+    if (retryTarget.action === "txt") {
+      onExportReportTxt(retryReport);
+      return;
+    }
+    if (retryTarget.action === "docx") {
+      void onExportReportDoc(retryReport);
+      return;
+    }
+    if (retryTarget.action === "pdf") {
+      void onExportReportPdf(retryReport);
+      return;
+    }
+    if (retryTarget.action === "bundle") {
+      void onExportReportBundle(retryReport);
+      return;
+    }
+    if (retryTarget.action === "copy") {
+      void onCopyReport(retryReport);
+    }
   };
 
   const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+      throw new ReportExportError("BROWSER_ONLY", "Download is available in browser only.");
+    }
     try {
       const blob = new Blob(payload, { type: mimeType });
       triggerBlobDownload(fileName, blob);
-      return true;
-    } catch {
-      return false;
+    } catch (error) {
+      throw toReportExportError(error, "DOWNLOAD_FAILED");
     }
   };
 
   const triggerBlobDownload = (fileName: string, blob: Blob) => {
-    if (typeof window === "undefined") return;
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
+    if (typeof window === "undefined") {
+      throw new ReportExportError("BROWSER_ONLY", "Download is available in browser only.");
+    }
+    let url: string | null = null;
+    try {
+      url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (error) {
+      throw toReportExportError(error, "DOWNLOAD_FAILED");
+    } finally {
+      if (url) {
+        window.URL.revokeObjectURL(url);
+      }
+    }
   };
 
   return (
@@ -318,7 +494,19 @@ export default function ReportsPage() {
               )}
             </div>
             {exportFeedback ? (
-              <div className={`reports-export-feedback tone-${exportFeedback.tone}`}>{exportFeedback.text}</div>
+              <div className={`reports-export-feedback state-${exportFeedback.status}`}>
+                <span>{exportFeedback.text}</span>
+                {exportFeedback.status === "error" && retryTarget ? (
+                  <button
+                    type="button"
+                    className="reports-feedback-retry"
+                    onClick={() => void onRetryLastFailedExport()}
+                    disabled={isCsvExporting || bundleExportingId !== null || actionBusyReportId !== null}
+                  >
+                    إعادة المحاولة
+                  </button>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="reports-kpis">
@@ -528,18 +716,45 @@ export default function ReportsPage() {
               padding: 8px 10px;
               font-size: 12px;
               font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
             }
 
-            .reports-export-feedback.tone-ok {
+            .reports-export-feedback.state-pending {
+              border-color: rgba(130, 164, 255, 0.58);
+              color: #bfd3ff;
+              background: rgba(20, 34, 65, 0.52);
+            }
+
+            .reports-export-feedback.state-success {
               border-color: rgba(88, 214, 165, 0.58);
               color: #78e3b9;
               background: rgba(14, 56, 45, 0.52);
             }
 
-            .reports-export-feedback.tone-error {
+            .reports-export-feedback.state-error {
               border-color: rgba(247, 106, 121, 0.58);
               color: #ffbcc4;
               background: rgba(70, 20, 33, 0.52);
+            }
+
+            .reports-feedback-retry {
+              border: 1px solid rgba(247, 106, 121, 0.58);
+              background: rgba(255, 255, 255, 0.08);
+              color: #ffd8dd;
+              border-radius: 8px;
+              min-height: 30px;
+              padding: 0 10px;
+              font-size: 12px;
+              font-weight: 800;
+              cursor: pointer;
+            }
+
+            .reports-feedback-retry:disabled {
+              opacity: 0.55;
+              cursor: not-allowed;
             }
 
             .reports-toolbar-export {
