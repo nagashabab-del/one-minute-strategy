@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getClerkProductionIssue } from "../_shared/clerk-production-config";
 
 type Stage = "questions" | "followups" | "dialogue" | "analysis";
 type AdvisorKey =
@@ -162,6 +163,11 @@ async function requestModelJson(client: OpenAI, prompt: string) {
 
 export async function POST(req: Request) {
   try {
+    const configIssue = getClerkProductionIssue();
+    if (configIssue) {
+      return jsonError(503, configIssue.error, configIssue.code);
+    }
+
     if (!(await canAccessStrategyApi())) {
       return jsonError(401, "تسجيل الدخول مطلوب للوصول إلى التحليل الاستراتيجي.", "AUTH_REQUIRED");
     }

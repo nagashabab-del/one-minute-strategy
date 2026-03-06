@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getClerkProductionIssue } from "../_shared/clerk-production-config";
 
 type WorkspaceSnapshot = {
   schemaVersion: number;
@@ -155,6 +156,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const configIssue = getClerkProductionIssue();
+    if (configIssue) {
+      return jsonError(503, configIssue.error, configIssue.code);
+    }
+
     const userKey = await resolveWorkspaceUserKey();
     if (!userKey) {
       return jsonError(401, "تسجيل الدخول مطلوب للوصول إلى مساحة العمل.", "AUTH_REQUIRED");
@@ -168,6 +174,11 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
+    const configIssue = getClerkProductionIssue();
+    if (configIssue) {
+      return jsonError(503, configIssue.error, configIssue.code);
+    }
+
     const userKey = await resolveWorkspaceUserKey();
     if (!userKey) {
       return jsonError(401, "تسجيل الدخول مطلوب لحفظ مساحة العمل.", "AUTH_REQUIRED");

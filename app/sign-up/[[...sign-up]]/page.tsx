@@ -3,9 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
+import { clerkUiEnabled, readClerkUiIssueMessage } from "../../clerk-runtime";
 import styles from "../../auth-shell.module.css";
 
 export default function SignUpPage() {
+  const authIssueMessage = readClerkUiIssueMessage();
+
   return (
     <main dir="rtl" className={styles.page}>
       <section className={styles.card}>
@@ -22,13 +25,9 @@ export default function SignUpPage() {
             />
           </Link>
 
-          {!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
+          {!clerkUiEnabled ? (
             <div className={styles.missingKeyCard}>
-              تعذر تحميل إنشاء الحساب. أضف مفتاح Clerk
-              <br />
-              <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code>
-              <br />
-              في إعدادات البيئة على Vercel.
+              {authIssueMessage || "تعذر تحميل إنشاء الحساب بسبب إعدادات المصادقة."}
             </div>
           ) : (
             <SignUp

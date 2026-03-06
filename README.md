@@ -54,3 +54,24 @@ Optional custom alias:
 ```bash
 bash scripts/deploy-staging.sh your-alias.vercel.app
 ```
+
+## Authentication Configuration (Clerk)
+
+Required environment variables:
+
+```text
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+CLERK_SECRET_KEY
+```
+
+Production hardening rules in this project:
+
+- Production rejects Clerk test keys (`pk_test_` / `sk_test_`) with `503`.
+- Production rejects missing Clerk keys with `503`.
+- UI auth widgets are disabled when a production test key is detected.
+
+Local QA mode (development only):
+
+```text
+NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE=true
+```

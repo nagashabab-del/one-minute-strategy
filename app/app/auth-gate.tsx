@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
+import { clerkUiEnabled, readClerkUiIssueMessage } from "../clerk-runtime";
 
 export default function AppAuthGate({ children }: { children: React.ReactNode }) {
-  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkConfigured = clerkUiEnabled;
   const demoModeEnabled =
     process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
+  const authIssueMessage = readClerkUiIssueMessage();
 
   if (!clerkConfigured) {
     if (demoModeEnabled) {
@@ -39,10 +41,14 @@ export default function AppAuthGate({ children }: { children: React.ReactNode })
         >
           <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 900 }}>تسجيل الدخول مطلوب</h1>
           <p style={{ margin: 0, color: "rgba(220,231,255,0.78)", lineHeight: 1.8 }}>
-            لا يمكن فتح لوحة التطبيق بدون تفعيل المصادقة. أضف مفتاح
-            <code style={{ marginInline: 6 }}>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code>
-            أو فعّل الوضع التجريبي محليًا فقط عبر
-            <code style={{ marginInline: 6 }}>NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE=true</code>.
+            {authIssueMessage || "لا يمكن فتح لوحة التطبيق بسبب إعدادات المصادقة الحالية."}
+            {!demoModeEnabled ? (
+              <>
+                {" "}
+                يمكن تفعيل الوضع التجريبي محليًا فقط عبر
+                <code style={{ marginInline: 6 }}>NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE=true</code>.
+              </>
+            ) : null}
           </p>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <Link href="/sign-in" className="oms-btn oms-btn-primary">

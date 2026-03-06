@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
+import { clerkUiEnabled } from "../clerk-runtime";
 import {
   READINESS_LOCK_REASON,
   READINESS_STATUS_ADVISORY,
@@ -44,7 +45,7 @@ const MOBILE_ITEMS: NavItem[] = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkConfigured = clerkUiEnabled;
   const demoModeEnabled =
     process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
   const inStrategyFlow = pathname.startsWith("/app/strategy");

@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useSignIn } from "@clerk/nextjs";
+import { clerkUiEnabled, readClerkUiIssueMessage } from "./clerk-runtime";
 import styles from "./page.module.css";
 
-const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+const clerkEnabled = clerkUiEnabled;
 const demoModeEnabled =
   process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
+const authIssueMessage = readClerkUiIssueMessage();
 
 function readClerkErrorMessage(err: unknown) {
   if (typeof err === "object" && err !== null && "errors" in err && Array.isArray(err.errors)) {
@@ -243,10 +245,11 @@ function LandingWithoutClerk() {
             </div>
 
             <p className={styles.infoText}>
-              تسجيل الدخول المباشر يتطلب تفعيل Clerk.{" "}
-              {demoModeEnabled
-                ? "الوضع التجريبي مفعّل محليًا ويمكنك الدخول مباشرة."
-                : "الوضع التجريبي غير مفعّل في هذه البيئة."}
+              {authIssueMessage
+                ? authIssueMessage
+                : demoModeEnabled
+                  ? "الوضع التجريبي مفعّل محليًا ويمكنك الدخول مباشرة."
+                  : "تسجيل الدخول المباشر يتطلب تفعيل Clerk في هذه البيئة."}
             </p>
           </form>
 
