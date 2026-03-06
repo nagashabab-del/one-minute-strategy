@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
@@ -24,6 +25,21 @@ const ADVISOR_LABELS: Record<AdvisorKey, string> = {
   marketing_advisor: "مستشار التسويق – القيمة والطلب",
   risk_advisor: "مستشار المخاطر والاستراتيجية – موازن القرار",
 };
+
+type CacheEntry = {
+  expiresAt: number;
+  data: unknown;
+};
+
+const STAGE_CACHE_TTL_MS: Record<Stage, number> = {
+  questions: 4 * 60 * 1000,
+  followups: 4 * 60 * 1000,
+  dialogue: 5 * 60 * 1000,
+  analysis: 7 * 60 * 1000,
+};
+const MAX_STAGE_CACHE_ENTRIES = 120;
+const stageCache = new Map<string, CacheEntry>();
+let openaiClient: OpenAI | null = null;
 
 function normalizeReportText(text: string) {
   const toArabicDigits = (value: string) =>
@@ -62,13 +78,80 @@ function jsonError(status: number, error: string, code: string) {
   return NextResponse.json({ ok: false, error, code }, { status });
 }
 
+function getOpenAIClient() {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  const parts = keys.map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`);
+  return `{${parts.join(",")}}`;
+}
+
+function buildStageCacheKey(stage: Stage, payload: unknown) {
+  const serialized = stableSerialize(payload);
+  const digest = createHash("sha256").update(serialized).digest("hex");
+  return `${stage}:${digest}`;
+}
+
+function pruneStageCache() {
+  const now = Date.now();
+  for (const [key, entry] of stageCache.entries()) {
+    if (entry.expiresAt <= now) {
+      stageCache.delete(key);
+    }
+  }
+
+  while (stageCache.size > MAX_STAGE_CACHE_ENTRIES) {
+    const firstKey = stageCache.keys().next().value;
+    if (!firstKey) break;
+    stageCache.delete(firstKey);
+  }
+}
+
+function getCachedStageData(stage: Stage, cacheKey: string) {
+  pruneStageCache();
+  const entry = stageCache.get(cacheKey);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    stageCache.delete(cacheKey);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedStageData(stage: Stage, cacheKey: string, data: unknown) {
+  pruneStageCache();
+  stageCache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + STAGE_CACHE_TTL_MS[stage],
+  });
+}
+
+async function requestModelJson(client: OpenAI, prompt: string) {
+  const resp = await client.responses.create({
+    model: "gpt-4o-mini",
+    input: prompt,
+    text: { format: { type: "json_object" } },
+  });
+  return JSON.parse(resp.output_text) as Record<string, unknown>;
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return jsonError(500, "مفتاح OPENAI_API_KEY غير موجود في إعدادات البيئة.", "CONFIG_MISSING_OPENAI_KEY");
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const client = getOpenAIClient();
 
     const body = await req.json();
 
@@ -98,6 +181,25 @@ export async function POST(req: Request) {
     }
     if (selectedAdvisors.length === 0) {
       return jsonError(400, "يجب اختيار مستشار واحد على الأقل.", "ADVISOR_REQUIRED");
+    }
+
+    const cacheKey = buildStageCacheKey(stage, {
+      stage,
+      eventType,
+      mode,
+      project,
+      selectedAdvisors,
+      startAt,
+      endAt,
+      budget,
+      venueType,
+      answers,
+      dialogue,
+      userAddition,
+    });
+    const cachedData = getCachedStageData(stage, cacheKey);
+    if (cachedData) {
+      return NextResponse.json({ ok: true, data: cachedData });
     }
 
     const activeAdvisorKeysText = selectedAdvisors
@@ -181,15 +283,11 @@ ${activeAdvisorKeysText}
 - note_to_user: سطرين فقط.
 `;
 
-      const resp = await client.responses.create({
-        model: "gpt-4o-mini",
-        input: prompt,
-        text: { format: { type: "json_object" } },
-      });
-      const data = JSON.parse(resp.output_text);
+      const data = await requestModelJson(client, prompt);
       if (typeof data?.report_text === "string") {
         data.report_text = normalizeReportText(data.report_text);
       }
+      setCachedStageData(stage, cacheKey, data);
 
       return NextResponse.json({ ok: true, data });
     }
@@ -230,13 +328,9 @@ ${JSON.stringify(answers, null, 2)}
 - advisor_key يجب أن يكون فقط من المستشارين المشاركين.
 `;
 
-      const resp = await client.responses.create({
-        model: "gpt-4o-mini",
-        input: prompt,
-        text: { format: { type: "json_object" } },
-      });
-
-      return NextResponse.json({ ok: true, data: JSON.parse(resp.output_text) });
+      const data = await requestModelJson(client, prompt);
+      setCachedStageData(stage, cacheKey, data);
+      return NextResponse.json({ ok: true, data });
     }
 
     // ✅ 3) الحوار
@@ -266,13 +360,9 @@ ${JSON.stringify(answers, null, 2)}
 - advisor داخل council_dialogue يجب أن يكون فقط من المستشارين المشاركين.
 `;
 
-      const resp = await client.responses.create({
-        model: "gpt-4o-mini",
-        input: prompt,
-        text: { format: { type: "json_object" } },
-      });
-
-      return NextResponse.json({ ok: true, data: JSON.parse(resp.output_text) });
+      const data = await requestModelJson(client, prompt);
+      setCachedStageData(stage, cacheKey, data);
+      return NextResponse.json({ ok: true, data });
     }
 
     // ✅ 4) التحليل
@@ -330,13 +420,9 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
 - advisor_recommendations يجب أن تتضمن فقط المستشارين المشاركين في هذه الجلسة.
 `;
 
-      const resp = await client.responses.create({
-        model: "gpt-4o-mini",
-        input: prompt,
-        text: { format: { type: "json_object" } },
-      });
-
-      return NextResponse.json({ ok: true, data: JSON.parse(resp.output_text) });
+      const data = await requestModelJson(client, prompt);
+      setCachedStageData(stage, cacheKey, data);
+      return NextResponse.json({ ok: true, data });
     }
 
     return jsonError(400, "المرحلة المطلوبة غير صالحة.", "INVALID_STAGE");

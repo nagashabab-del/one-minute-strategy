@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChangeEvent, CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { evaluateStrategyReadiness } from "./lib/strategy-readiness";
 
 type StageUI =
@@ -345,6 +345,8 @@ type LoadingContext =
   | "build_dialogue"
   | "run_analysis";
 
+type StrategyApiStage = "questions" | "followups" | "dialogue" | "analysis";
+
 type StageQuickNavAction = {
   label: string;
   onClick: () => void;
@@ -385,6 +387,14 @@ const UX_MESSAGES = {
   openedCurrentResults: "تم فتح النتائج الحالية بدون إعادة تحليل جديد.",
   reusedCurrentAnalysis: "لا توجد تغييرات جديدة؛ تم فتح النتائج الحالية.",
 } as const;
+
+const AUTOSAVE_DEBOUNCE_MS = 260;
+const API_TIMEOUT_BY_STAGE_MS: Record<StrategyApiStage, number> = {
+  questions: 22000,
+  followups: 26000,
+  dialogue: 32000,
+  analysis: 52000,
+};
 
 const ROLE_PERMISSION_FIELDS: Array<keyof RolePermissionFlags> = [
   "canEditSessionSetup",
@@ -1640,6 +1650,9 @@ export default function Home() {
   const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
   const backupImportInputRef = useRef<HTMLInputElement | null>(null);
   const lastProjectMetaTouchRef = useRef(0);
+  const autosaveTimerRef = useRef<number | null>(null);
+  const pendingAutosaveRef = useRef<{ projectId: string; snapshot: PersistedState } | null>(null);
+  const inFlightRequestsRef = useRef<Map<string, Promise<APIResponse<unknown>>>>(new Map());
 
   useEffect(() => {
     setHasMounted(true);
@@ -2483,12 +2496,49 @@ export default function Home() {
     localStorage.setItem(PROJECTS_REGISTRY_KEY, JSON.stringify(payload));
   }
 
+  const persistSnapshotToStorage = useCallback(
+    (projectId: string, snapshot: PersistedState) => {
+      if (typeof window === "undefined") return;
+      localStorage.setItem(projectDataKey(projectId), JSON.stringify(snapshot));
+      // توافق خلفي حتى لا تتعطل النسخ السابقة.
+      if (projectId === activeProjectId) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      }
+
+      const nowMs = Date.now();
+      if (nowMs - lastProjectMetaTouchRef.current > 10000) {
+        const nowIso = new Date(nowMs).toISOString();
+        setProjectRegistry((prev) =>
+          prev.map((entry) =>
+            entry.id === projectId ? { ...entry, updatedAt: nowIso } : entry
+          )
+        );
+        lastProjectMetaTouchRef.current = nowMs;
+      }
+    },
+    [activeProjectId]
+  );
+
+  const flushPendingAutosave = useCallback(() => {
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    const pending = pendingAutosaveRef.current;
+    if (!pending) return;
+    pendingAutosaveRef.current = null;
+    persistSnapshotToStorage(pending.projectId, pending.snapshot);
+  }, [persistSnapshotToStorage]);
+
   function persistActiveProjectSnapshot() {
     if (typeof window === "undefined") return;
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    pendingAutosaveRef.current = null;
     const snapshot = buildSnapshot();
-    localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(snapshot));
-    // توافق خلفي حتى لا تتعطل النسخ السابقة.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    persistSnapshotToStorage(activeProjectId, snapshot);
   }
 
   function switchProject(nextProjectId: string) {
@@ -2933,20 +2983,17 @@ export default function Home() {
       analysisSignature,
       reportText,
     };
-    localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(snapshot));
-    // توافق خلفي حتى لا تتعطل النسخ السابقة.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-
-    const nowMs = Date.now();
-    if (nowMs - lastProjectMetaTouchRef.current > 10000) {
-      const nowIso = new Date(nowMs).toISOString();
-      setProjectRegistry((prev) =>
-        prev.map((entry) =>
-          entry.id === activeProjectId ? { ...entry, updatedAt: nowIso } : entry
-        )
-      );
-      lastProjectMetaTouchRef.current = nowMs;
+    pendingAutosaveRef.current = { projectId: activeProjectId, snapshot };
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
     }
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      const pending = pendingAutosaveRef.current;
+      if (!pending) return;
+      pendingAutosaveRef.current = null;
+      persistSnapshotToStorage(pending.projectId, pending.snapshot);
+    }, AUTOSAVE_DEBOUNCE_MS);
   }, [
     activeProjectId,
     loading,
@@ -2997,7 +3044,15 @@ export default function Home() {
     analysis,
     analysisSignature,
     reportText,
+    persistSnapshotToStorage,
   ]);
+
+  useEffect(
+    () => () => {
+      flushPendingAutosave();
+    },
+    [activeProjectId, flushPendingAutosave]
+  );
 
   useEffect(() => {
     if (!projectRegistry.length) return;
@@ -3181,22 +3236,90 @@ export default function Home() {
     setShowClearSessionConfirm(true);
   }
 
+  function resolveApiStageFromPayload(payload: unknown): StrategyApiStage | null {
+    if (!payload || typeof payload !== "object") return null;
+    const stage = (payload as { stage?: unknown }).stage;
+    if (stage === "questions" || stage === "followups" || stage === "dialogue" || stage === "analysis") {
+      return stage;
+    }
+    return null;
+  }
+
+  function timeoutMessageForStage(stage: StrategyApiStage | null) {
+    if (stage === "analysis") {
+      return "استغرق التحليل وقتًا أطول من المتوقع. حاول مرة أخرى أو قلّل طول الإضافة النصية.";
+    }
+    if (stage === "dialogue") {
+      return "استغرق توليد الحوار وقتًا أطول من المتوقع. أعد المحاولة بعد لحظات.";
+    }
+    return "انتهت مهلة الاتصال بالخادم. تحقق من الشبكة ثم أعد المحاولة.";
+  }
+
+  function resolveApiErrorMessage(payload: unknown, fallback: string) {
+    if (!payload || typeof payload !== "object") return fallback;
+    const error = (payload as { error?: unknown }).error;
+    return typeof error === "string" && error.trim().length > 0 ? error : fallback;
+  }
+
   async function callAPI<T>(payload: unknown): Promise<APIResponse<T>> {
-    try {
-      const res = await fetch("/api/strategy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const stage = resolveApiStageFromPayload(payload);
+    const timeoutMs = stage ? API_TIMEOUT_BY_STAGE_MS[stage] : 26000;
+    const requestBody = JSON.stringify(payload);
+    const requestKey = stage ? `${stage}:${requestBody}` : requestBody;
+    const inFlight = inFlightRequestsRef.current.get(requestKey);
+    if (inFlight) {
+      return (await inFlight) as APIResponse<T>;
+    }
 
-      const json = (await res.json()) as APIResponse<T>;
-      if (!res.ok) {
-        return { ok: false, error: "error" in json ? json.error : "فشل الطلب" };
+    const requestPromise: Promise<APIResponse<T>> = (async () => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch("/api/strategy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          signal: controller.signal,
+        });
+
+        const contentType = res.headers.get("content-type") ?? "";
+        const isJson = contentType.includes("application/json");
+        const payloadText = await res.text();
+        let parsed: APIResponse<T> | null = null;
+        if (isJson && payloadText) {
+          try {
+            parsed = JSON.parse(payloadText) as APIResponse<T>;
+          } catch {
+            parsed = null;
+          }
+        }
+
+        if (!res.ok) {
+          const defaultError = stage === "analysis" ? "تعذر إكمال التحليل الآن. أعد المحاولة." : "فشل الطلب.";
+          return { ok: false, error: resolveApiErrorMessage(parsed, defaultError) };
+        }
+
+        if (parsed && parsed.ok) {
+          return parsed;
+        }
+
+        return { ok: false, error: "الاستجابة الواردة من الخادم غير صالحة." };
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return { ok: false, error: timeoutMessageForStage(stage) };
+        }
+        return { ok: false, error: "تعذر الاتصال بالخادم. تأكد من الشبكة وحاول مرة أخرى." };
+      } finally {
+        window.clearTimeout(timeoutId);
       }
+    })();
 
-      return json;
-    } catch {
-      return { ok: false, error: "تعذر الاتصال بالخادم. تأكد من الشبكة وحاول مرة أخرى." };
+    inFlightRequestsRef.current.set(requestKey, requestPromise as Promise<APIResponse<unknown>>);
+    try {
+      return await requestPromise;
+    } finally {
+      inFlightRequestsRef.current.delete(requestKey);
     }
   }
 
