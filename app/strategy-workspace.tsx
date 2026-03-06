@@ -9125,11 +9125,15 @@ export default function Home() {
         ({
           display: "inline-flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: 8,
           padding: "6px 10px",
+          minHeight: 30,
           borderRadius: 999,
           fontSize: 12,
           fontWeight: 800,
+          whiteSpace: "nowrap",
+          flexShrink: 0,
           border:
             status === "مكتمل"
               ? isCalmTheme
@@ -9182,6 +9186,8 @@ export default function Home() {
       actionTaskHead: {
         display: "grid",
         gap: 4,
+        flex: "1 1 auto",
+        minWidth: 0,
       } as CSSProperties,
       actionTaskTopRow: {
         display: "flex",
@@ -9203,6 +9209,7 @@ export default function Home() {
         fontWeight: 900,
         color: textTone(0.96),
         lineHeight: 1.5,
+        overflowWrap: "anywhere",
       } as CSSProperties,
       actionTaskMeta: {
         fontSize: 12,
