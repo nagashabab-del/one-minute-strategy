@@ -1,3 +1,13 @@
+import {
+  BUDGET_TRACKER_PREFIX,
+  PLAN_TRACKER_PREFIX,
+  PROJECTS_REGISTRY_KEY,
+  PROJECT_DATA_KEY_PREFIX,
+  hydrateWorkspaceFromBackend,
+  scheduleWorkspacePersist,
+  subscribeWorkspaceBackendSync,
+} from "../_lib/workspace-backend";
+
 export type StrategyReport = {
   id: string;
   title: string;
@@ -104,10 +114,6 @@ const BUNDLE_ACTION_SHORT_LABELS: Record<BundleExportAction, string> = {
   pdf: "PDF",
 };
 
-const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
-const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
-const BUDGET_TRACKER_PREFIX = "oms_exec_budget_tracker_v1_";
-const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
 const REGULATORY_PATH_LABELS: Record<string, string> = {
   municipality: "البلدية/الأمانة",
   civil_defense: "الدفاع المدني",
@@ -340,6 +346,8 @@ function deriveRegulatoryCompliance(projectId: string): StrategyReport["regulato
 
 export function readReports(): StrategyReport[] {
   if (typeof window === "undefined") return [];
+  void hydrateWorkspaceFromBackend();
+  scheduleWorkspacePersist();
 
   const registry = safeParse<ProjectsRegistry>(localStorage.getItem(PROJECTS_REGISTRY_KEY), {
     activeProjectId: "",
@@ -378,9 +386,11 @@ export function readReportById(id: string): StrategyReport | null {
 
 export function subscribeReportsChanges(callback: () => void) {
   if (typeof window === "undefined") return () => {};
+  void hydrateWorkspaceFromBackend();
 
   const onStorage = () => callback();
   const onFocus = () => callback();
+  const onBackendSync = () => callback();
   const onVisibilityChange = () => {
     if (document.visibilityState === "visible") callback();
   };
@@ -388,16 +398,19 @@ export function subscribeReportsChanges(callback: () => void) {
   window.addEventListener("storage", onStorage);
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVisibilityChange);
+  const unsubscribeBackendSync = subscribeWorkspaceBackendSync(onBackendSync);
 
   return () => {
     window.removeEventListener("storage", onStorage);
     window.removeEventListener("focus", onFocus);
     document.removeEventListener("visibilitychange", onVisibilityChange);
+    unsubscribeBackendSync();
   };
 }
 
 export function getReportsSignature(): string {
   if (typeof window === "undefined") return "server";
+  scheduleWorkspacePersist();
 
   const registryRaw = localStorage.getItem(PROJECTS_REGISTRY_KEY) ?? "";
   const registry = safeParse<ProjectsRegistry>(registryRaw, {

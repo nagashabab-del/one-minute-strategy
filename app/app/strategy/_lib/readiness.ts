@@ -5,6 +5,12 @@ import {
   type StrategyReadinessMode,
   type StrategyReadinessSummary,
 } from "../../../lib/strategy-readiness";
+import {
+  PROJECTS_REGISTRY_KEY,
+  PROJECT_DATA_KEY_PREFIX,
+  hydrateWorkspaceFromBackend,
+  scheduleWorkspacePersist,
+} from "../../_lib/workspace-backend";
 
 export type StrategyProjectSnapshot = StrategyReadinessInput & {
   stage?: string;
@@ -39,8 +45,6 @@ type ProjectRegistry = {
   }>;
 };
 
-const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
-const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const WORKSPACE_STAGE_ORDER: StrategyWorkspaceStage[] = [
   "welcome",
   "projects_hub",
@@ -73,6 +77,8 @@ export function readActiveStrategyProject(): ActiveStrategyProject {
   if (typeof window === "undefined") {
     return { id: "global", name: "مشروع غير محدد", snapshot: {} };
   }
+  void hydrateWorkspaceFromBackend();
+  scheduleWorkspacePersist();
 
   const registryRaw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
   const registry = safeParse<ProjectRegistry>(registryRaw, {});
