@@ -55,6 +55,12 @@ Optional custom alias:
 bash scripts/deploy-staging.sh your-alias.vercel.app
 ```
 
+## Release Gate Checklist
+
+Before any production rollout, follow the documented gate and rollback plan:
+
+- [docs/RELEASE_GATE_CHECKLIST.md](./docs/RELEASE_GATE_CHECKLIST.md)
+
 ## Authentication Configuration (Clerk)
 
 Required environment variables:
