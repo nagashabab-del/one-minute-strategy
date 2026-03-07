@@ -39,6 +39,23 @@
   margin: 52px 0 0 60px;
 }
 
+.panel :global(.cl-formFieldLabel),
+.panel :global(.cl-footerActionText),
+.panel :global(.cl-dividerText),
+.panel :global(.cl-formFieldHintText) {
+  color: rgba(221, 233, 255, 0.84);
+}
+
+.panel :global(.cl-formFieldInput) {
+  color: #f5f8ff;
+  caret-color: #f5f8ff;
+}
+
+.panel :global(.cl-formFieldInput)::placeholder {
+  color: rgba(221, 233, 255, 0.56);
+  opacity: 1;
+}
+
 .logoWrap {
   display: inline-flex;
   align-items: center;
