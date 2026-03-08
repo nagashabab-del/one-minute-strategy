@@ -63,6 +63,25 @@ export default function DashboardPage() {
       <p className="oms-page-subtitle">
         مركز قيادة القرار والتنفيذ: راقب الجاهزية، اعرف الأولويات، واتخذ الإجراء التالي فورًا.
       </p>
+
+      <section className="oms-panel cockpit-quick-start">
+        <h2 className="oms-section-title">ابدأ الآن</h2>
+        <p className="cockpit-quick-start-text">
+          اختر المسار مباشرة: ابدأ تحليل جديد، افتح مشروعًا سابقًا، أو راجع النظرة العامة.
+        </p>
+        <div className="cockpit-quick-actions">
+          <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
+            تحليل جديد
+          </Link>
+          <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
+            فتح مشروع سابق
+          </Link>
+          <Link className="oms-btn oms-btn-ghost" href="/app">
+            نظرة عامة
+          </Link>
+        </div>
+      </section>
+
       <StrategyReadinessBanner contextLabel="نظرة عامة" />
 
       <section className="oms-panel cockpit-hero">
@@ -84,7 +103,7 @@ export default function DashboardPage() {
                   disabled
                   title={quickActionBlockedHint}
                 >
-                  متابعة سير العمل
+                  فتح مشروع سابق
                 </button>
                 <button
                   type="button"
@@ -98,7 +117,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
-                  متابعة سير العمل
+                  فتح مشروع سابق
                 </Link>
                 <Link className="oms-btn oms-btn-ghost" href="/app/reports">
                   فتح التقارير
@@ -199,6 +218,24 @@ export default function DashboardPage() {
       </section>
 
       <style>{`
+        .cockpit-quick-start {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+          background: linear-gradient(145deg, rgba(20,33,58,0.92), rgba(14,24,41,0.86));
+        }
+
+        .cockpit-quick-start-text {
+          color: var(--oms-text-muted);
+          line-height: 1.75;
+        }
+
+        .cockpit-quick-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .cockpit-hero {
           background: linear-gradient(150deg, rgba(24,36,64,0.92), rgba(16,24,42,0.88));
         }
@@ -349,6 +386,11 @@ export default function DashboardPage() {
         }
 
         @media (max-width: 720px) {
+          .cockpit-quick-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
           .cockpit-hero-top {
             display: grid;
           }
