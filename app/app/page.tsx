@@ -160,7 +160,28 @@ export default function DashboardPage() {
         <article className="oms-panel">
           <h2 className="oms-section-title">أولويات إضافية</h2>
           {additionalPriorities.length === 0 ? (
-            <div className="cockpit-empty">لا توجد أولويات إضافية الآن. يمكنك متابعة التنفيذ من الإجراء التالي.</div>
+            <div className="cockpit-empty">
+              <p>لا توجد أولويات إضافية الآن. يمكنك متابعة التنفيذ من الإجراء التالي.</p>
+              <div className="cockpit-empty-actions">
+                <Link className="oms-btn oms-btn-primary" href={quickStart.href}>
+                  {quickStart.label}
+                </Link>
+                {inGapMode ? (
+                  <button
+                    type="button"
+                    className="oms-btn oms-btn-ghost cockpit-action-disabled"
+                    disabled
+                    title={quickActionBlockedHint}
+                  >
+                    فتح التقارير
+                  </button>
+                ) : (
+                  <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                    فتح التقارير
+                  </Link>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="cockpit-list">
               {additionalPriorities.map((item, idx) => (
@@ -198,7 +219,15 @@ export default function DashboardPage() {
           <h2 className="oms-section-title">آخر التقارير</h2>
           {recentReports.length === 0 ? (
             <div className="cockpit-empty">
-              لا توجد تقارير بعد. ابدأ تحليل جديد ليظهر هنا موجز القرار التنفيذي.
+              <p>لا توجد تقارير بعد. ابدأ تحليل جديد ليظهر هنا موجز القرار التنفيذي.</p>
+              <div className="cockpit-empty-actions">
+                <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
+                  ابدأ تحليل جديد
+                </Link>
+                <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
+                  فتح مشروع سابق
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="cockpit-list">
@@ -267,6 +296,10 @@ export default function DashboardPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+
+        .cockpit-next-action-controls .oms-btn-primary {
+          min-width: 210px;
         }
 
         .cockpit-chip {
@@ -342,6 +375,17 @@ export default function DashboardPage() {
           background: rgba(10, 16, 28, 0.55);
         }
 
+        .cockpit-empty p {
+          margin: 0;
+        }
+
+        .cockpit-empty-actions {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .cockpit-report-row {
           text-decoration: none;
           color: var(--oms-text);
@@ -398,6 +442,16 @@ export default function DashboardPage() {
           }
 
           .cockpit-next-action-controls {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .cockpit-next-action-controls .oms-btn-primary {
+            min-width: 0;
+            min-height: 46px;
+          }
+
+          .cockpit-empty-actions {
             display: grid;
             grid-template-columns: 1fr;
           }
