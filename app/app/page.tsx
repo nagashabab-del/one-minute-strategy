@@ -33,8 +33,6 @@ export default function DashboardPage() {
   const inReviewCount = Math.max(completedCount - approvedCount, 0);
   const openRiskCount = reports.filter((item) => !isNoRisk(item.risks)).length;
   const lastDate = reports[0]?.date ?? "—";
-  const readinessScore = reports.length ? Math.round((approvedCount / reports.length) * 100) : 0;
-  const readinessLabel = resolveReadinessLabel(readinessScore);
   const recentReports = reports.slice(0, 3);
 
   const priorities = buildPriorities({
@@ -43,6 +41,8 @@ export default function DashboardPage() {
     inReviewCount,
     openRiskCount,
   });
+  const nextPriority = priorities[0] ?? null;
+  const additionalPriorities = priorities.slice(1);
 
   const closeOnboarding = (skipped: boolean) => {
     completeFirstRunOnboarding(skipped);
@@ -84,45 +84,50 @@ export default function DashboardPage() {
 
       <StrategyReadinessBanner contextLabel="نظرة عامة" />
 
-      <section className="oms-panel cockpit-hero">
-        <div className="cockpit-hero-top">
+      <section className="oms-panel cockpit-next-action">
+        <div className="cockpit-next-action-head">
           <div>
-            <div className="cockpit-chip">جاهزية المسار</div>
-            <div className="cockpit-score">{readinessScore}%</div>
-            <div className="cockpit-subline">{readinessLabel}</div>
+            <div className="cockpit-chip">الإجراء التالي</div>
+            <h2 className="oms-section-title" style={{ marginTop: 10 }}>
+              {nextPriority?.title ?? "ابدأ المسار التنفيذي"}
+            </h2>
+            <p className="cockpit-next-action-text">
+              {nextPriority?.description ?? "حدد أول خطوة تشغيلية ثم تابع التنفيذ بثبات."}
+            </p>
           </div>
-          <div className="cockpit-actions">
-            <Link className="oms-btn oms-btn-primary" href={quickStart.href}>
-              {quickStart.label}
-            </Link>
-            {inGapMode ? (
-              <>
-                <button
-                  type="button"
-                  className="oms-btn oms-btn-ghost cockpit-action-disabled"
-                  disabled
-                  title={quickActionBlockedHint}
-                >
-                  فتح مشروع سابق
-                </button>
-                <button
-                  type="button"
-                  className="oms-btn oms-btn-ghost cockpit-action-disabled"
-                  disabled
-                  title={quickActionBlockedHint}
-                >
-                  فتح التقارير
-                </button>
-              </>
+          <div className="cockpit-next-action-controls">
+            {nextPriority && inGapMode && isReadinessBlockedHref(nextPriority.href) ? (
+              <button
+                type="button"
+                className="oms-btn oms-btn-primary cockpit-action-disabled"
+                disabled
+                title={quickActionBlockedHint}
+              >
+                {nextPriority.actionLabel}
+              </button>
             ) : (
-              <>
-                <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
-                  فتح مشروع سابق
-                </Link>
-                <Link className="oms-btn oms-btn-ghost" href="/app/reports">
-                  فتح التقارير
-                </Link>
-              </>
+              <Link
+                className="oms-btn oms-btn-primary"
+                href={
+                  nextPriority ? (inGapMode ? "/app/strategy/brief" : nextPriority.href) : quickStart.href
+                }
+              >
+                {nextPriority?.actionLabel ?? quickStart.label}
+              </Link>
+            )}
+            {inGapMode ? (
+              <button
+                type="button"
+                className="oms-btn oms-btn-ghost cockpit-action-disabled"
+                disabled
+                title={quickActionBlockedHint}
+              >
+                فتح التقارير
+              </button>
+            ) : (
+              <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                فتح التقارير
+              </Link>
             )}
           </div>
         </div>
@@ -153,36 +158,40 @@ export default function DashboardPage() {
 
       <section className="cockpit-columns">
         <article className="oms-panel">
-          <h2 className="oms-section-title">أولويات تنفيذية الآن</h2>
-          <div className="cockpit-list">
-            {priorities.map((item, idx) => (
-              <div key={idx} className="cockpit-priority-card">
-                <div>
-                  <div className="cockpit-priority-title">{item.title}</div>
-                  <div className="cockpit-priority-text">{item.description}</div>
+          <h2 className="oms-section-title">أولويات إضافية</h2>
+          {additionalPriorities.length === 0 ? (
+            <div className="cockpit-empty">لا توجد أولويات إضافية الآن. يمكنك متابعة التنفيذ من الإجراء التالي.</div>
+          ) : (
+            <div className="cockpit-list">
+              {additionalPriorities.map((item, idx) => (
+                <div key={idx} className="cockpit-priority-card">
+                  <div>
+                    <div className="cockpit-priority-title">{item.title}</div>
+                    <div className="cockpit-priority-text">{item.description}</div>
+                  </div>
+                  {inGapMode && isReadinessBlockedHref(item.href) ? (
+                    <button
+                      type="button"
+                      className={`${
+                        item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
+                      } cockpit-action-disabled`}
+                      disabled
+                      title={quickActionBlockedHint}
+                    >
+                      {item.actionLabel}
+                    </button>
+                  ) : (
+                    <Link
+                      href={inGapMode ? "/app/strategy/brief" : item.href}
+                      className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
+                    >
+                      {item.actionLabel}
+                    </Link>
+                  )}
                 </div>
-                {inGapMode && isReadinessBlockedHref(item.href) ? (
-                  <button
-                    type="button"
-                    className={`${
-                      item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
-                    } cockpit-action-disabled`}
-                    disabled
-                    title={quickActionBlockedHint}
-                  >
-                    {item.actionLabel}
-                  </button>
-                ) : (
-                  <Link
-                    href={inGapMode ? "/app/strategy/brief" : item.href}
-                    className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
-                  >
-                    {item.actionLabel}
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </article>
 
         <article className="oms-panel">
@@ -236,15 +245,27 @@ export default function DashboardPage() {
           flex-wrap: wrap;
         }
 
-        .cockpit-hero {
+        .cockpit-next-action {
           background: linear-gradient(150deg, rgba(24,36,64,0.92), rgba(16,24,42,0.88));
         }
 
-        .cockpit-hero-top {
+        .cockpit-next-action-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .cockpit-next-action-text {
+          margin: 8px 0 0;
+          color: var(--oms-text-muted);
+          line-height: 1.8;
+        }
+
+        .cockpit-next-action-controls {
+          display: flex;
+          gap: 8px;
           flex-wrap: wrap;
         }
 
@@ -259,25 +280,6 @@ export default function DashboardPage() {
           font-weight: 800;
           color: var(--oms-text-faint);
           background: rgba(12, 20, 36, 0.76);
-        }
-
-        .cockpit-score {
-          margin-top: 8px;
-          font-size: 44px;
-          line-height: 1;
-          font-weight: 900;
-        }
-
-        .cockpit-subline {
-          margin-top: 6px;
-          color: var(--oms-text-muted);
-          font-weight: 700;
-        }
-
-        .cockpit-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
         }
 
         .cockpit-action-disabled {
@@ -391,15 +393,11 @@ export default function DashboardPage() {
             grid-template-columns: 1fr;
           }
 
-          .cockpit-hero-top {
+          .cockpit-next-action-head {
             display: grid;
           }
 
-          .cockpit-score {
-            font-size: 34px;
-          }
-
-          .cockpit-actions {
+          .cockpit-next-action-controls {
             display: grid;
             grid-template-columns: 1fr;
           }
@@ -430,13 +428,6 @@ export default function DashboardPage() {
 function isNoRisk(risks: string[]) {
   const first = risks[0]?.trim() ?? "";
   return first.startsWith("لا توجد مخاطر");
-}
-
-function resolveReadinessLabel(score: number) {
-  if (score >= 70) return "جاهزية تشغيلية عالية";
-  if (score >= 40) return "جاهزية متوسطة وتحتاج تسريع اعتماد";
-  if (score > 0) return "جاهزية منخفضة وتتطلب إغلاق المسودات";
-  return "لا توجد بيانات كافية بعد";
 }
 
 function buildPriorities(input: {
