@@ -149,8 +149,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="app-shell-user-zone" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {clerkConfigured ? (
               <>
-                <UserButton afterSignOutUrl="/" />
-                <SignOutButton>
+                <UserButton afterSignOutUrl="/sign-in" />
+                <SignOutButton redirectUrl="/sign-in">
                   <button
                     className="oms-btn oms-btn-ghost"
                     type="button"
@@ -227,11 +227,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 title={quickActionBlockedHint}
                 disabled
               >
-                متابعة سير العمل
+                فتح مشروع سابق
               </button>
             ) : (
               <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href="/app/workflows">
-                متابعة سير العمل
+                فتح مشروع سابق
               </Link>
             )}
             {shouldShowReportsShortcut ? (
