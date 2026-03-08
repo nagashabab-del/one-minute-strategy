@@ -4,7 +4,8 @@ export type ClerkProductionIssue = {
 };
 
 export function getClerkProductionIssue(): ClerkProductionIssue | null {
-  if (process.env.NODE_ENV !== "production") return null;
+  const deploymentEnv = (process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "").trim().toLowerCase();
+  if (deploymentEnv !== "production") return null;
 
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? "";
   const secretKey = process.env.CLERK_SECRET_KEY?.trim() ?? "";
