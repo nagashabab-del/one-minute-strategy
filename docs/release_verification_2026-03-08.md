@@ -40,3 +40,33 @@ Output:
 - Release is published (`isDraft=false`, `isPrerelease=false`).
 - Release URL:
   `https://github.com/nagashabab-del/one-minute-strategy/releases/tag/release-2026-03-08-auth-ui-stable`
+
+## Post-Push Evidence
+
+### 3) Push Confirmation
+Command:
+```bash
+git push origin main
+```
+
+Output:
+```text
+To https://github.com/nagashabab-del/one-minute-strategy.git
+   b650c78..ffa15e8  main -> main
+```
+
+### 4) External Remote HEAD Verification
+Command:
+```bash
+git ls-remote https://github.com/nagashabab-del/one-minute-strategy.git refs/heads/main
+```
+
+Output:
+```text
+ffa15e894aaf9ba4c30efd90356efed6a86e0b9f	refs/heads/main
+```
+
+Verification:
+- Local target commit: `ffa15e8`
+- Remote `main` HEAD starts with: `ffa15e8`
+- Result: push is externally verified on GitHub.
