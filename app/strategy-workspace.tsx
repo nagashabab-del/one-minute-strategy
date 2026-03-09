@@ -2585,6 +2585,40 @@ export default function Home() {
     renameActiveProject(cleanName);
   }
 
+  function requestRenameProjectById(projectId: string) {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("تعديل اسم المشروع", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    const target = projectRegistry.find((entry) => entry.id === projectId);
+    if (!target || target.isArchived) return;
+    const currentName = (target.name || "مشروع بدون اسم").trim();
+    const prompted = window.prompt("اكتب الاسم الجديد للمشروع", currentName);
+    if (prompted === null) return;
+    const nextName = prompted.trim();
+    if (!nextName) {
+      showError("اسم المشروع لا يمكن أن يكون فارغًا.");
+      return;
+    }
+    if (nextName === currentName) return;
+
+    const nowIso = new Date().toISOString();
+    setProjectRegistry((prev) =>
+      prev.map((entry) =>
+        entry.id === projectId
+          ? {
+              ...entry,
+              name: nextName,
+              updatedAt: nowIso,
+            }
+          : entry
+      )
+    );
+    showSuccess("تم تحديث اسم المشروع.");
+  }
+
   function createNewProject() {
     if (!canEditSessionSetup) {
       showError(
@@ -6893,6 +6927,12 @@ export default function Home() {
         gap: 10,
         marginTop: 6,
       } as CSSProperties,
+      projectHubQuickActions: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
       projectHubExperimentShell: {
         marginTop: 8,
         borderRadius: 18,
@@ -7197,7 +7237,7 @@ export default function Home() {
         } as CSSProperties),
       projectHubExpActions: {
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1.3fr 0.85fr 0.85fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1.2fr 0.85fr 0.85fr 0.85fr",
         gap: 8,
       } as CSSProperties,
       projectHubExpPrimaryBtn: (disabled: boolean) =>
@@ -7560,7 +7600,7 @@ export default function Home() {
       } as CSSProperties,
       projectHubActions: {
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr",
         gap: 8,
       } as CSSProperties,
       confirmTitle: {
@@ -11030,6 +11070,40 @@ export default function Home() {
                       <div style={styles.projectHubExperimentActions}>
                         <button
                           type="button"
+                          style={styles.projectHubExpPrimaryBtn(!canEditSessionSetup)}
+                          disabled={!canEditSessionSetup}
+                          onClick={createNewProject}
+                          title={
+                            canEditSessionSetup
+                              ? undefined
+                              : permissionHintText(
+                                  "إنشاء مشروع جديد",
+                                  ["project_manager", "operations_manager"],
+                                  userRole
+                                )
+                          }
+                        >
+                          إنشاء مشروع جديد
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
+                          disabled={!canEditSessionSetup}
+                          onClick={() => requestRenameProjectById(activeProjectId)}
+                          title={
+                            canEditSessionSetup
+                              ? undefined
+                              : permissionHintText(
+                                  "تعديل اسم المشروع",
+                                  ["project_manager", "operations_manager"],
+                                  userRole
+                                )
+                          }
+                        >
+                          تعديل اسم المشروع
+                        </button>
+                        <button
+                          type="button"
                           style={styles.projectHubExperimentBackBtn}
                           onClick={() => setStage("welcome")}
                         >
@@ -11272,6 +11346,13 @@ export default function Home() {
                                           <button
                                             style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
                                             disabled={!canEditSessionSetup}
+                                            onClick={() => requestRenameProjectById(item.id)}
+                                          >
+                                            تعديل الاسم
+                                          </button>
+                                          <button
+                                            style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
+                                            disabled={!canEditSessionSetup}
                                             onClick={() => duplicateProjectById(item.id, false)}
                                           >
                                             نسخ
@@ -11461,6 +11542,42 @@ export default function Home() {
                         <option value="name_asc">الاسم (أ-ي)</option>
                       </select>
                     </div>
+                    <div style={styles.projectHubQuickActions}>
+                      <button
+                        type="button"
+                        style={styles.primaryBtn(!canEditSessionSetup)}
+                        disabled={!canEditSessionSetup}
+                        onClick={createNewProject}
+                        title={
+                          canEditSessionSetup
+                            ? undefined
+                            : permissionHintText(
+                                "إنشاء مشروع جديد",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                        }
+                      >
+                        إنشاء مشروع جديد
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(!canEditSessionSetup)}
+                        disabled={!canEditSessionSetup}
+                        onClick={() => requestRenameProjectById(activeProjectId)}
+                        title={
+                          canEditSessionSetup
+                            ? undefined
+                            : permissionHintText(
+                                "تعديل اسم المشروع",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                        }
+                      >
+                        تعديل اسم المشروع
+                      </button>
+                    </div>
                     <div style={styles.blockTop12}>
                       <button
                         style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
@@ -11533,6 +11650,13 @@ export default function Home() {
                                     onClick={() => openProjectFromHub(item.id)}
                                   >
                                     فتح المشروع
+                                  </button>
+                                  <button
+                                    style={styles.secondaryBtn(!canEditSessionSetup)}
+                                    disabled={!canEditSessionSetup}
+                                    onClick={() => requestRenameProjectById(item.id)}
+                                  >
+                                    تعديل الاسم
                                   </button>
                                   <button
                                     style={styles.secondaryBtn(!canEditSessionSetup)}
