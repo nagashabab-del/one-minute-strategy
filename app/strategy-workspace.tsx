@@ -962,22 +962,11 @@ function isValidLocalProjectMeta(item: unknown): item is LocalProjectMeta {
 }
 
 function loadProjectBootstrap(): ProjectBootstrap {
-  const fallbackProjects: LocalProjectMeta[] = [
-    {
-      id: FALLBACK_PROJECT_ID,
-      name: "مشروع 1",
-      createdAt: "",
-      updatedAt: "",
-      isArchived: false,
-      archivedAt: "",
-    },
-  ];
-
   if (typeof window === "undefined") {
     return {
       saved: {},
-      activeProjectId: FALLBACK_PROJECT_ID,
-      projects: fallbackProjects,
+      activeProjectId: "",
+      projects: [],
     };
   }
 
@@ -994,18 +983,30 @@ function loadProjectBootstrap(): ProjectBootstrap {
             }))
         : [];
       if (parsedProjects.length > 0) {
-        if (!parsedProjects.some((item) => !item.isArchived)) {
-          parsedProjects = parsedProjects.map((item, idx) =>
-            idx === 0 ? { ...item, isArchived: false, archivedAt: "" } : item
-          );
-        }
+        parsedProjects = parsedProjects.filter((item) => {
+          if (item.id !== FALLBACK_PROJECT_ID) return true;
+          const raw = localStorage.getItem(projectDataKey(item.id));
+          let snapshot: PersistedState = {};
+          if (raw) {
+            try {
+              snapshot = JSON.parse(raw) as PersistedState;
+            } catch {
+              snapshot = {};
+            }
+          }
+          const hasRealData = hasMeaningfulPersistedState(snapshot);
+          const normalizedName = (item.name || "").trim();
+          const hasDefaultName = normalizedName === "" || normalizedName === "مشروع 1" || normalizedName === "Project 1";
+          return hasRealData || !hasDefaultName;
+        });
+
         const activeCandidates = parsedProjects.filter((item) => !item.isArchived);
         const nextActiveId =
           typeof parsed.activeProjectId === "string" &&
           activeCandidates.some((item) => item.id === parsed.activeProjectId)
             ? parsed.activeProjectId
-            : activeCandidates[0].id;
-        const activeRaw = localStorage.getItem(projectDataKey(nextActiveId));
+            : activeCandidates[0]?.id ?? "";
+        const activeRaw = nextActiveId ? localStorage.getItem(projectDataKey(nextActiveId)) : null;
         let saved: PersistedState = {};
         if (activeRaw) {
           try {
@@ -1036,38 +1037,75 @@ function loadProjectBootstrap(): ProjectBootstrap {
       }
     }
 
-    const now = new Date().toISOString();
-    const migratedId = createProjectId();
-    const migratedProjects: LocalProjectMeta[] = [
-      {
-        id: migratedId,
-        name: projectNameFromSnapshot(legacy, 1),
-        createdAt: now,
-        updatedAt: now,
-        isArchived: false,
-        archivedAt: "",
-      },
-    ];
+    if (hasMeaningfulPersistedState(legacy)) {
+      const now = new Date().toISOString();
+      const migratedId = createProjectId();
+      const migratedProjects: LocalProjectMeta[] = [
+        {
+          id: migratedId,
+          name: projectNameFromSnapshot(legacy, 1),
+          createdAt: now,
+          updatedAt: now,
+          isArchived: false,
+          archivedAt: "",
+        },
+      ];
 
-    const registry: ProjectsRegistry = {
-      activeProjectId: migratedId,
-      projects: migratedProjects,
-    };
-    localStorage.setItem(PROJECTS_REGISTRY_KEY, JSON.stringify(registry));
-    localStorage.setItem(projectDataKey(migratedId), JSON.stringify(legacy));
+      const registry: ProjectsRegistry = {
+        activeProjectId: migratedId,
+        projects: migratedProjects,
+      };
+      localStorage.setItem(PROJECTS_REGISTRY_KEY, JSON.stringify(registry));
+      localStorage.setItem(projectDataKey(migratedId), JSON.stringify(legacy));
 
+      return {
+        saved: legacy,
+        activeProjectId: migratedId,
+        projects: migratedProjects,
+      };
+    }
+
+    localStorage.setItem(
+      PROJECTS_REGISTRY_KEY,
+      JSON.stringify({
+        activeProjectId: "",
+        projects: [],
+      } satisfies ProjectsRegistry)
+    );
     return {
-      saved: legacy,
-      activeProjectId: migratedId,
-      projects: migratedProjects,
+      saved: {},
+      activeProjectId: "",
+      projects: [],
     };
   } catch {
     return {
       saved: {},
-      activeProjectId: FALLBACK_PROJECT_ID,
-      projects: fallbackProjects,
+      activeProjectId: "",
+      projects: [],
     };
   }
+}
+
+function hasMeaningfulPersistedState(saved: PersistedState) {
+  if (!saved || typeof saved !== "object") return false;
+  const value = saved as Record<string, unknown>;
+  const textKeys = [
+    "project",
+    "eventType",
+    "budget",
+    "startAt",
+    "endAt",
+    "reportText",
+    "managementBriefText",
+  ];
+  if (textKeys.some((key) => typeof value[key] === "string" && String(value[key]).trim().length > 0)) return true;
+  if (typeof value.stage === "string" && value.stage !== "welcome" && value.stage !== "projects_hub") return true;
+  if (Array.isArray(value.round1Questions) && value.round1Questions.length > 0) return true;
+  if (Array.isArray(value.followupQuestions) && value.followupQuestions.length > 0) return true;
+  if (Array.isArray(value.answers) && value.answers.length > 0) return true;
+  if (Array.isArray(value.dialogue) && value.dialogue.length > 0) return true;
+  if (value.analysis && typeof value.analysis === "object" && Object.keys(value.analysis).length > 0) return true;
+  return false;
 }
 
 const DEFAULT_BOQ_ITEMS: BoqItem[] = [
@@ -1541,7 +1579,11 @@ export default function Home() {
 
   // ============ Flow ============
   const [stage, setStage] = useState<StageUI>(() =>
-    isStageUI(initialSaved.stage) ? initialSaved.stage : "welcome"
+    !projectBootstrap.activeProjectId
+      ? "projects_hub"
+      : isStageUI(initialSaved.stage)
+        ? initialSaved.stage
+        : "welcome"
   );
   const [loading, setLoading] = useState(false);
 
@@ -1598,6 +1640,9 @@ export default function Home() {
   const [experimentalHubEnabled, setExperimentalHubEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
+      if (!activeProjectId) {
+        return localStorage.getItem(EXPERIMENTAL_HUB_KEY) === "1";
+      }
       const projectScopedValue = localStorage.getItem(experimentalHubProjectKey(activeProjectId));
       if (projectScopedValue === "1" || projectScopedValue === "0") {
         return projectScopedValue === "1";
@@ -1706,8 +1751,10 @@ export default function Home() {
   ] as const;
   const activeProjects = projectRegistry.filter((entry) => !entry.isArchived);
   const archivedProjects = projectRegistry.filter((entry) => entry.isArchived);
-  const activeProjectMeta =
-    activeProjects.find((entry) => entry.id === activeProjectId) ?? activeProjects[0] ?? null;
+  const activeProjectMeta = activeProjectId
+    ? activeProjects.find((entry) => entry.id === activeProjectId) ?? null
+    : null;
+  const hasActiveProject = Boolean(activeProjectMeta && activeProjectId);
   const activeProjectName = activeProjectMeta?.name ?? "";
   const projectHubRows = useMemo(() => {
     if (typeof window === "undefined") return [];
@@ -2546,6 +2593,7 @@ export default function Home() {
 
   function persistActiveProjectSnapshot() {
     if (typeof window === "undefined") return;
+    if (!activeProjectId) return;
     if (autosaveTimerRef.current !== null) {
       window.clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
@@ -2565,6 +2613,7 @@ export default function Home() {
 
   function renameActiveProject(nextName: string) {
     if (!canEditSessionSetup) return;
+    if (!activeProjectId) return;
     setProjectRegistry((prev) =>
       prev.map((entry) =>
         entry.id === activeProjectId
@@ -2580,6 +2629,7 @@ export default function Home() {
 
   function normalizeActiveProjectName() {
     if (!canEditSessionSetup) return;
+    if (!activeProjectId) return;
     const fallbackName = projectNameFromSnapshot(buildSnapshot(), 1);
     const cleanName = activeProjectName.trim() || fallbackName;
     renameActiveProject(cleanName);
@@ -2684,6 +2734,10 @@ export default function Home() {
   }
 
   function duplicateCurrentProject() {
+    if (!activeProjectId) {
+      showError("اختر مشروعًا أولًا ثم أعد المحاولة.");
+      return;
+    }
     duplicateProjectById(activeProjectId, true);
   }
 
@@ -2732,6 +2786,10 @@ export default function Home() {
       );
       return;
     }
+    if (!activeProjectId) {
+      showError("لا يوجد مشروع نشط للأرشفة.");
+      return;
+    }
     if (activeProjects.length <= 1) {
       showError("لا يمكن أرشفة آخر مشروع نشط. أنشئ مشروعًا جديدًا أولًا.");
       return;
@@ -2741,6 +2799,7 @@ export default function Home() {
 
   function archiveActiveProject() {
     setShowArchiveProjectConfirm(false);
+    if (!activeProjectId) return;
     archiveProjectById(activeProjectId);
   }
 
@@ -2760,6 +2819,26 @@ export default function Home() {
       )
     );
     showSuccess("تمت استعادة المشروع من الأرشيف.");
+  }
+
+  function restoreAndOpenArchivedProject(projectId: string) {
+    if (!canEditSessionSetup) {
+      showError(
+        permissionHintText("فتح مشروع من الأرشيف", ["project_manager", "operations_manager"], userRole)
+      );
+      return;
+    }
+    const target = projectRegistry.find((entry) => entry.id === projectId);
+    if (!target || !target.isArchived) return;
+    const now = new Date().toISOString();
+    const nextProjects = projectRegistry.map((entry) =>
+      entry.id === projectId
+        ? { ...entry, isArchived: false, archivedAt: "", updatedAt: now }
+        : entry
+    );
+    persistRegistry(nextProjects, projectId);
+    showSuccess("تم فتح المشروع من الأرشيف.");
+    location.reload();
   }
 
   function openProjectFromHub(projectId: string) {
@@ -2981,6 +3060,7 @@ export default function Home() {
 
   // ============ Save (no save while loading) ============
   useEffect(() => {
+    if (!activeProjectId) return;
     if (loading) return;
     const snapshot = {
       eventType,
@@ -3118,6 +3198,7 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!activeProjectId) return;
     try {
       localStorage.setItem(
         experimentalHubProjectKey(activeProjectId),
@@ -3273,6 +3354,10 @@ export default function Home() {
   }, [showMobileSummary, isMobile]);
 
   function clearSession() {
+    if (!activeProjectId) {
+      showError("لا يوجد مشروع نشط لمسح الجلسة.");
+      return;
+    }
     localStorage.removeItem(projectDataKey(activeProjectId));
     // توافق خلفي مع التخزين القديم.
     localStorage.removeItem(STORAGE_KEY);
@@ -3281,6 +3366,10 @@ export default function Home() {
 
   function requestClearSession() {
     if (!canResetSession) return;
+    if (!activeProjectId) {
+      showError("لا يوجد مشروع نشط لمسح الجلسة.");
+      return;
+    }
     setShowClearSessionConfirm(true);
   }
 
@@ -6932,6 +7021,47 @@ export default function Home() {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
         gap: 8,
+      } as CSSProperties,
+      projectHubNoActiveShell: {
+        marginTop: 8,
+        borderRadius: 16,
+        border: palette.cardBorder,
+        background: palette.cardBg,
+        padding: isMobile ? "12px 10px" : "14px 12px",
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      projectHubNoActiveTitle: {
+        margin: 0,
+        fontSize: isMobile ? 18 : 20,
+        color: palette.strongText,
+        fontWeight: 900,
+        lineHeight: 1.35,
+      } as CSSProperties,
+      projectHubNoActiveText: {
+        margin: 0,
+        fontSize: 13,
+        color: palette.mutedText,
+        lineHeight: 1.7,
+      } as CSSProperties,
+      projectHubNoActiveActions: {
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 8,
+      } as CSSProperties,
+      projectHubNoActiveArchiveList: {
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      projectHubNoActiveArchiveRow: {
+        borderRadius: 12,
+        border: palette.subtleBorder,
+        background: palette.subtleBg,
+        padding: "9px 10px",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr auto",
+        gap: 8,
+        alignItems: "center",
       } as CSSProperties,
       projectHubExperimentShell: {
         marginTop: 8,
@@ -10784,7 +10914,7 @@ export default function Home() {
               <div style={styles.welcomeProjectCard}>
                 <div style={styles.welcomeProjectCardTitle}>إدارة المشاريع</div>
                 <div style={styles.welcomeProjectCardLine}>
-                  المشروع الحالي: <strong>{activeProjectName || "مشروع بدون اسم"}</strong>
+                  المشروع الحالي: <strong>{hasActiveProject ? activeProjectName : "غير محدد"}</strong>
                 </div>
                 <div style={styles.welcomeProjectCardLine}>
                   آخر تحديث:{" "}
@@ -10877,9 +11007,9 @@ export default function Home() {
               <div style={styles.sessionAdminGrid}>
                 <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminProjectContext }}>
                   <div style={styles.label}>المشروع الحالي</div>
-                  <div style={styles.sessionAdminProjectName}>
-                    {activeProjectName || "مشروع بدون اسم"}
-                  </div>
+                <div style={styles.sessionAdminProjectName}>
+                    {hasActiveProject ? activeProjectName : "غير محدد"}
+                </div>
                 </div>
 
                 <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminRoleField }}>
@@ -11058,7 +11188,89 @@ export default function Home() {
             {/* PROJECTS HUB */}
             {stage === "projects_hub" && (
               <>
-                {experimentalHubEnabled && showExperimentalProjectsHubShell ? (
+                {!hasActiveProject ? (
+                  <div style={styles.projectHubNoActiveShell}>
+                    <h3 style={styles.projectHubNoActiveTitle}>ابدأ بدون مشروع نشط</h3>
+                    <p style={styles.projectHubNoActiveText}>
+                      اختر الآن: أنشئ مشروعًا جديدًا أو افتح مشروعًا سابقًا من الأرشيف.
+                    </p>
+                    <div style={styles.projectHubNoActiveActions}>
+                      <button
+                        type="button"
+                        style={styles.primaryBtn(!canEditSessionSetup)}
+                        disabled={!canEditSessionSetup}
+                        onClick={createNewProject}
+                        title={
+                          canEditSessionSetup
+                            ? undefined
+                            : permissionHintText(
+                                "إنشاء مشروع جديد",
+                                ["project_manager", "operations_manager"],
+                                userRole
+                              )
+                        }
+                      >
+                        مشروع جديد
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(!canEditSessionSetup || archivedProjects.length === 0)}
+                        disabled={!canEditSessionSetup || archivedProjects.length === 0}
+                        onClick={() => {
+                          if (archivedProjects.length === 0) return;
+                          restoreAndOpenArchivedProject(archivedProjects[0].id);
+                        }}
+                        title={
+                          archivedProjects.length === 0
+                            ? "لا توجد مشاريع مؤرشفة حالياً."
+                            : canEditSessionSetup
+                              ? undefined
+                              : permissionHintText(
+                                  "فتح مشروع من الأرشيف",
+                                  ["project_manager", "operations_manager"],
+                                  userRole
+                                )
+                        }
+                      >
+                        فتح مشروع من الأرشيف
+                      </button>
+                    </div>
+
+                    {archivedProjects.length > 0 ? (
+                      <div style={styles.projectHubNoActiveArchiveList}>
+                        {archivedProjects.slice(0, 6).map((entry) => (
+                          <div key={entry.id} style={styles.projectHubNoActiveArchiveRow}>
+                            <div style={{ display: "grid", gap: 3 }}>
+                              <div style={styles.sideSummaryPrimaryText}>{entry.name || "مشروع بدون اسم"}</div>
+                              <div style={styles.textMutedSmall}>
+                                أُرشف: {entry.archivedAt ? formatDateTimeLabel(entry.archivedAt) : "غير محدد"}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              style={styles.secondaryBtn(!canEditSessionSetup)}
+                              disabled={!canEditSessionSetup}
+                              onClick={() => restoreAndOpenArchivedProject(entry.id)}
+                              title={
+                                canEditSessionSetup
+                                  ? undefined
+                                  : permissionHintText(
+                                      "فتح مشروع من الأرشيف",
+                                      ["project_manager", "operations_manager"],
+                                      userRole
+                                    )
+                              }
+                            >
+                              فتح
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={styles.projectHubExpEmpty}>لا توجد مشاريع مؤرشفة حالياً.</div>
+                    )}
+                  </div>
+                ) : experimentalHubEnabled && showExperimentalProjectsHubShell ? (
                   <div style={styles.projectHubExperimentShell}>
                     <div style={styles.projectHubExperimentTopBar}>
                       <div style={styles.projectHubExperimentTitleWrap}>

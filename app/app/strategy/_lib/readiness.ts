@@ -95,7 +95,7 @@ export function readActiveStrategyProject(): ActiveStrategyProject {
 
   const activeCandidates = projects.filter((item) => !item.isArchived);
   const activeFromRegistry = activeCandidates.find((item) => item.id === registry.activeProjectId);
-  const candidate = activeFromRegistry ?? activeCandidates[0] ?? projects[0];
+  const candidate = activeFromRegistry ?? activeCandidates[0];
   if (!candidate) {
     return { id: "global", name: "مشروع غير محدد", snapshot: {} };
   }
@@ -104,11 +104,6 @@ export function readActiveStrategyProject(): ActiveStrategyProject {
   if (isPlaceholderProjectWithoutData(candidate.id, candidate.name, candidateSnapshot)) {
     const fallbackActive =
       activeCandidates.find((item) => {
-        if (item.id === candidate.id) return false;
-        const snapshot = readProjectSnapshot(item.id);
-        return !isPlaceholderProjectWithoutData(item.id, item.name, snapshot);
-      }) ??
-      projects.find((item) => {
         if (item.id === candidate.id) return false;
         const snapshot = readProjectSnapshot(item.id);
         return !isPlaceholderProjectWithoutData(item.id, item.name, snapshot);
