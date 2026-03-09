@@ -27,7 +27,8 @@ import {
   subscribeReportsChanges,
 } from "../report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../../_components/strategy-readiness-banner";
-import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
+import { resolveReadinessBlockedHint } from "../../_lib/readiness-actions";
+import { resolveQuickStartForReadiness } from "../../_lib/readiness-lock";
 
 type ExportFeedback = {
   status: ReportExportStatus;
@@ -43,7 +44,7 @@ export default function ReportDetailsPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
-  const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const quickActionBlockedHint = resolveReadinessBlockedHint(inGapMode);
   const reportId = useMemo(() => {
     if (Array.isArray(params.id)) return params.id[0] ?? "";
     return typeof params.id === "string" ? params.id : "";

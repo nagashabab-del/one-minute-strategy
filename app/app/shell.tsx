@@ -6,11 +6,11 @@ import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { clerkUiEnabled } from "../clerk-runtime";
 import {
-  READINESS_LOCK_REASON,
   READINESS_STATUS_ADVISORY,
   READINESS_STATUS_GAP,
   resolveQuickStartForReadiness,
 } from "./_lib/readiness-lock";
+import { resolveReadinessBlockedHint } from "./_lib/readiness-actions";
 import { installWorkspaceSyncBridge } from "./_lib/workspace-backend";
 import { readReports } from "./reports/report-store";
 import { evaluateStrategyReadiness, readActiveStrategyProject } from "./strategy/_lib/readiness";
@@ -104,7 +104,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const shouldShowReportsShortcut = !inStrategyFlow || hasReports;
   const quickStart = resolveQuickStartForReadiness(gapMode ? "gap" : "advisory");
-  const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const quickActionBlockedHint = resolveReadinessBlockedHint(gapMode);
 
   useEffect(() => {
     installWorkspaceSyncBridge();

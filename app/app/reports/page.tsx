@@ -29,7 +29,8 @@ import {
   subscribeReportsChanges,
 } from "./report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
-import { READINESS_LOCK_REASON, resolveQuickStartForReadiness } from "../_lib/readiness-lock";
+import { resolveReadinessBlockedHint } from "../_lib/readiness-actions";
+import { resolveQuickStartForReadiness } from "../_lib/readiness-lock";
 
 type StatusFilter = "الكل" | StrategyReport["status"];
 type SortOption = "الأحدث" | "الأقدم" | "الحالة";
@@ -58,7 +59,7 @@ export default function ReportsPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
-  const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const quickActionBlockedHint = resolveReadinessBlockedHint(inGapMode);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortOption>("الأحدث");

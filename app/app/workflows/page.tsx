@@ -5,8 +5,11 @@ import { useMemo } from "react";
 import { StrategyReport, readReports } from "../reports/report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 import {
-  isReadinessBlockedHref,
-  READINESS_LOCK_REASON,
+  isReadinessActionBlocked,
+  resolveReadinessBlockedHint,
+  resolveReadinessNavigationHref,
+} from "../_lib/readiness-actions";
+import {
   resolveQuickStartForReadiness,
 } from "../_lib/readiness-lock";
 
@@ -33,7 +36,7 @@ export default function WorkflowsPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
-  const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const quickActionBlockedHint = resolveReadinessBlockedHint(inGapMode);
 
   const stageCounts = useMemo(() => {
     const drafts = reports.filter((item) => item.status === "مسودة").length;
@@ -95,7 +98,7 @@ export default function WorkflowsPage() {
                     <div className="workflow-alert-title">{alert.title}</div>
                     <div className="workflow-alert-text">{alert.description}</div>
                   </div>
-                  {inGapMode && isReadinessBlockedHref(alert.href) ? (
+                  {isReadinessActionBlocked(inGapMode, alert.href) ? (
                     <button
                       type="button"
                       className={`${
@@ -108,7 +111,7 @@ export default function WorkflowsPage() {
                     </button>
                   ) : (
                     <Link
-                      href={inGapMode ? "/app/strategy/brief" : alert.href}
+                      href={resolveReadinessNavigationHref(inGapMode, alert.href)}
                       className={alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
                     >
                       {alert.actionLabel}
@@ -183,7 +186,7 @@ export default function WorkflowsPage() {
                   <div className="workflow-next-action">{row.nextAction}</div>
                 </div>
                 <div className="workflow-queue-actions">
-                  {inGapMode && isReadinessBlockedHref(row.href) ? (
+                  {isReadinessActionBlocked(inGapMode, row.href) ? (
                     <button
                       type="button"
                       className="oms-btn oms-btn-primary workflow-action-disabled"
@@ -193,7 +196,10 @@ export default function WorkflowsPage() {
                       تنفيذ الآن
                     </button>
                   ) : (
-                    <Link href={inGapMode ? "/app/strategy/brief" : row.href} className="oms-btn oms-btn-primary">
+                    <Link
+                      href={resolveReadinessNavigationHref(inGapMode, row.href)}
+                      className="oms-btn oms-btn-primary"
+                    >
                       تنفيذ الآن
                     </Link>
                   )}

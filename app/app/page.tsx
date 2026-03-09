@@ -5,8 +5,11 @@ import { useMemo, useState } from "react";
 import FirstRunOnboardingWizard from "./_components/first-run-onboarding-wizard";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "./_components/strategy-readiness-banner";
 import {
-  isReadinessBlockedHref,
-  READINESS_LOCK_REASON,
+  isReadinessActionBlocked,
+  resolveReadinessBlockedHint,
+  resolveReadinessNavigationHref,
+} from "./_lib/readiness-actions";
+import {
   resolveQuickStartForReadiness,
 } from "./_lib/readiness-lock";
 import { completeFirstRunOnboarding, shouldShowFirstRunOnboarding } from "./_lib/onboarding-state";
@@ -26,7 +29,7 @@ export default function DashboardPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
-  const quickActionBlockedHint = READINESS_LOCK_REASON;
+  const quickActionBlockedHint = resolveReadinessBlockedHint(inGapMode);
   const [showFirstRunOnboarding, setShowFirstRunOnboarding] = useState<boolean>(() => shouldShowFirstRunOnboarding());
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
@@ -98,7 +101,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="cockpit-next-action-controls">
-            {nextPriority && inGapMode && isReadinessBlockedHref(nextPriority.href) ? (
+            {nextPriority && isReadinessActionBlocked(inGapMode, nextPriority.href) ? (
               <button
                 type="button"
                 className="oms-btn oms-btn-primary cockpit-action-disabled"
@@ -111,7 +114,9 @@ export default function DashboardPage() {
               <Link
                 className="oms-btn oms-btn-primary"
                 href={
-                  nextPriority ? (inGapMode ? "/app/strategy/brief" : nextPriority.href) : quickStart.href
+                  nextPriority
+                    ? resolveReadinessNavigationHref(inGapMode, nextPriority.href)
+                    : quickStart.href
                 }
               >
                 {nextPriority?.actionLabel ?? quickStart.label}
@@ -192,7 +197,7 @@ export default function DashboardPage() {
                     <div className="cockpit-priority-title">{item.title}</div>
                     <div className="cockpit-priority-text">{item.description}</div>
                   </div>
-                  {inGapMode && isReadinessBlockedHref(item.href) ? (
+                  {isReadinessActionBlocked(inGapMode, item.href) ? (
                     <button
                       type="button"
                       className={`${
@@ -205,7 +210,7 @@ export default function DashboardPage() {
                     </button>
                   ) : (
                     <Link
-                      href={inGapMode ? "/app/strategy/brief" : item.href}
+                      href={resolveReadinessNavigationHref(inGapMode, item.href)}
                       className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
                     >
                       {item.actionLabel}
