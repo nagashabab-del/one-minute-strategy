@@ -20,6 +20,8 @@ type PriorityItem = {
   tone: "neutral" | "warning" | "success";
 };
 
+const PROJECTS_HUB_HREF = "/app/strategy/workspace?entry=projects";
+
 export default function DashboardPage() {
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
@@ -73,7 +75,7 @@ export default function DashboardPage() {
           <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
             تحليل جديد
           </Link>
-          <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
+          <Link className="oms-btn oms-btn-ghost" href={PROJECTS_HUB_HREF}>
             فتح مشروع سابق
           </Link>
           <Link className="oms-btn oms-btn-ghost" href="/app">
@@ -224,7 +226,7 @@ export default function DashboardPage() {
                 <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
                   ابدأ تحليل جديد
                 </Link>
-                <Link className="oms-btn oms-btn-ghost" href="/app/workflows">
+                <Link className="oms-btn oms-btn-ghost" href={PROJECTS_HUB_HREF}>
                   فتح مشروع سابق
                 </Link>
               </div>

@@ -27,6 +27,7 @@ type ProjectContext = {
 };
 
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
+const PROJECTS_HUB_HREF = "/app/strategy/workspace?entry=projects";
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "نظرة عامة", shortLabel: "نظرة عامة" },
@@ -220,20 +221,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href={quickStart.href} className="oms-btn oms-btn-primary">
               {quickStart.label}
             </Link>
-            {gapMode ? (
-              <button
-                type="button"
-                className="context-btn-mobile-hide oms-btn oms-btn-ghost app-shell-action-disabled"
-                title={quickActionBlockedHint}
-                disabled
-              >
-                فتح مشروع سابق
-              </button>
-            ) : (
-              <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href="/app/workflows">
-                فتح مشروع سابق
-              </Link>
-            )}
+            <Link className="context-btn-mobile-hide oms-btn oms-btn-ghost" href={PROJECTS_HUB_HREF}>
+              فتح مشروع سابق
+            </Link>
             {shouldShowReportsShortcut ? (
               gapMode ? (
                 <button

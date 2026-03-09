@@ -23,6 +23,8 @@ type ProjectHubView = "overview" | "board" | "list";
 const SAUDI_RIYAL_FALLBACK = "ر.س";
 const SAUDI_RIYAL_ICON_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Saudi_Riyal_Symbol.svg/32px-Saudi_Riyal_Symbol.svg.png";
+const PROJECTS_HUB_ENTRY_PARAM = "entry";
+const PROJECTS_HUB_ENTRY_VALUE = "projects";
 
 type AdvisorKey =
   | "financial_advisor"
@@ -1605,6 +1607,18 @@ export default function Home() {
       return false;
     }
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.get(PROJECTS_HUB_ENTRY_PARAM) !== PROJECTS_HUB_ENTRY_VALUE) return;
+
+    setStage("projects_hub");
+    currentUrl.searchParams.delete(PROJECTS_HUB_ENTRY_PARAM);
+
+    const nextPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    window.history.replaceState({}, "", nextPath);
+  }, []);
   const [projectHubView, setProjectHubView] = useState<ProjectHubView>("overview");
   const [projectHubQuery, setProjectHubQuery] = useState("");
   const [projectHubFilter, setProjectHubFilter] = useState<"all" | "active" | "archived">("all");
