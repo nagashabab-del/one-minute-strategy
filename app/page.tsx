@@ -12,9 +12,13 @@ export default async function LandingPage() {
     redirect(demoModeEnabled ? POST_AUTH_ENTRY_HREF : "/sign-in");
   }
 
-  const authResult = await auth();
-  if (authResult.userId) {
-    redirect(POST_AUTH_ENTRY_HREF);
+  try {
+    const authResult = await auth();
+    if (authResult.userId) {
+      redirect(POST_AUTH_ENTRY_HREF);
+    }
+  } catch {
+    // Keep landing resilient when auth provider is partially configured in preview environments.
   }
 
   redirect("/sign-in");
