@@ -51,6 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_OMS_ALLOW_DEMO_MODE === "true";
   const inStrategyFlow = pathname.startsWith("/app/strategy");
   const [hasReports, setHasReports] = useState(false);
+  const [hasActiveProject, setHasActiveProject] = useState(false);
   const [gapMode, setGapMode] = useState(false);
 
   const currentSection = useMemo(() => {
@@ -65,6 +66,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return null;
     if (!pathname) return null;
     try {
+      const activeProject = readActiveStrategyProject();
+      if (activeProject.id === "global") return null;
       const raw = localStorage.getItem(PROJECTS_REGISTRY_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as {
@@ -72,7 +75,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         projects?: Array<{ id: string; name: string; updatedAt?: string }>;
       };
       const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
-      const active = projects.find((item) => item.id === parsed.activeProjectId) ?? projects[0];
+      const active =
+        projects.find((item) => item.id === activeProject.id) ??
+        projects.find((item) => item.id === parsed.activeProjectId) ??
+        projects[0];
       if (!active) return null;
       const updated = active.updatedAt ? new Date(active.updatedAt) : null;
       const updatedText =
@@ -83,7 +89,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             })}`
           : "غير متاح";
       return {
-        name: active.name?.trim() || "مشروع بدون اسم",
+        name: activeProject.name?.trim() || active.name?.trim() || "مشروع بدون اسم",
         updatedAt: updatedText,
       };
     } catch {
@@ -95,16 +101,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const refreshContextState = () => {
       setHasReports(readReports().length > 0);
       const readiness = readStrategyReadiness();
-      setGapMode(readiness.mode === "gap");
+      setHasActiveProject(readiness.hasActiveProject);
+      setGapMode(readiness.hasActiveProject && readiness.mode === "gap");
     };
     refreshContextState();
     window.addEventListener("storage", refreshContextState);
     return () => window.removeEventListener("storage", refreshContextState);
   }, [pathname]);
 
-  const shouldShowReportsShortcut = !inStrategyFlow || hasReports;
-  const quickStart = resolveQuickStartForReadiness(gapMode ? "gap" : "advisory");
-  const quickActionBlockedHint = resolveReadinessBlockedHint(gapMode);
+  const shouldShowReportsShortcut = hasActiveProject && (!inStrategyFlow || hasReports);
+  const quickStart = hasActiveProject
+    ? resolveQuickStartForReadiness(gapMode ? "gap" : "advisory")
+    : {
+        href: PROJECTS_HUB_HREF,
+        label: "فتح مركز المشاريع",
+      };
+  const quickActionBlockedHint = hasActiveProject ? resolveReadinessBlockedHint(gapMode) : undefined;
 
   useEffect(() => {
     installWorkspaceSyncBridge();
@@ -200,11 +212,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 style={{
                   marginTop: 4,
                   fontSize: 12,
-                  color: gapMode ? "#ffb3b3" : "rgba(138,255,214,0.88)",
+                  color: !hasActiveProject ? "rgba(220,231,255,0.75)" : gapMode ? "#ffb3b3" : "rgba(138,255,214,0.88)",
                   fontWeight: 700,
                 }}
               >
-                {gapMode ? READINESS_STATUS_GAP : READINESS_STATUS_ADVISORY}
+                {!hasActiveProject
+                  ? "وضع البيانات: بدون مشروع"
+                  : gapMode
+                    ? READINESS_STATUS_GAP
+                    : READINESS_STATUS_ADVISORY}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -471,5 +487,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 function readStrategyReadiness() {
   const project = readActiveStrategyProject();
-  return evaluateStrategyReadiness(project.snapshot);
+  return {
+    hasActiveProject: project.id !== "global",
+    mode: evaluateStrategyReadiness(project.snapshot).mode,
+  };
 }
