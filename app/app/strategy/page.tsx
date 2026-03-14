@@ -13,8 +13,8 @@ export default function StrategyPage() {
       <section className="oms-panel" style={{ background: "linear-gradient(150deg, rgba(24,36,64,0.92), rgba(16,24,42,0.88))" }}>
         <h2 className="oms-section-title">المسار المقترح</h2>
         <p className="oms-text">
-          اتبع المراحل من اليمين إلى اليسار: موجز المشروع ← جلسة المستشارين ← القرار التنفيذي ← إعداد
-          التشغيل.
+          اتبع المراحل من اليمين إلى اليسار: موجز المشروع ← تجهيز المستشارين ← جلسة التحليل ← هيكلة النطاق ←
+          الخطة المالية ← الخطة الزمنية ← سجل المخاطر ← القرار التنفيذي النهائي ← المراجعة النهائية.
         </p>
         <StrategyEntryActions />
       </section>

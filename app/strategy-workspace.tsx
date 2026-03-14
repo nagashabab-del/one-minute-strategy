@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { ChangeEvent, CSSProperties, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { evaluateStrategyReadiness } from "./lib/strategy-readiness";
+import { buildSessionSummary, type SummaryTone } from "./app/_lib/session-summary-engine";
 
 type StageUI =
   | "welcome"
@@ -15,7 +16,9 @@ type StageUI =
   | "done"
   | "advanced_scope"
   | "advanced_boq"
-  | "advanced_plan";
+  | "advanced_plan"
+  | "final_addition"
+  | "final_done";
 
 type DeliveryTrack = "fast" | "advanced";
 type ProjectHubView = "overview" | "board" | "list";
@@ -25,6 +28,14 @@ const SAUDI_RIYAL_ICON_URL =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Saudi_Riyal_Symbol.svg/32px-Saudi_Riyal_Symbol.svg.png";
 const PROJECTS_HUB_ENTRY_PARAM = "entry";
 const PROJECTS_HUB_ENTRY_VALUE = "projects";
+const PROJECTS_HUB_CREATE_PARAM = "create";
+const PROJECTS_HUB_CREATE_VALUE = "1";
+const POST_DECISION_ROUTES = {
+  budget: "/app/strategy/execution/budget",
+  plan: "/app/strategy/execution/plan",
+  review: "/app/strategy/review",
+} as const;
+type PostDecisionRouteKey = keyof typeof POST_DECISION_ROUTES;
 
 type AdvisorKey =
   | "financial_advisor"
@@ -342,10 +353,17 @@ type ChangeRequest = {
 
 type LoadingContext =
   | ""
+  | "init_step_transition"
   | "start_session"
   | "submit_round1"
   | "build_dialogue"
-  | "run_analysis";
+  | "run_analysis"
+  | "create_project"
+  | "open_archived_project"
+  | "switch_project"
+  | "duplicate_project"
+  | "archive_project"
+  | "restore_project";
 
 type StrategyApiStage = "questions" | "followups" | "dialogue" | "analysis";
 
@@ -369,6 +387,23 @@ type MobileSummarySectionKey =
   | "decision_quality"
   | "basic_data"
   | "alerts";
+
+type InitSectionKey =
+  | "session_setup"
+  | "session_advisors"
+  | "project_overview"
+  | "project_basic"
+  | "project_summary";
+
+type Round1SectionKey = "progress" | "content";
+type Round2SectionKey = "progress" | "content";
+type DialogueSectionKey = "progress" | "content" | "open_issues";
+type AdditionSectionKey = "progress" | "decision" | "note" | "quality";
+
+type FinalDecisionSectionKey = "summary" | "analysis" | "upgrades" | "advisors" | "report";
+type AdvancedScopeSectionKey = "timeline" | "scope" | "strategy" | "org";
+type AdvancedBoqSectionKey = "boq_items" | "quality_risk" | "ops_risk_board" | "ops_meta";
+type AdvancedPlanSectionKey = "plan_text" | "tracker" | "governance" | "outputs" | "approval";
 
 type RolePermissionFlags = {
   canEditSessionSetup: boolean;
@@ -420,7 +455,7 @@ const ROLE_PERMISSION_LABELS: Record<keyof RolePermissionFlags, string> = {
   canEditAdvancedExecution: "تنفيذ المسار المتقدم",
   canEditGovernance: "الحوكمة",
   canApproveAdvancedPlan: "الاعتماد النهائي",
-  canResetSession: "مسح الجلسة",
+  canResetSession: "إعادة تهيئة الجلسة",
   canLoadDemo: "النموذج التجريبي",
 };
 
@@ -441,6 +476,8 @@ function isStageUI(value: unknown): value is StageUI {
     "advanced_scope",
     "advanced_boq",
     "advanced_plan",
+    "final_addition",
+    "final_done",
   ].includes(String(value));
 }
 
@@ -468,6 +505,10 @@ function stageLabelCompact(stage?: StageUI) {
       return "المتقدم: جدول الكميات";
     case "advanced_plan":
       return "المتقدم: الخطة";
+    case "final_addition":
+      return "الاستشارة الختامية";
+    case "final_done":
+      return "القرار النهائي";
     default:
       return "غير محدد";
   }
@@ -691,6 +732,133 @@ const MOBILE_SUMMARY_SECTION_DEFAULTS: Record<MobileSummarySectionKey, boolean> 
   alerts: false,
 };
 
+const INIT_SECTION_DEFAULTS: Record<InitSectionKey, boolean> = {
+  session_setup: true,
+  session_advisors: false,
+  project_overview: true,
+  project_basic: true,
+  project_summary: false,
+};
+
+const ROUND1_SECTION_DEFAULTS: Record<Round1SectionKey, boolean> = {
+  progress: true,
+  content: true,
+};
+
+const ROUND2_SECTION_DEFAULTS: Record<Round2SectionKey, boolean> = {
+  progress: true,
+  content: true,
+};
+
+const DIALOGUE_SECTION_DEFAULTS: Record<DialogueSectionKey, boolean> = {
+  progress: true,
+  content: true,
+  open_issues: true,
+};
+
+function additionSectionDefaultsByStage(
+  stage: StageUI | undefined,
+  hasAddition: "yes" | "no"
+): Record<AdditionSectionKey, boolean> {
+  const isFinalConsultation = stage === "final_addition";
+  if (isFinalConsultation) {
+    return {
+      progress: true,
+      decision: true,
+      note: false,
+      quality: false,
+    };
+  }
+  return {
+    progress: true,
+    decision: true,
+    note: hasAddition === "yes",
+    quality: true,
+  };
+}
+
+const FINAL_DECISION_SECTION_DEFAULTS: Record<FinalDecisionSectionKey, boolean> = {
+  summary: true,
+  analysis: false,
+  upgrades: false,
+  advisors: false,
+  report: false,
+};
+const FINAL_DECISION_SECTION_LABELS: Record<FinalDecisionSectionKey, string> = {
+  summary: "الملخص",
+  analysis: "التحليل",
+  upgrades: "الترقيات",
+  advisors: "التوصيات",
+  report: "التقرير",
+};
+const FINAL_DECISION_SECTION_ANCHORS: Record<FinalDecisionSectionKey, string> = {
+  summary: "final-decision-summary",
+  analysis: "final-decision-analysis",
+  upgrades: "final-decision-upgrades",
+  advisors: "final-decision-advisors",
+  report: "final-decision-report",
+};
+const FINAL_DECISION_POST_CENTER_ANCHOR = "final-decision-post-center";
+
+const ADVANCED_SCOPE_SECTION_DEFAULTS: Record<AdvancedScopeSectionKey, boolean> = {
+  timeline: true,
+  scope: false,
+  strategy: false,
+  org: true,
+};
+const ADVANCED_SCOPE_SECTION_LABELS: Record<AdvancedScopeSectionKey, string> = {
+  timeline: "6.1 الإطار الزمني",
+  scope: "2.1 نطاق العمل",
+  strategy: "2.2 استراتيجية التنفيذ",
+  org: "2.8 الهيكل التشغيلي",
+};
+const ADVANCED_SCOPE_SECTION_ANCHORS: Record<AdvancedScopeSectionKey, string> = {
+  timeline: "advanced-scope-timeline",
+  scope: "advanced-scope-scope",
+  strategy: "advanced-scope-strategy",
+  org: "advanced-scope-org",
+};
+
+const ADVANCED_BOQ_SECTION_DEFAULTS: Record<AdvancedBoqSectionKey, boolean> = {
+  boq_items: true,
+  quality_risk: true,
+  ops_risk_board: true,
+  ops_meta: false,
+};
+const ADVANCED_BOQ_SECTION_LABELS: Record<AdvancedBoqSectionKey, string> = {
+  boq_items: "2.3 جدول الكميات",
+  quality_risk: "2.5-2.6 الجودة والمخاطر",
+  ops_risk_board: "لوحة المخاطر الحية",
+  ops_meta: "2.7-2.8 بيانات التشغيل",
+};
+const ADVANCED_BOQ_SECTION_ANCHORS: Record<AdvancedBoqSectionKey, string> = {
+  boq_items: "advanced-boq-items",
+  quality_risk: "advanced-boq-quality",
+  ops_risk_board: "advanced-boq-risk-board",
+  ops_meta: "advanced-boq-ops-meta",
+};
+const ADVANCED_PLAN_SECTION_DEFAULTS: Record<AdvancedPlanSectionKey, boolean> = {
+  plan_text: true,
+  tracker: true,
+  governance: false,
+  outputs: false,
+  approval: true,
+};
+const ADVANCED_PLAN_SECTION_LABELS: Record<AdvancedPlanSectionKey, string> = {
+  plan_text: "الخطة المتكاملة",
+  tracker: "متابعة التنفيذ",
+  governance: "الحوكمة والتغيير",
+  outputs: "مخرجات الطباعة",
+  approval: "الاعتماد والانتقال",
+};
+const ADVANCED_PLAN_SECTION_ANCHORS: Record<AdvancedPlanSectionKey, string> = {
+  plan_text: "advanced-plan-text",
+  tracker: "advanced-plan-tracker",
+  governance: "advanced-plan-governance",
+  outputs: "advanced-plan-outputs",
+  approval: "advanced-plan-approval",
+};
+
 function escapeHtml(text: string) {
   return text
     .replaceAll("&", "&amp;")
@@ -883,6 +1051,13 @@ function formatMoneyWithoutUnit(value: number) {
   return `${value < 0 ? "-" : ""}${formatted}`;
 }
 
+function trimForPrompt(value: string, limit: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit)}...`;
+}
+
 function suggestedSellFromMargin(unitCost: number, targetMarginPct: number) {
   if (!Number.isFinite(unitCost) || unitCost <= 0) return null;
   if (!Number.isFinite(targetMarginPct) || targetMarginPct < 0) return null;
@@ -924,7 +1099,10 @@ const STORAGE_KEY = "oms_dashboard_full_v1";
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const EXPERIMENTAL_HUB_KEY = "oms_local_experimental_hub_v1";
+const UI_THEME_EVENT = "oms:ui-theme-change";
 const EXPERIMENTAL_HUB_PROJECT_KEY_PREFIX = "oms_local_experimental_hub_project_v1_";
+const OPEN_PROJECT_ONCE_KEY = "oms_dashboard_open_project_once_v1";
+const MIN_PROJECT_NAME_LENGTH = 3;
 const FALLBACK_PROJECT_ID = "local_default_project";
 
 function projectDataKey(projectId: string) {
@@ -1001,11 +1179,26 @@ function loadProjectBootstrap(): ProjectBootstrap {
         });
 
         const activeCandidates = parsedProjects.filter((item) => !item.isArchived);
+        const currentUrl = new URL(window.location.href);
+        const entryValue = currentUrl.searchParams.get(PROJECTS_HUB_ENTRY_PARAM);
+        const openProjectOnceId = (() => {
+          try {
+            const raw = sessionStorage.getItem(OPEN_PROJECT_ONCE_KEY) ?? "";
+            if (raw) sessionStorage.removeItem(OPEN_PROJECT_ONCE_KEY);
+            return raw;
+          } catch {
+            return "";
+          }
+        })();
         const nextActiveId =
-          typeof parsed.activeProjectId === "string" &&
-          activeCandidates.some((item) => item.id === parsed.activeProjectId)
-            ? parsed.activeProjectId
-            : activeCandidates[0]?.id ?? "";
+          activeCandidates.some((item) => item.id === openProjectOnceId)
+            ? openProjectOnceId
+            : entryValue === PROJECTS_HUB_ENTRY_VALUE
+              ? ""
+              : typeof parsed.activeProjectId === "string" &&
+                  activeCandidates.some((item) => item.id === parsed.activeProjectId)
+                ? parsed.activeProjectId
+                : "";
         const activeRaw = nextActiveId ? localStorage.getItem(projectDataKey(nextActiveId)) : null;
         let saved: PersistedState = {};
         if (activeRaw) {
@@ -1470,7 +1663,7 @@ export default function Home() {
   const [mode, setMode] = useState(
     initialSaved.mode ?? "مراجعة تنفيذية سريعة"
   );
-  const [userRole, setUserRole] = useState<UserRole>(
+  const [userRole] = useState<UserRole>(
     initialSaved.userRole ?? "project_manager"
   );
   const [initStep, setInitStep] = useState<"session" | "project">(
@@ -1594,10 +1787,72 @@ export default function Home() {
     initialSaved.followupQuestions ?? []
   );
   const [answers, setAnswers] = useState<Answer[]>(initialSaved.answers ?? []);
+  const [round1CurrentIndex, setRound1CurrentIndex] = useState(0);
+  const [showRound1Review, setShowRound1Review] = useState(false);
+  const [round2CurrentIndex, setRound2CurrentIndex] = useState(0);
+  const [showRound2Review, setShowRound2Review] = useState(false);
 
   const [dialogue, setDialogue] = useState<DialogueLine[]>(
     initialSaved.dialogue ?? []
   );
+  const [dialogueCurrentIndex, setDialogueCurrentIndex] = useState(0);
+  const [showDialogueReview, setShowDialogueReview] = useState(false);
+  const [showAllOpenIssues, setShowAllOpenIssues] = useState(false);
+  const [showQualityDetails, setShowQualityDetails] = useState(false);
+  const [showAllWeakExamples, setShowAllWeakExamples] = useState(false);
+  const [round1SectionsOpen, setRound1SectionsOpen] = useState<Record<Round1SectionKey, boolean>>(
+    ROUND1_SECTION_DEFAULTS
+  );
+  const [round2SectionsOpen, setRound2SectionsOpen] = useState<Record<Round2SectionKey, boolean>>(
+    ROUND2_SECTION_DEFAULTS
+  );
+  const [dialogueSectionsOpen, setDialogueSectionsOpen] = useState<
+    Record<DialogueSectionKey, boolean>
+  >(DIALOGUE_SECTION_DEFAULTS);
+  const [additionSectionsOpen, setAdditionSectionsOpen] = useState<
+    Record<AdditionSectionKey, boolean>
+  >(() =>
+    additionSectionDefaultsByStage(
+      isStageUI(initialSaved.stage) ? initialSaved.stage : undefined,
+      initialSaved.hasAddition ?? "no"
+    )
+  );
+  const [initSectionsOpen, setInitSectionsOpen] = useState<Record<InitSectionKey, boolean>>(
+    INIT_SECTION_DEFAULTS
+  );
+  const [finalDecisionSectionsOpen, setFinalDecisionSectionsOpen] = useState<
+    Record<FinalDecisionSectionKey, boolean>
+  >(FINAL_DECISION_SECTION_DEFAULTS);
+  const [finalDecisionFocusMode, setFinalDecisionFocusMode] = useState(true);
+  const [highlightedFinalDecisionSection, setHighlightedFinalDecisionSection] = useState<
+    FinalDecisionSectionKey | "post_center" | null
+  >(null);
+  const finalDecisionSectionRefs = useRef<
+    Record<FinalDecisionSectionKey | "post_center", HTMLDivElement | null>
+  >({
+    summary: null,
+    analysis: null,
+    upgrades: null,
+    advisors: null,
+    report: null,
+    post_center: null,
+  });
+  const [advancedScopeSectionsOpen, setAdvancedScopeSectionsOpen] = useState<
+    Record<AdvancedScopeSectionKey, boolean>
+  >(ADVANCED_SCOPE_SECTION_DEFAULTS);
+  const [highlightedAdvancedScopeSection, setHighlightedAdvancedScopeSection] =
+    useState<AdvancedScopeSectionKey | null>(null);
+  const [showEnabledOrgRolesOnly, setShowEnabledOrgRolesOnly] = useState(false);
+  const [advancedBoqSectionsOpen, setAdvancedBoqSectionsOpen] = useState<
+    Record<AdvancedBoqSectionKey, boolean>
+  >(ADVANCED_BOQ_SECTION_DEFAULTS);
+  const [highlightedAdvancedBoqSection, setHighlightedAdvancedBoqSection] =
+    useState<AdvancedBoqSectionKey | null>(null);
+  const [advancedPlanSectionsOpen, setAdvancedPlanSectionsOpen] = useState<
+    Record<AdvancedPlanSectionKey, boolean>
+  >(ADVANCED_PLAN_SECTION_DEFAULTS);
+  const [highlightedAdvancedPlanSection, setHighlightedAdvancedPlanSection] =
+    useState<AdvancedPlanSectionKey | null>(null);
   const [dialogueSignature, setDialogueSignature] = useState(
     initialSaved.dialogueSignature ?? ""
   );
@@ -1632,6 +1887,7 @@ export default function Home() {
   const [needsReanalysisHint, setNeedsReanalysisHint] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
   const [showProjectManager, setShowProjectManager] = useState(false);
+  const [showProjectsMenu, setShowProjectsMenu] = useState(false);
   const [showArchiveProjectConfirm, setShowArchiveProjectConfirm] = useState(false);
   const [showReplaceImportConfirm, setShowReplaceImportConfirm] = useState(false);
   const [pendingReplaceBackup, setPendingReplaceBackup] = useState<ProjectsBackupFile | null>(null);
@@ -1656,13 +1912,46 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const currentUrl = new URL(window.location.href);
-    if (currentUrl.searchParams.get(PROJECTS_HUB_ENTRY_PARAM) !== PROJECTS_HUB_ENTRY_VALUE) return;
+    const entryRequested =
+      currentUrl.searchParams.get(PROJECTS_HUB_ENTRY_PARAM) === PROJECTS_HUB_ENTRY_VALUE;
+    const createRequested =
+      currentUrl.searchParams.get(PROJECTS_HUB_CREATE_PARAM) === PROJECTS_HUB_CREATE_VALUE;
+    if (!entryRequested && !createRequested) return;
 
     setStage("projects_hub");
+    if (createRequested) {
+      setNewProjectDraftName("");
+      setNewProjectDraftTouched(false);
+      if (activeProjectId) {
+        setShowProjectManager(true);
+      }
+    }
     currentUrl.searchParams.delete(PROJECTS_HUB_ENTRY_PARAM);
+    currentUrl.searchParams.delete(PROJECTS_HUB_CREATE_PARAM);
 
     const nextPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
     window.history.replaceState({}, "", nextPath);
+  }, [activeProjectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleThemeChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+      if (!detail || typeof detail.enabled !== "boolean") return;
+      setExperimentalHubEnabled(detail.enabled);
+    };
+    window.addEventListener(UI_THEME_EVENT, handleThemeChange as EventListener);
+    return () => window.removeEventListener(UI_THEME_EVENT, handleThemeChange as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!projectsMenuRef.current) return;
+      if (projectsMenuRef.current.contains(event.target as Node)) return;
+      setShowProjectsMenu(false);
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
   }, []);
   const [projectHubView, setProjectHubView] = useState<ProjectHubView>("overview");
   const [projectHubQuery, setProjectHubQuery] = useState("");
@@ -1678,6 +1967,7 @@ export default function Home() {
     "due_asc"
   );
   const [showMobileSummary, setShowMobileSummary] = useState(false);
+  const [showSummaryDetails, setShowSummaryDetails] = useState(false);
   const [mobileSummarySectionsOpen, setMobileSummarySectionsOpen] = useState<
     Record<MobileSummarySectionKey, boolean>
   >(MOBILE_SUMMARY_SECTION_DEFAULTS);
@@ -1691,6 +1981,25 @@ export default function Home() {
   const [boqRowExpanded, setBoqRowExpanded] = useState<Record<string, boolean>>({});
   const [actionTaskExpanded, setActionTaskExpanded] = useState<Record<string, boolean>>({});
   const [riskCardExpanded, setRiskCardExpanded] = useState<Record<string, boolean>>({});
+  const advancedScopeSectionRefs = useRef<Record<AdvancedScopeSectionKey, HTMLDivElement | null>>({
+    timeline: null,
+    scope: null,
+    strategy: null,
+    org: null,
+  });
+  const advancedBoqSectionRefs = useRef<Record<AdvancedBoqSectionKey, HTMLDivElement | null>>({
+    boq_items: null,
+    quality_risk: null,
+    ops_risk_board: null,
+    ops_meta: null,
+  });
+  const advancedPlanSectionRefs = useRef<Record<AdvancedPlanSectionKey, HTMLDivElement | null>>({
+    plan_text: null,
+    tracker: null,
+    governance: null,
+    outputs: null,
+    approval: null,
+  });
   const [useRiyalIcon, setUseRiyalIcon] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
   const initStageHeadingRef = useRef<HTMLHeadingElement | null>(null);
@@ -1708,6 +2017,7 @@ export default function Home() {
   const prevAdvancedBoqStepRef = useRef(advancedBoqStep);
   const mobileSummaryInlineRef = useRef<HTMLElement | null>(null);
   const backupImportInputRef = useRef<HTMLInputElement | null>(null);
+  const projectsMenuRef = useRef<HTMLDivElement | null>(null);
   const lastProjectMetaTouchRef = useRef(0);
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<{ projectId: string; snapshot: PersistedState } | null>(null);
@@ -1716,6 +2026,121 @@ export default function Home() {
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  useEffect(() => {
+    setShowSummaryDetails(false);
+  }, [stage, initStep, deliveryTrack]);
+
+  useEffect(() => {
+    if (stage !== "round1") {
+      setRound1CurrentIndex(0);
+      setShowRound1Review(false);
+      setRound1SectionsOpen(ROUND1_SECTION_DEFAULTS);
+      return;
+    }
+    setRound1SectionsOpen(ROUND1_SECTION_DEFAULTS);
+    setRound1CurrentIndex((prev) => {
+      if (round1Questions.length === 0) return 0;
+      return Math.min(Math.max(prev, 0), round1Questions.length - 1);
+    });
+  }, [stage, round1Questions.length]);
+
+  useEffect(() => {
+    if (stage !== "round2") {
+      setRound2CurrentIndex(0);
+      setShowRound2Review(false);
+      setRound2SectionsOpen(ROUND2_SECTION_DEFAULTS);
+      return;
+    }
+    setRound2SectionsOpen(ROUND2_SECTION_DEFAULTS);
+    setRound2CurrentIndex((prev) => {
+      if (followupQuestions.length === 0) return 0;
+      return Math.min(Math.max(prev, 0), followupQuestions.length - 1);
+    });
+  }, [stage, followupQuestions.length]);
+
+  useEffect(() => {
+    if (stage !== "dialogue") {
+      setDialogueCurrentIndex(0);
+      setShowDialogueReview(false);
+      setShowAllOpenIssues(false);
+      setDialogueSectionsOpen(DIALOGUE_SECTION_DEFAULTS);
+      return;
+    }
+    setDialogueSectionsOpen(DIALOGUE_SECTION_DEFAULTS);
+    setDialogueCurrentIndex((prev) => {
+      if (dialogue.length === 0) return 0;
+      return Math.min(Math.max(prev, 0), dialogue.length - 1);
+    });
+  }, [stage, dialogue.length]);
+
+  useEffect(() => {
+    const nextDefaults = additionSectionDefaultsByStage(stage, hasAddition);
+    if (stage !== "addition" && stage !== "final_addition") {
+      setShowQualityDetails(false);
+      setShowAllWeakExamples(false);
+      setAdditionSectionsOpen(nextDefaults);
+      return;
+    }
+    setShowQualityDetails(false);
+    setShowAllWeakExamples(false);
+    setAdditionSectionsOpen(nextDefaults);
+  }, [stage, hasAddition]);
+
+  useEffect(() => {
+    if (stage !== "init") {
+      setInitSectionsOpen(INIT_SECTION_DEFAULTS);
+      return;
+    }
+    setInitSectionsOpen(INIT_SECTION_DEFAULTS);
+  }, [stage, initStep]);
+
+  useEffect(() => {
+    if (stage !== "final_done") {
+      setFinalDecisionSectionsOpen(FINAL_DECISION_SECTION_DEFAULTS);
+      setFinalDecisionFocusMode(true);
+      setHighlightedFinalDecisionSection(null);
+      return;
+    }
+    setFinalDecisionSectionsOpen(FINAL_DECISION_SECTION_DEFAULTS);
+    setFinalDecisionFocusMode(true);
+    setHighlightedFinalDecisionSection(null);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "advanced_scope") {
+      setAdvancedScopeSectionsOpen(ADVANCED_SCOPE_SECTION_DEFAULTS);
+      setShowEnabledOrgRolesOnly(false);
+      setHighlightedAdvancedScopeSection(null);
+      return;
+    }
+    setAdvancedScopeSectionsOpen(ADVANCED_SCOPE_SECTION_DEFAULTS);
+    setHighlightedAdvancedScopeSection(null);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "advanced_boq") {
+      setAdvancedBoqSectionsOpen(ADVANCED_BOQ_SECTION_DEFAULTS);
+      setBoqRowExpanded({});
+      setHighlightedAdvancedBoqSection(null);
+      return;
+    }
+    setAdvancedBoqSectionsOpen(ADVANCED_BOQ_SECTION_DEFAULTS);
+    setBoqRowExpanded({});
+    setHighlightedAdvancedBoqSection(null);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "advanced_plan") {
+      setAdvancedPlanSectionsOpen(ADVANCED_PLAN_SECTION_DEFAULTS);
+      setActionTaskExpanded({});
+      setHighlightedAdvancedPlanSection(null);
+      return;
+    }
+    setAdvancedPlanSectionsOpen(ADVANCED_PLAN_SECTION_DEFAULTS);
+    setActionTaskExpanded({});
+    setHighlightedAdvancedPlanSection(null);
+  }, [stage]);
 
   const effectiveSelectedAdvisors =
     advisorSelectionMode === "all" ? ALL_ADVISOR_KEYS : selectedAdvisors;
@@ -1751,11 +2176,37 @@ export default function Home() {
   ] as const;
   const activeProjects = projectRegistry.filter((entry) => !entry.isArchived);
   const archivedProjects = projectRegistry.filter((entry) => entry.isArchived);
+  const nextProjectDefaultName = `مشروع ${toArabicDigits(projectRegistry.length + 1)}`;
+  const [newProjectDraftName, setNewProjectDraftName] = useState("");
+  const [newProjectDraftTouched, setNewProjectDraftTouched] = useState(false);
+  const [recentQuickPickId, setRecentQuickPickId] = useState("");
   const activeProjectMeta = activeProjectId
     ? activeProjects.find((entry) => entry.id === activeProjectId) ?? null
     : null;
   const hasActiveProject = Boolean(activeProjectMeta && activeProjectId);
   const activeProjectName = activeProjectMeta?.name ?? "";
+  const newProjectDraftTrimmed = newProjectDraftName.trim();
+  const newProjectDraftLength = Array.from(newProjectDraftTrimmed).length;
+  const isNewProjectDraftValid = newProjectDraftLength >= MIN_PROJECT_NAME_LENGTH;
+  const showNewProjectDraftError = newProjectDraftTouched && !isNewProjectDraftValid;
+  const recentProjectOptions = useMemo(() => {
+    const byLastUpdate = [...projectRegistry].sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+    return byLastUpdate.slice(0, 4);
+  }, [projectRegistry]);
+
+  useEffect(() => {
+    if (recentProjectOptions.length === 0) {
+      setRecentQuickPickId("");
+      return;
+    }
+    setRecentQuickPickId((prev) =>
+      recentProjectOptions.some((entry) => entry.id === prev) ? prev : recentProjectOptions[0].id
+    );
+  }, [recentProjectOptions]);
   const projectHubRows = useMemo(() => {
     if (typeof window === "undefined") return [];
     const query = projectHubQuery.trim().toLowerCase();
@@ -1999,13 +2450,23 @@ export default function Home() {
       }
     }
 
-    if ((stage === "round1" || stage === "round2" || stage === "addition") && !p.canEditAnswers) {
+    if (
+      (stage === "round1" ||
+        stage === "round2" ||
+        stage === "addition" ||
+        stage === "final_addition") &&
+      !p.canEditAnswers
+    ) {
       hints.push(
         permissionHintText("تعديل إجابات الأسئلة", ["project_manager", "operations_manager"], userRole)
       );
     }
     if (
-      (stage === "round1" || stage === "round2" || stage === "dialogue" || stage === "addition") &&
+      (stage === "round1" ||
+        stage === "round2" ||
+        stage === "dialogue" ||
+        stage === "addition" ||
+        stage === "final_addition") &&
       !p.canRunAnalysisFlow
     ) {
       hints.push(
@@ -2014,7 +2475,7 @@ export default function Home() {
     }
 
     if (stage === "done") {
-      if (!p.canEditAdvancedExecution && !p.canEditGovernance) {
+      if (deliveryTrack === "advanced" && !p.canEditAdvancedExecution && !p.canEditGovernance) {
         hints.push(
           permissionHintText(
             "الدخول للمسار المتقدم",
@@ -2032,6 +2493,16 @@ export default function Home() {
           )
         );
       }
+    }
+
+    if (stage === "final_done" && !p.canRunAnalysisFlow) {
+      hints.push(
+        permissionHintText(
+          "الرجوع لتعديل الاستشارة الختامية وإعادة التحليل",
+          ["project_manager", "operations_manager"],
+          userRole
+        )
+      );
     }
 
     if ((stage === "advanced_scope" || stage === "advanced_boq") && !p.canEditAdvancedExecution) {
@@ -2072,7 +2543,7 @@ export default function Home() {
     }
 
     return hints;
-  }, [stage, initStep, userRole]);
+  }, [stage, initStep, userRole, deliveryTrack]);
   const advancedGovernanceSignature = JSON.stringify({
     commissioningDate,
     projectStartDate,
@@ -2286,6 +2757,19 @@ export default function Home() {
   const isWelcome = stage === "welcome";
   const isProjectsHub = stage === "projects_hub";
   const isSelectionStep = stage === "init" && initStep === "session";
+  const isProjectsHubWithoutProject = isProjectsHub && !hasActiveProject;
+  const showSessionAdminBar = false;
+  const showLegacyProgressPanel = false;
+  const projectHubLoadingContext: LoadingContext | null = (() => {
+    if (isProcessing("create_project")) return "create_project";
+    if (isProcessing("open_archived_project")) return "open_archived_project";
+    if (isProcessing("switch_project")) return "switch_project";
+    if (isProcessing("duplicate_project")) return "duplicate_project";
+    if (isProcessing("archive_project")) return "archive_project";
+    if (isProcessing("restore_project")) return "restore_project";
+    return null;
+  })();
+  const isProjectHubTransitionBusy = projectHubLoadingContext !== null;
   const strategyReadiness = useMemo(
     () =>
       evaluateStrategyReadiness({
@@ -2303,6 +2787,12 @@ export default function Home() {
   );
   const readinessCriticalMissingText = strategyReadiness.criticalMissing.slice(0, 3).join("، ");
   const readinessOptionalMissingText = strategyReadiness.optionalMissing.slice(0, 3).join("، ");
+  const sessionDataStatus =
+    !hasActiveProject
+      ? { label: "بدون مشروع", tone: "neutral" as const }
+      : strategyReadiness.mode === "gap"
+      ? { label: "فجوة بيانات", tone: "warning" as const }
+      : { label: "جاهزية أولية", tone: "success" as const };
   const scopeFrameworkMap = useMemo(
     () => new Map(scopeFramework.map((axis) => [axis.axisId, axis])),
     [scopeFramework]
@@ -2603,11 +3093,14 @@ export default function Home() {
     persistSnapshotToStorage(activeProjectId, snapshot);
   }
 
-  function switchProject(nextProjectId: string) {
+  async function switchProject(nextProjectId: string) {
+    if (loading) return;
     if (!nextProjectId || nextProjectId === activeProjectId) return;
     if (!activeProjects.some((entry) => entry.id === nextProjectId)) return;
     persistActiveProjectSnapshot();
     persistRegistry(projectRegistry, nextProjectId);
+    startLoading("switch_project");
+    await waitForNextPaint();
     location.reload();
   }
 
@@ -2669,7 +3162,17 @@ export default function Home() {
     showSuccess("تم تحديث اسم المشروع.");
   }
 
-  function createNewProject() {
+  function setOpenProjectOnce(projectId: string) {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(OPEN_PROJECT_ONCE_KEY, projectId);
+    } catch {
+      // تجاهل تعذر الكتابة في sessionStorage.
+    }
+  }
+
+  async function createNewProject(preferredName?: string) {
+    if (loading) return;
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("إنشاء مشروع جديد", ["project_manager", "operations_manager"], userRole)
@@ -2678,12 +3181,17 @@ export default function Home() {
     }
     persistActiveProjectSnapshot();
 
+    let projectName = (preferredName ?? "").trim();
+    if (!projectName) {
+      projectName = nextProjectDefaultName;
+    }
+
     const now = new Date().toISOString();
     const projectId = createProjectId();
     const nextProjects: LocalProjectMeta[] = [
       {
         id: projectId,
-        name: `مشروع ${toArabicDigits(projectRegistry.length + 1)}`,
+        name: projectName,
         createdAt: now,
         updatedAt: now,
         isArchived: false,
@@ -2692,12 +3200,29 @@ export default function Home() {
       ...projectRegistry,
     ];
 
-    localStorage.setItem(projectDataKey(projectId), JSON.stringify({}));
+    localStorage.setItem(
+      projectDataKey(projectId),
+      JSON.stringify({
+        project: projectName,
+        stage: "init",
+        initStep: "session",
+      } satisfies Partial<PersistedState>)
+    );
+    setOpenProjectOnce(projectId);
     persistRegistry(nextProjects, projectId);
+    startLoading("create_project");
+    await waitForNextPaint();
     location.reload();
   }
 
-  function duplicateProjectById(projectId: string, switchToNew: boolean) {
+  async function submitNewProjectFromHub() {
+    setNewProjectDraftTouched(true);
+    if (!isNewProjectDraftValid) return;
+    await createNewProject(newProjectDraftTrimmed);
+  }
+
+  async function duplicateProjectById(projectId: string, switchToNew: boolean) {
+    if (loading) return;
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("نسخ المشروع", ["project_manager", "operations_manager"], userRole)
@@ -2725,23 +3250,30 @@ export default function Home() {
 
     localStorage.setItem(projectDataKey(newProjectId), source);
     if (switchToNew) {
+      setOpenProjectOnce(newProjectId);
       persistRegistry(nextProjects, newProjectId);
+      startLoading("duplicate_project");
+      await waitForNextPaint();
       location.reload();
       return;
     }
+    startLoading("duplicate_project");
+    await waitForNextPaint();
     setProjectRegistry(nextProjects);
+    stopLoading();
     showSuccess("تم إنشاء نسخة جديدة من المشروع.");
   }
 
-  function duplicateCurrentProject() {
+  async function duplicateCurrentProject() {
     if (!activeProjectId) {
       showError("اختر مشروعًا أولًا ثم أعد المحاولة.");
       return;
     }
-    duplicateProjectById(activeProjectId, true);
+    await duplicateProjectById(activeProjectId, true);
   }
 
-  function archiveProjectById(projectId: string) {
+  async function archiveProjectById(projectId: string) {
+    if (loading) return;
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("أرشفة المشروع", ["project_manager", "operations_manager"], userRole)
@@ -2771,11 +3303,16 @@ export default function Home() {
         return;
       }
       persistRegistry(nextProjects, nextActiveId);
+      startLoading("archive_project");
+      await waitForNextPaint();
       location.reload();
       return;
     }
 
+    startLoading("archive_project");
+    await waitForNextPaint();
     setProjectRegistry(nextProjects);
+    stopLoading();
     showSuccess("تمت أرشفة المشروع.");
   }
 
@@ -2797,13 +3334,14 @@ export default function Home() {
     setShowArchiveProjectConfirm(true);
   }
 
-  function archiveActiveProject() {
+  async function archiveActiveProject() {
     setShowArchiveProjectConfirm(false);
     if (!activeProjectId) return;
-    archiveProjectById(activeProjectId);
+    await archiveProjectById(activeProjectId);
   }
 
-  function restoreArchivedProject(projectId: string) {
+  async function restoreArchivedProject(projectId: string) {
+    if (loading) return;
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("استعادة المشروع", ["project_manager", "operations_manager"], userRole)
@@ -2818,10 +3356,14 @@ export default function Home() {
           : entry
       )
     );
+    startLoading("restore_project");
+    await waitForNextPaint();
+    stopLoading();
     showSuccess("تمت استعادة المشروع من الأرشيف.");
   }
 
-  function restoreAndOpenArchivedProject(projectId: string) {
+  async function restoreAndOpenArchivedProject(projectId: string) {
+    if (loading) return;
     if (!canEditSessionSetup) {
       showError(
         permissionHintText("فتح مشروع من الأرشيف", ["project_manager", "operations_manager"], userRole)
@@ -2836,12 +3378,16 @@ export default function Home() {
         ? { ...entry, isArchived: false, archivedAt: "", updatedAt: now }
         : entry
     );
+    setOpenProjectOnce(projectId);
     persistRegistry(nextProjects, projectId);
     showSuccess("تم فتح المشروع من الأرشيف.");
+    startLoading("open_archived_project");
+    await waitForNextPaint();
     location.reload();
   }
 
-  function openProjectFromHub(projectId: string) {
+  async function openProjectFromHub(projectId: string) {
+    if (loading) return;
     const selected = projectRegistry.find((item) => item.id === projectId);
     if (!selected || selected.isArchived) return;
     if (projectId === activeProjectId) {
@@ -2849,7 +3395,7 @@ export default function Home() {
       showSuccess("تم فتح المشروع الحالي.");
       return;
     }
-    switchProject(projectId);
+    await switchProject(projectId);
   }
 
   function exportProjectsBackup() {
@@ -3218,8 +3764,8 @@ export default function Home() {
     if (stage === "round1") targetHeading = round1StageHeadingRef.current;
     if (stage === "round2") targetHeading = round2StageHeadingRef.current;
     if (stage === "dialogue") targetHeading = dialogueStageHeadingRef.current;
-    if (stage === "addition") targetHeading = additionStageHeadingRef.current;
-    if (stage === "done") targetHeading = doneStageHeadingRef.current;
+    if (stage === "addition" || stage === "final_addition") targetHeading = additionStageHeadingRef.current;
+    if (stage === "done" || stage === "final_done") targetHeading = doneStageHeadingRef.current;
     if (stage === "advanced_scope") targetHeading = advancedScopeStageHeadingRef.current;
     if (stage === "advanced_boq") targetHeading = advancedBoqStageHeadingRef.current;
     if (stage === "advanced_plan") targetHeading = advancedPlanStageHeadingRef.current;
@@ -3355,19 +3901,30 @@ export default function Home() {
 
   function clearSession() {
     if (!activeProjectId) {
-      showError("لا يوجد مشروع نشط لمسح الجلسة.");
+      showError("لا يوجد مشروع نشط لإعادة تهيئة الجلسة.");
       return;
     }
-    localStorage.removeItem(projectDataKey(activeProjectId));
+    const resetSnapshot: Partial<PersistedState> = {
+      stage: "init",
+      initStep: "session",
+      project: activeProjectName || "",
+      userRole,
+      mode: "مراجعة تنفيذية سريعة",
+      deliveryTrack: "fast",
+      advisorSelectionMode: "all",
+      selectedAdvisors: ALL_ADVISOR_KEYS,
+    };
+    localStorage.setItem(projectDataKey(activeProjectId), JSON.stringify(resetSnapshot));
     // توافق خلفي مع التخزين القديم.
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(resetSnapshot));
+    setShowClearSessionConfirm(false);
     location.reload();
   }
 
   function requestClearSession() {
     if (!canResetSession) return;
     if (!activeProjectId) {
-      showError("لا يوجد مشروع نشط لمسح الجلسة.");
+      showError("لا يوجد مشروع نشط لإعادة تهيئة الجلسة.");
       return;
     }
     setShowClearSessionConfirm(true);
@@ -3560,8 +4117,25 @@ export default function Home() {
     setLoadingContext("");
   }
 
+  async function waitForNextPaint() {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  }
+
+  async function switchInitStep(nextStep: "session" | "project") {
+    if (loading) return;
+    if (initStep === nextStep) return;
+    startLoading("init_step_transition");
+    setInitStep(nextStep);
+    await waitForNextPaint();
+    stopLoading();
+  }
+
   function loadingLabel(context: LoadingContext) {
     switch (context) {
+      case "init_step_transition":
+        return "جاري الانتقال بين أقسام التهيئة...";
       case "start_session":
         return "جاري إعداد الجلسة...";
       case "submit_round1":
@@ -3570,6 +4144,18 @@ export default function Home() {
         return "جاري توليد حوار المستشارين...";
       case "run_analysis":
         return "جاري التحليل وإعداد القرار...";
+      case "create_project":
+        return "جاري إنشاء المشروع وفتحه...";
+      case "open_archived_project":
+        return "جاري فتح المشروع من الأرشيف...";
+      case "switch_project":
+        return "جاري فتح المشروع...";
+      case "duplicate_project":
+        return "جاري نسخ المشروع...";
+      case "archive_project":
+        return "جاري أرشفة المشروع...";
+      case "restore_project":
+        return "جاري استعادة المشروع...";
       default:
         return "جاري المعالجة...";
     }
@@ -3587,6 +4173,35 @@ export default function Home() {
     return loadingContext === context ? loadingLabel(context) : normalLabel;
   }
 
+  function inlineLoadingHint(context: LoadingContext) {
+    switch (context) {
+      case "init_step_transition":
+        return "يتم الانتقال الآن... يرجى الانتظار.";
+      case "start_session":
+        return "يتم تجهيز أسئلة الجلسة الآن... لا تغلق الصفحة.";
+      case "submit_round1":
+        return "جاري توليد أسئلة التدقيق الإضافي... قد يستغرق ذلك بضع ثوان.";
+      case "build_dialogue":
+        return "جاري توليد حوار المستشارين... يتم بناء المخرجات الآن.";
+      case "run_analysis":
+        return "جاري تشغيل التحليل النهائي وإعداد القرار والتوصيات...";
+      case "create_project":
+        return "يتم إنشاء المشروع الآن وفتح شاشة التهيئة تلقائيًا.";
+      case "open_archived_project":
+        return "يتم استعادة المشروع من الأرشيف وفتحه الآن.";
+      case "switch_project":
+        return "يتم فتح المشروع المحدد الآن...";
+      case "duplicate_project":
+        return "يتم إنشاء نسخة جديدة من المشروع الآن.";
+      case "archive_project":
+        return "يتم تحديث حالة المشروع إلى مؤرشف الآن.";
+      case "restore_project":
+        return "يتم استعادة المشروع من الأرشيف الآن.";
+      default:
+        return "جاري تنفيذ الطلب...";
+    }
+  }
+
   function commonPayload() {
     return {
       eventType,
@@ -3597,6 +4212,163 @@ export default function Home() {
       endAt,
       budget: budget.trim() ? budget : "",
       project,
+    };
+  }
+
+  function buildAnalysisContextPayload() {
+    const indicators = projectIndicators().reduce<Record<string, number>>((acc, item) => {
+      acc[item.key] = item.score;
+      return acc;
+    }, {});
+
+    const activeRoles = orgRoles
+      .filter((role) => role.enabled)
+      .map((role) => ({
+        roleId: role.id,
+        title: role.title,
+        assignee: role.assignee.trim() || "غير محدد",
+        responsibilities: role.responsibilities.slice(0, 4),
+        kpis: role.kpis.slice(0, 4),
+      }));
+
+    const boqTopItems = boqFinancialSummary.rows
+      .filter((row) => row.totalCost > 0 || row.totalSell > 0 || row.label.trim().length > 0)
+      .sort((a, b) => b.totalCost - a.totalCost)
+      .slice(0, 18)
+      .map((row) => {
+        const source = boqItems[row.index];
+        return {
+          label: row.label,
+          category: source?.category ?? "",
+          scopeAxis: scopeAxisTitle(normalizeScopeAxisId(source?.scopeAxisId)),
+          qty: row.qty,
+          unit: source?.unit ?? "",
+          source: source?.source ?? "",
+          ownerRoleId: source?.ownerRoleId || "",
+          dependency: source?.dependsOnBoqId || "",
+          cost: row.totalCost,
+          sell: row.totalSell,
+          profit: row.profit,
+          vatRate: row.vatRate,
+          leadTimeDays: Math.max(0, Math.round(parseNumericInput(source?.leadTimeDays ?? ""))),
+        };
+      });
+
+    const executionTopTasks = actionTrackerItems.slice(0, 24).map((item) => ({
+      phase: item.phase,
+      stream: item.stream,
+      task: item.task,
+      owner: item.owner || "غير محدد",
+      status: item.status,
+      dueDate: item.dueDate || "غير محدد",
+    }));
+
+    const executionBlockedTasks = actionTrackerItems
+      .filter((item) => item.status === "متعثر")
+      .slice(0, 10)
+      .map((item) => ({
+        phase: item.phase,
+        task: item.task,
+        owner: item.owner || "غير محدد",
+        dueDate: item.dueDate || "غير محدد",
+        notes: trimForPrompt(item.notes || "", 220),
+      }));
+
+    const topLiveRisks = [...liveRiskItems]
+      .map((risk) => {
+        const score = riskLevelScore(risk.probability) * riskLevelScore(risk.impact);
+        return {
+          title: risk.title || "خطر بدون عنوان",
+          probability: risk.probability,
+          impact: risk.impact,
+          score,
+          severity: riskSeverityLabel(riskSeverityFromScore(score)),
+          status: risk.status,
+          owner: risk.owner || "غير محدد",
+          mitigation: trimForPrompt(risk.mitigation || "", 240),
+          reviewDate: risk.reviewDate || "غير محدد",
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 14);
+
+    return {
+      projectNarrative: trimForPrompt(project, 1800),
+      deliveryTrack,
+      currentStage: stage,
+      readiness: {
+        mode: strategyReadiness.mode,
+        score: strategyReadiness.score,
+        requiredScore: strategyReadiness.requiredScore,
+        criticalMissing: strategyReadiness.criticalMissing,
+        optionalMissing: strategyReadiness.optionalMissing,
+        indicators,
+      },
+      advancedScope: {
+        commissioningDate: commissioningDate || "غير محدد",
+        projectStartDate: projectStartDate || "غير محدد",
+        scopeSite: trimForPrompt(scopeSite || "", 450),
+        scopeTechnical: trimForPrompt(scopeTechnical || "", 450),
+        scopeProgram: trimForPrompt(scopeProgram || "", 450),
+        scopeCeremony: trimForPrompt(scopeCeremony || "", 450),
+        executionStrategy: trimForPrompt(executionStrategy || "", 550),
+        qualityStandards: trimForPrompt(qualityStandards || "", 550),
+        responseSla: trimForPrompt(responseSla || "", 320),
+        closureRemovalHours: closureRemovalHours || "غير محدد",
+      },
+      financial: {
+        budget: parseNumericInput(budget),
+        totalCost: boqFinancialSummary.totalCost,
+        totalSell: boqFinancialSummary.totalSell,
+        profit: boqFinancialSummary.profit,
+        marginPct: boqFinancialSummary.margin,
+        markupPct: boqFinancialSummary.markup,
+        status: boqFinancialSummary.status,
+        breakEvenGap: boqFinancialSummary.breakEvenGap,
+        budgetVariance: boqFinancialSummary.budgetVariance,
+        budgetUsagePercent: boqFinancialSummary.budgetUsagePercent,
+        vat: {
+          totalCostVat: boqFinancialSummary.totalCostVat,
+          totalSellVat: boqFinancialSummary.totalSellVat,
+          netVatPayable: boqFinancialSummary.netVatPayable,
+        },
+      },
+      boq: {
+        rowCount: boqItems.length,
+        dependencyIssues: boqDependencyIssues.slice(0, 10),
+        topItems: boqTopItems,
+      },
+      execution: {
+        orgRoles: activeRoles,
+        progressPercent: actionTrackerProgress,
+        stats: actionTrackerStats,
+        topTasks: executionTopTasks,
+        blockedTasks: executionBlockedTasks,
+      },
+      risks: {
+        summary: liveRiskStats,
+        register: trimForPrompt(riskManagement || "", 1200),
+        topLiveRisks,
+      },
+      governance: {
+        baselineFrozen: hasFrozenBaseline,
+        revisionLabel: documentRevisionLabel,
+        openChangeRequests,
+        approvedChangeRequests,
+        rejectedChangeRequests,
+      },
+      generatedOutputs: {
+        advancedPlanText: trimForPrompt(advancedPlanText || "", 4200),
+        managementBriefText: trimForPrompt(managementBriefText || "", 2600),
+        fieldChecklistText: trimForPrompt(fieldChecklistText || "", 2000),
+      },
+    };
+  }
+
+  function analysisPayload() {
+    return {
+      ...commonPayload(),
+      analysisContext: buildAnalysisContextPayload(),
     };
   }
 
@@ -3618,11 +4390,189 @@ export default function Home() {
 
   function getAnalysisSignature() {
     return JSON.stringify({
-      ...commonPayload(),
+      ...analysisPayload(),
       answers,
       dialogue,
       userAddition: hasAddition === "yes" ? userAddition : "",
     });
+  }
+
+  function dueDateFromPriority(baseDate: string, priority: "عالية" | "متوسطة" | "منخفضة") {
+    const days = priority === "عالية" ? 3 : priority === "متوسطة" ? 7 : 14;
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(baseDate);
+    if (!match) return "";
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    const utc = new Date(Date.UTC(y, m - 1, d));
+    if (Number.isNaN(utc.getTime())) return "";
+    utc.setUTCDate(utc.getUTCDate() + days);
+    return utc.toISOString().slice(0, 10);
+  }
+
+  function assignOwnerByRole(roleId: OrgRoleId, fallback: string) {
+    const direct = orgRoles.find((role) => role.id === roleId && role.enabled);
+    if (direct) return orgRoleDisplay(direct);
+    const ops = orgRoles.find((role) => role.id === "operations_manager" && role.enabled);
+    if (ops) return orgRoleDisplay(ops);
+    return fallback;
+  }
+
+  function hashTaskIdentity(text: string) {
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      hash = (hash * 31 + text.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  function classifyDecisionTask(text: string, advisorKey?: AdvisorKey) {
+    const normalized = text.replace(/\s+/g, " ").trim();
+
+    let phase: ActionTaskItem["phase"] = "المتابعة";
+    if (/(إقفال|إغلاق|تسليم|تفكيك|إنهاء)/.test(normalized)) {
+      phase = "الإقفال";
+    } else if (/(إعداد|تجهيز|اعتماد|قبل التنفيذ|تعميد)/.test(normalized)) {
+      phase = "الإعداد";
+    } else if (/(تنفيذ|تشغيل|ميداني|جلسة|إطلاق)/.test(normalized)) {
+      phase = "التنفيذ";
+    }
+
+    if (advisorKey === "financial_advisor" || /(ميزاني|تكلف|ربح|هامش|مالي|تسعير|تدفق نقدي)/.test(normalized)) {
+      return {
+        stream: "الرقابة المالية",
+        owner: assignOwnerByRole("finance_manager", "المدير المالي"),
+        phase,
+      };
+    }
+    if (advisorKey === "marketing_advisor" || /(تسويق|حملة|جمهور|إعلان|تفاعل|حضور|قنوات)/.test(normalized)) {
+      return {
+        stream: "التسويق والاتصال",
+        owner: assignOwnerByRole("marketing_manager", "مدير التسويق والاتصال"),
+        phase,
+      };
+    }
+    if (advisorKey === "regulatory_advisor" || /(امتثال|حوكمة|تصريح|تنظيم|تراخيص|عقد|موافقة)/.test(normalized)) {
+      return {
+        stream: "الحوكمة والامتثال",
+        owner: assignOwnerByRole("operations_manager", "مدير الامتثال"),
+        phase: phase === "التنفيذ" ? "الإعداد" : phase,
+      };
+    }
+    if (advisorKey === "risk_advisor" || /(مخاطر|تصعيد|طوارئ|بدائل|معالجة|احتمال|أثر)/.test(normalized)) {
+      return {
+        stream: "الجودة والمخاطر",
+        owner: assignOwnerByRole("operations_manager", "مدير المخاطر"),
+        phase,
+      };
+    }
+
+    return {
+      stream: "القيادة التشغيلية",
+      owner: assignOwnerByRole("operations_manager", "مدير المشروع"),
+      phase,
+    };
+  }
+
+  function buildDecisionActionTasks(nextAnalysis: AnalysisData) {
+    type TaskSeed = {
+      text: string;
+      priority: "عالية" | "متوسطة" | "منخفضة";
+      source: string;
+      advisorKey?: AdvisorKey;
+    };
+
+    const seeds: TaskSeed[] = [];
+    const pushSeed = (seed: TaskSeed) => {
+      const text = seed.text.replace(/\s+/g, " ").trim();
+      if (!text) return;
+      seeds.push({ ...seed, text });
+    };
+
+    (nextAnalysis.strategic_analysis?.top_3_upgrades || []).forEach((item) =>
+      pushSeed({ text: item, priority: "عالية", source: "ترقية استراتيجية" })
+    );
+    [nextAnalysis.executive_decision?.reason_1, nextAnalysis.executive_decision?.reason_2].forEach((item) => {
+      if (item) pushSeed({ text: item, priority: "عالية", source: "مبرر القرار" });
+    });
+    (nextAnalysis.strategic_analysis?.gaps || []).slice(0, 6).forEach((item) =>
+      pushSeed({ text: item, priority: "متوسطة", source: "فجوة تشغيلية" })
+    );
+    (nextAnalysis.strategic_analysis?.risks || []).slice(0, 6).forEach((item) =>
+      pushSeed({ text: item, priority: "عالية", source: "مخاطر التحليل" })
+    );
+
+    Object.entries(nextAnalysis.advisor_recommendations || {}).forEach(([key, rec]) => {
+      const advisorKey = key as AdvisorKey;
+      (rec?.recommendations || []).slice(0, 3).forEach((item) =>
+        pushSeed({
+          text: item,
+          priority: "متوسطة",
+          source: `توصية ${advisorRoleCardLabel(advisorKey)}`,
+          advisorKey,
+        })
+      );
+      if (rec?.strategic_warning?.trim()) {
+        pushSeed({
+          text: rec.strategic_warning,
+          priority: "عالية",
+          source: `تحذير ${advisorRoleCardLabel(advisorKey)}`,
+          advisorKey,
+        });
+      }
+    });
+
+    const deduped: TaskSeed[] = [];
+    const seen = new Set<string>();
+    for (const seed of seeds) {
+      const key = seed.text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(seed);
+    }
+
+    const baseDate = projectStartDate || (startAt ? startAt.slice(0, 10) : "") || todayDate;
+    return deduped.slice(0, 16).map<ActionTaskItem>((seed) => {
+      const classification = classifyDecisionTask(seed.text, seed.advisorKey);
+      const compactTask = trimForPrompt(seed.text, 180);
+      return {
+        id: `ai-final-${hashTaskIdentity(`${classification.stream}|${compactTask}|${seed.priority}`)}`,
+        phase: classification.phase,
+        stream: classification.stream,
+        task: compactTask,
+        owner: classification.owner,
+        dueDate: dueDateFromPriority(baseDate, seed.priority),
+        status: "لم تبدأ",
+        notes: `أولوية: ${seed.priority} | المصدر: ${seed.source} | مولد تلقائيًا من التحليل النهائي.`,
+      };
+    });
+  }
+
+  function syncDecisionActionTasks(nextAnalysis: AnalysisData) {
+    const generated = buildDecisionActionTasks(nextAnalysis);
+    if (generated.length === 0) return false;
+
+    setActionTrackerItems((prev) => {
+      const manualTasks = prev.filter((item) => !item.id.startsWith("ai-final-"));
+      const previousGeneratedMap = new Map(
+        prev.filter((item) => item.id.startsWith("ai-final-")).map((item) => [item.id, item])
+      );
+
+      const mergedGenerated = generated.map((item) => {
+        const prevItem = previousGeneratedMap.get(item.id);
+        if (!prevItem) return item;
+        return {
+          ...item,
+          status: prevItem.status,
+          owner: prevItem.owner.trim() ? prevItem.owner : item.owner,
+          dueDate: prevItem.dueDate || item.dueDate,
+          notes: prevItem.notes.trim() ? prevItem.notes : item.notes,
+        };
+      });
+
+      return [...manualTasks, ...mergedGenerated];
+    });
+    return true;
   }
 
   function updateBoqItem(id: string, patch: Partial<BoqItem>) {
@@ -4280,6 +5230,18 @@ export default function Home() {
     showSuccess("تم تفعيل المسار المتقدم. أكمل البيانات لبناء خطة تنفيذ تفصيلية.");
   }
 
+  function openFinalConsultation() {
+    setNeedsReanalysisHint(true);
+    setStage("final_addition");
+    showSuccess("تم فتح الاستشارة الختامية. راجع الإضافات الأخيرة ثم شغّل التحليل النهائي.");
+  }
+
+  function openPostDecisionRoute(target: PostDecisionRouteKey) {
+    if (typeof window === "undefined") return;
+    const href = POST_DECISION_ROUTES[target];
+    window.location.assign(href);
+  }
+
   function buildAdvancedPlan() {
     const commissioning = commissioningDate ? new Date(commissioningDate) : null;
     const projectStart = projectStartDate ? new Date(projectStartDate) : null;
@@ -4906,33 +5868,75 @@ export default function Home() {
   }
 
   function fillFullTestModel() {
-    const demoStart = "2026-03-20T18:00";
-    const demoEnd = "2026-03-21T23:00";
+    const qaStart = "2026-04-14T17:00";
+    const qaEnd = "2026-04-16T23:30";
 
     const demoRound1: Question[] = [
       {
         id: "Q1",
         advisor_key: "financial_advisor",
         advisor_name: "المستشار المالي – محلل الاستدامة",
-        question: "ما توزيع الميزانية على البنود التشغيلية والتقنية؟",
-        intent: "قياس كفاية الميزانية وتحديد بنود المخاطر المالية.",
+        question: "ما توزيع الميزانية التفصيلي بين البنود الحرجة وما سقف الانحراف المسموح؟",
+        intent: "ضبط قدرة المشروع على التنفيذ دون تجاوز مالي مفاجئ.",
       },
       {
         id: "Q2",
         advisor_key: "operations_advisor",
         advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
-        question: "ما خطة الجاهزية للموقع قبل يوم الفعالية؟",
-        intent: "تأكيد التسلسل التشغيلي وضمان الجاهزية الميدانية.",
+        question: "ما خطة التشغيل اليومية من مرحلة الإعداد حتى الإقفال؟",
+        intent: "بناء تسلسل تنفيذي واضح مع مسؤوليات محددة.",
+      },
+      {
+        id: "Q3",
+        advisor_key: "marketing_advisor",
+        advisor_name: "مستشار التسويق – القيمة والطلب",
+        question: "ما مستهدفات الحضور والتحويل وما قنوات الاستحواذ الأساسية؟",
+        intent: "مواءمة الإنفاق التسويقي مع أثر تجاري قابل للقياس.",
+      },
+      {
+        id: "Q4",
+        advisor_key: "regulatory_advisor",
+        advisor_name: "المستشار التنظيمي – الحوكمة والامتثال",
+        question: "ما وضع التصاريح والامتثال التعاقدي مع الموردين والجهات المنظمة؟",
+        intent: "تقليل مخاطر التعطل النظامي قبل التنفيذ.",
+      },
+      {
+        id: "Q5",
+        advisor_key: "risk_advisor",
+        advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
+        question: "ما أعلى ثلاثة مخاطر محتملة وما خطة المعالجة لكل خطر؟",
+        intent: "تحويل المخاطر من توصيف عام إلى إجراءات تشغيلية قابلة للتنفيذ.",
+      },
+      {
+        id: "Q6",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: "كيف سيتم توزيع قيادة الفرق وتفويض القرار أثناء الذروة؟",
+        intent: "ضمان سرعة القرار وتقليل الاختناقات التشغيلية.",
       },
     ];
 
     const demoFollowups: Question[] = [
       {
         id: "F1",
+        advisor_key: "financial_advisor",
+        advisor_name: "المستشار المالي – محلل الاستدامة",
+        question: "ما خطة التدفق النقدي ومتى تدفع الالتزامات الكبرى؟",
+        intent: "تأكيد السيولة وقت التنفيذ وعدم توقف الموردين.",
+      },
+      {
+        id: "F2",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: "ما خطة الطوارئ في انقطاع الكهرباء أو شبكة الإنترنت أو تأخر المعدات؟",
+        intent: "رفع الاعتمادية التشغيلية في يوم الحدث.",
+      },
+      {
+        id: "F3",
         advisor_key: "risk_advisor",
         advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
-        question: "ما البدائل في حال تأخر تجهيز الشاشة أو الصوت؟",
-        intent: "تقليل أثر التعثر وضمان استمرارية التشغيل.",
+        question: "ما عتبات التصعيد (Trigger thresholds) ومن يملك قرار التحويل للخطة البديلة؟",
+        intent: "تقليل زمن الاستجابة للحوادث الحرجة.",
       },
     ];
 
@@ -4942,172 +5946,657 @@ export default function Home() {
         advisor_key: "financial_advisor",
         advisor_name: "المستشار المالي – محلل الاستدامة",
         question: demoRound1[0].question,
-        answer: "الميزانية الإجمالية 250 ألف، موزعة على التشغيل 40%، الفني 35%، التسويق 15%، احتياطي 10%.",
+        answer:
+          "الميزانية 780,000 ر.س، موزعة: فني 41%، موقع وتجهيز 26%، تسويق 14%، تشغيل ميداني 11%، احتياطي مخاطر 8%. سقف الانحراف التشغيلي 7%.",
       },
       {
         id: "Q2",
         advisor_key: "operations_advisor",
         advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
         question: demoRound1[1].question,
-        answer: "الجاهزية على 3 مراحل: تجهيز، اختبار، بروفة نهائية قبل الافتتاح بـ 24 ساعة.",
+        answer:
+          "الخطة على 4 مراحل: إعداد (21 يوم) > تنفيذ (3 أيام) > متابعة حيّة (مستمرة) > إقفال (8 ساعات). لكل مرحلة قائد ومسار تصعيد.",
+      },
+      {
+        id: "Q3",
+        advisor_key: "marketing_advisor",
+        advisor_name: "مستشار التسويق – القيمة والطلب",
+        question: demoRound1[2].question,
+        answer:
+          "المستهدف 4,800 زائر، التحويل إلى تسجيل مدفوع 12%. القنوات: SEO/SEM، إعلانات Meta وLinkedIn، وشركاء محتوى متخصصين.",
+      },
+      {
+        id: "Q4",
+        advisor_key: "regulatory_advisor",
+        advisor_name: "المستشار التنظيمي – الحوكمة والامتثال",
+        question: demoRound1[3].question,
+        answer:
+          "التصاريح الأساسية مكتملة بنسبة 90%، والمتبقي اعتماد نهائي لخطة السلامة. جميع عقود الموردين تتضمن SLA وبنود جزاءات التأخير.",
+      },
+      {
+        id: "Q5",
+        advisor_key: "risk_advisor",
+        advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
+        question: demoRound1[4].question,
+        answer:
+          "أعلى المخاطر: تأخر مورد LED، ازدحام بوابات الدخول، تعثر بث مباشر. تم تجهيز بدائل توريد ومسارات دخول إضافية وخطة بث احتياطية.",
+      },
+      {
+        id: "Q6",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: demoRound1[5].question,
+        answer:
+          "هيكل القيادة: مدير مشروع > عمليات > مالي/تسويق/تجربة زائر. قرار التحويل للطوارئ خلال 5 دقائق عبر غرفة عمليات مركزية.",
       },
       {
         id: "F1",
+        advisor_key: "financial_advisor",
+        advisor_name: "المستشار المالي – محلل الاستدامة",
+        question: demoFollowups[0].question,
+        answer:
+          "الدفعات الرئيسية: 30% مقدم توريد، 40% قبل التنفيذ بـ10 أيام، 30% بعد الاستلام. رصيد السيولة يغطي 1.4x الالتزامات قصيرة الأجل.",
+      },
+      {
+        id: "F2",
+        advisor_key: "operations_advisor",
+        advisor_name: "مستشار العمليات – التشغيل والتنفيذ",
+        question: demoFollowups[1].question,
+        answer:
+          "مولد احتياطي + خط إنترنت احتياطي + طاقم دعم فني مناوب + مورد بديل مع زمن توريد عاجل 24 ساعة.",
+      },
+      {
+        id: "F3",
         advisor_key: "risk_advisor",
         advisor_name: "مستشار المخاطر والاستراتيجية – موازن القرار",
-        question: demoFollowups[0].question,
-        answer: "تم تحديد مورد احتياطي وفريق فني بديل مع زمن استجابة لا يتجاوز 10 دقائق.",
+        question: demoFollowups[2].question,
+        answer:
+          "عتبة التصعيد عند أثر/احتمال مرتفع أو تأخير >90 دقيقة في بند حرج. قرار التصعيد مع مدير العمليات ومدير المشروع.",
       },
     ];
 
     const demoDialogue: DialogueLine[] = [
       {
         advisor: "financial_advisor",
-        statement: "الميزانية مناسبة بشرط ضبط العقود الفنية مبكرًا وتقليل التغييرات المتأخرة.",
+        statement: "الربحية الحالية جيدة لكن حساسة لأي تغييرات متأخرة على التجهيزات الفنية.",
       },
       {
         advisor: "operations_advisor",
-        statement: "أولوية التنفيذ هي الجاهزية الميدانية واختبارات التشغيل قبل يوم الحدث.",
+        statement: "المسار الحرج يمر عبر اعتماد الموقع وتوريد الـLED واختبارات الصوت.",
+      },
+      {
+        advisor: "marketing_advisor",
+        statement: "نحتاج تكثيف الإنفاق المدفوع قبل الحدث بـ12 يومًا لرفع التحويل النهائي.",
+      },
+      {
+        advisor: "regulatory_advisor",
+        statement: "الامتثال جيد، لكن لا بد من إغلاق اعتماد السلامة قبل الانتقال للتشغيل.",
       },
       {
         advisor: "risk_advisor",
-        statement: "يوصى بتفعيل خطة تصعيد فوري للمخاطر الحرجة وربطها بمؤشرات اتفاقية مستوى الخدمة.",
+        statement: "خطر الازدحام يحتاج خطة تشغيل ميداني دقيقة مع تقسيم تدفقات الدخول.",
+      },
+      {
+        advisor: "operations_advisor",
+        statement: "أقترح بروفة تشغيل كاملة قبل يوم التنفيذ بـ24 ساعة مع سيناريو بديل.",
+      },
+      {
+        advisor: "financial_advisor",
+        statement: "احتياطي المخاطر 8% كافٍ إذا التزمنا بنافذة تجميد تغييرات واضحة.",
+      },
+      {
+        advisor: "risk_advisor",
+        statement: "يجب تعريف Trigger واضح لكل خطر وربطه بمالك استجابة وزمن معالجة.",
       },
     ];
+
+    const demoReportText = [
+      "ملخص تنفيذي",
+      "المشروع في مستوى جاهزية متقدم مع قدرة تنفيذ جيدة، ويحتاج إغلاقات محددة قبل الاعتماد النهائي.",
+      "",
+      "معلومات الفعالية",
+      "النوع: مؤتمر ومعرض تقني | الموقع: فندق | البداية: 2026-04-14 17:00 | النهاية: 2026-04-16 23:30 | الميزانية: 780,000 ر.س",
+      "",
+      "حالة الجاهزية",
+      "- اكتمال البيانات: مرتفع",
+      "- الفجوات الحرجة: اعتماد السلامة النهائي + إغلاق مورد بديل LED",
+      "",
+      "التحليل المالي",
+      "- إجمالي التكلفة: 520,000 ر.س",
+      "- إجمالي البيع: 756,800 ر.س",
+      "- صافي الربح التشغيلي: 236,800 ر.س",
+      "- هامش الربح: 31.3%",
+      "",
+      "التحليل التنفيذي وتوزيع المهام",
+      "- توزيع الأدوار مكتمل",
+      "- المهام المتعثرة الحالية: 2 مهام (تعاقد LED، خطة دخول)",
+      "- نسبة الإنجاز الحالية: 42%",
+      "",
+      "تحليل المخاطر",
+      "- مخاطر حرجة: تأخر مورد LED، ازدحام الدخول، تعثر البث المباشر",
+      "- الإجراء المقترح: تفعيل المورد البديل + مضاعفة مسارات الدخول + بث احتياطي",
+      "",
+      "القرار",
+      "جاهز بعد تحسينات محددة",
+      "",
+      "خطة المتابعة",
+      "- خلال 24-72 ساعة: إغلاق اعتماد السلامة وتثبيت بديل LED",
+      "- خلال 30 يوم: ضبط برنامج التشغيل وتحسين مؤشرات تجربة الزائر",
+      "- خلال 60-90 يوم: توثيق الدروس وتثبيت إطار حوكمة قابل للتكرار",
+    ].join("\n");
 
     const demoAnalysis: AnalysisData = {
       strategic_analysis: {
         strengths: [
-          "وضوح نطاق العمل الأساسي وتوزيع مبدئي مناسب للميزانية.",
-          "توفر خطة تشغيل مرحلية تشمل الاختبار والبروفة.",
+          "هيكل حوكمة واضح وتوزيع مسؤوليات عملي على فريق متعدد التخصصات.",
+          "جدول كميات متوازن مع ربحية تشغيلية موجبة وهامش آمن نسبيًا.",
+          "وجود خطة متابعة ومؤشرات أداء تشغيلية قابلة للقياس.",
+          "وضوح المسار الحرج وربط جزء كبير من البنود بملاك ومسارات تنفيذ.",
         ],
         amplification_opportunities: [
-          "تعزيز خطة التسويق الرقمي قبل الإطلاق بـ 14 يومًا.",
-          "رفع جاهزية فريق المراسم من خلال سيناريوهات محاكاة.",
+          "زيادة كفاءة قنوات التسويق الرقمي في آخر 12 يومًا قبل الحدث.",
+          "تحسين خطة تجربة الزائر عبر تقسيم تدفقات الدخول المبكرة.",
+          "رفع عمق بروفة التشغيل بسيناريوهات بديلة (Power/Network Failover).",
+          "إضافة لوحة إنذار مالي مبكر لانحرافات التكلفة اليومية.",
         ],
-        gaps: ["تحتاج خطة الجودة إلى نقاط قياس أكثر تفصيلًا.", "توثيق بدائل الموردين يحتاج اعتماد نهائي."],
-        risks: ["تأخر توريد بند فني حرج.", "تعارض جدول الفقرات يوم التنفيذ."],
+        gaps: [
+          "اعتماد السلامة النهائي لم يغلق بعد.",
+          "مصفوفة التصعيد تحتاج عتبات كمية موحدة لكل خطر.",
+          "توثيق المورد البديل للـLED يحتاج اعتماد تعاقدي نهائي.",
+          "خطة المحتوى التسويقي تحتاج توزيعًا أدق على الشرائح المستهدفة.",
+        ],
+        risks: [
+          "تأخر توريد بند LED الحرج وتأثيره على البروفة النهائية.",
+          "ازدحام البوابات عند ذروة الوصول.",
+          "انقطاع بث مباشر أثناء الفقرات الرئيسية.",
+          "تغييرات متأخرة على نطاق التشغيل تضغط الميزانية.",
+        ],
         readiness_level: "متقدم",
         top_3_upgrades: [
-          "اعتماد خطة طوارئ فنية مفصلة قبل 7 أيام.",
-          "تثبيت نافذة تجميد للتغييرات قبل التنفيذ.",
-          "تفعيل تقرير متابعة يومي قبل الحدث.",
+          "تثبيت نافذة تجميد تغييرات قبل 7 أيام من التنفيذ.",
+          "اعتماد خطة بدائل تشغيلية موثقة ومجرّبة لكل بند حرج.",
+          "تفعيل لوحة متابعة يومية موحدة (مالي + تشغيل + مخاطر).",
         ],
       },
       executive_decision: {
         decision: "جاهز بعد تحسينات محددة",
-        reason_1: "المشروع يمتلك أساسًا تشغيليًا قويًا مع فرص تحسين محددة وواضحة.",
-        reason_2: "الفجوات الحالية قابلة للإغلاق سريعًا قبل موعد التنفيذ.",
+        reason_1: "الأساس التشغيلي والمالي قوي، والفجوات محدودة وقابلة للإغلاق قبل التنفيذ.",
+        reason_2: "مخاطر اليوم التشغيلي معروفة ويمكن السيطرة عليها بخطة بدائل وتصعيد منضبطة.",
       },
       advisor_recommendations: {
         financial_advisor: {
-          recommendations: ["ضبط الالتزامات التعاقدية ضمن سقف الميزانية.", "تفعيل احتياطي طوارئ بنسبة 10%."],
-          strategic_warning: "أي تغيير متأخر في البنود الفنية قد يضغط الميزانية.",
+          recommendations: [
+            "ضبط اعتمادات الشراء الحرجة على موجات مرتبطة بالمعالم التنفيذية.",
+            "تفعيل تنبيه انحراف فوري عند تجاوز 5% من الميزانية التشغيلية.",
+          ],
+          strategic_warning: "أي تغيير متأخر في البنود الفنية بدون اعتماد مالي سيضغط الربحية مباشرة.",
+        },
+        regulatory_advisor: {
+          recommendations: [
+            "إغلاق اعتماد السلامة قبل نافذة التجميد التشغيلية.",
+            "مراجعة عقود الموردين الحرجة مع بنود جزائية قابلة للتنفيذ.",
+          ],
+          strategic_warning: "التأخر في الامتثال النهائي قد يجمّد جزءًا من التشغيل يوم الحدث.",
         },
         operations_advisor: {
-          recommendations: ["اعتماد خطة جاهزية يومية.", "تنفيذ بروفة تشغيل كاملة."],
-          strategic_warning: "تأخير الاختبارات النهائية يرفع مخاطر يوم الفعالية.",
+          recommendations: [
+            "تنفيذ بروفة شاملة قبل 24 ساعة مع سيناريو انقطاع فني.",
+            "تعيين قائد مسار لكل نقطة حرجة داخل غرفة العمليات.",
+          ],
+          strategic_warning: "ضعف التنسيق اللحظي بين الفرق يرفع زمن الاستجابة عند الطوارئ.",
+        },
+        marketing_advisor: {
+          recommendations: [
+            "تكثيف حملات التحويل عالية النية قبل 12 يومًا من الحدث.",
+            "إعادة توزيع الميزانية التسويقية نحو القنوات الأعلى تحويلًا.",
+          ],
+          strategic_warning: "الاعتماد على قناة تسويقية واحدة يزيد تقلبات التسجيل النهائي.",
         },
         risk_advisor: {
-          recommendations: ["تفعيل مسار تصعيد فوري.", "تحديد ملاك مخاطر لكل بند حرج."],
-          strategic_warning: "غياب خطة بدائل موثقة للموردين يمثل خطرًا تشغيليًا عاليًا.",
+          recommendations: [
+            "ربط كل خطر بمالك واضح وعتبة تصعيد وزمن استجابة مستهدف.",
+            "تفعيل اجتماع مخاطر يومي قصير خلال أسبوع التنفيذ.",
+          ],
+          strategic_warning: "غياب عتبات تصعيد كمية قد يؤخر قرار التحويل للخطة البديلة.",
         },
       },
-      report_text: "تقرير تجريبي: تم تحميل بيانات افتراضية كاملة للاختبار.",
+      report_text: demoReportText,
     };
 
     const demoPlan = [
-      "خطة تنفيذ متكاملة (نموذج تجريبي كامل)",
+      "خطة تنفيذ اختبار شاملة (مؤقتة)",
       "",
-      "1) الإعداد: اعتماد النطاق والتصاميم وتجهيز الموردين.",
-      "2) التنفيذ: تشغيل البرنامج وإدارة الفقرات والمراسم.",
-      "3) المتابعة: مراقبة الجودة والمخاطر ورفع التقارير.",
-      "4) الإقفال: إزالة التجهيزات وتسليم الموقع خلال 6 ساعات.",
+      "الإعداد (21 يوم):",
+      "- اعتماد النطاق وخطة الجودة والتصاريح.",
+      "- تثبيت الموردين الحرجين وخطة البدائل.",
+      "- تجهيز الموقع والفحوصات التقنية الأولية.",
+      "",
+      "التنفيذ (3 أيام):",
+      "- تشغيل البرنامج وفق السيناريو المعتمد.",
+      "- غرفة عمليات ميدانية بمتابعة حيّة.",
+      "- إدارة تجربة الزائر ومسارات الدخول.",
+      "",
+      "المتابعة:",
+      "- لوحة يومية موحدة (مالي + تشغيل + مخاطر).",
+      "- تقارير إغلاق يومية وإجراءات تصحيحية فورية.",
+      "",
+      "الإقفال:",
+      "- إزالة التجهيزات وتسليم الموقع خلال 8 ساعات.",
+      "- تقرير الدروس المستفادة وخطة التحسين للدورة القادمة.",
     ].join("\n");
 
-    setDeliveryTrack("advanced");
-    setAdvisorSelectionMode("all");
-    setSelectedAdvisors(ALL_ADVISOR_KEYS);
-    setMode("تحليل معمّق");
-    setInitStep("session");
-    setEventType("مؤتمر احترافي مدفوع");
-    setVenueType("فندق");
-    setCommissioningDate("2026-03-10");
-    setProjectStartDate("2026-03-11");
-    setStartAt(demoStart);
-    setEndAt(demoEnd);
-    setBudget("250000");
-    setProject("مشروع فعالية تنفيذية متكاملة مع مسارات تشغيل وتسويق وتوثيق.");
+    const demoManagementBrief = [
+      "ملخص تنفيذي للإدارة — اختبار مؤقت",
+      "الميزانية: 780,000 ر.س | تكلفة متوقعة: 520,000 ر.س | ربح تشغيلي: 236,800 ر.س",
+      "مستوى الجاهزية: متقدم",
+      "قرار المجلس: جاهز بعد تحسينات محددة",
+      "أولوية الـ72 ساعة: اعتماد السلامة + تثبيت بديل LED + اختبار خطة الدخول.",
+    ].join("\n");
 
-    setRound1Questions(demoRound1);
-    setFollowupQuestions(demoFollowups);
-    setAnswers(demoAnswers);
-    setDialogue(demoDialogue);
-    setDialogueSignature("demo_dialogue_signature_v1");
-    setOpenIssues(["اعتماد نهائي لخطة الجودة", "تأكيد مورد احتياطي للشاشة"]);
-    setHasAddition("yes");
-    setUserAddition("تأكيد جاهزية فريق الاستقبال وتوسيع خطة الإعلام المباشر.");
-    setAnalysis(demoAnalysis);
-    setAnalysisSignature("demo_analysis_signature_v1");
-    setReportText(demoAnalysis.report_text || "");
+    const demoFieldChecklist = [
+      "قائمة التحقق الميدانية — اختبار مؤقت",
+      "☐ مراجعة جاهزية الموقع",
+      "☐ اختبار الصوت والإضاءة والشاشات",
+      "☐ اختبار مسارات الدخول والبوابات",
+      "☐ اختبار البث المباشر والخط الاحتياطي",
+      "☐ تفعيل غرفة العمليات وسجل التصعيد",
+      "☐ إقفال اليوم بمحضر ملاحظات وإجراءات فورية",
+    ].join("\n");
 
-    setScopeSite("حجز وتجهيز القاعة الرئيسية وقاعة كبار الشخصيات واعتماد الجاهزية.");
-    setScopeTechnical("شاشة عرض، صوت، إضاءة، وفريق تقني متواجد طوال التشغيل.");
-    setScopeProgram("تطبيق السيناريو المعتمد وإدارة فقرات الحفل وفق الجدول.");
-    setScopeCeremony("تنظيم المراسم والتوثيق والبث المباشر والتغطية الإعلامية.");
-    setExecutionStrategy("اعتماد > تجهيز > اختبار > بروفة > تشغيل > إقفال.");
-    setQualityStandards("اختبارات جودة قبل التشغيل ونقاط فحص يومية أثناء التنفيذ.");
-    setRiskManagement("سجل مخاطر تشغيلي مع بدائل للموردين وخطة تصعيد.");
-    setResponseSla("الأعطال الحرجة خلال 10 دقائق، والملاحظات التشغيلية خلال 15 دقيقة.");
-    setClosureRemovalHours("6");
-    setDemoMode(true);
-    setBoqItems([
+    const demoBoqItems: BoqItem[] = [
       {
-        id: "demo-1",
-        category: "التجهيزات الفنية",
-        item: "شاشة عرض رئيسية",
-        spec: "دقة عالية مع اختبار تجريبي كامل",
-        unit: "قطعة",
+        id: "qa-01",
+        category: "الموقع والتجهيزات",
+        scopeAxisId: "site_setup",
+        item: "منصة رئيسية وتجهيز المسرح",
+        spec: "هيكل منصة 12x8 متر مع تشطيب احترافي واختبارات أمان",
+        unit: "باكدج",
         qty: "1",
-        unitCost: "45000",
-        unitSellPrice: "62000",
-        targetMarginPct: "30",
+        unitCost: "90000",
+        unitSellPrice: "126000",
+        targetMarginPct: "40",
         vatApplicable: true,
         vatRate: String(DEFAULT_BOQ_VAT_RATE),
         source: "مورد",
-        leadTimeDays: "5",
+        leadTimeDays: "10",
         ownerRoleId: "operations_manager",
         dependsOnBoqId: "",
         dependencyType: "FS",
       },
       {
-        id: "demo-2",
-        category: "الموقع والتجهيزات",
-        item: "تجهيز قاعة كبار الشخصيات",
-        spec: "أثاث وضيافة وتجهيز بروتوكولي",
+        id: "qa-02",
+        category: "التجهيزات الفنية",
+        scopeAxisId: "technical_setup",
+        item: "نظام صوت احترافي Line Array",
+        spec: "تغطية كاملة للقاعات مع وحدات احتياطية",
         unit: "باكدج",
         qty: "1",
-        unitCost: "18000",
-        unitSellPrice: "28500",
-        targetMarginPct: "35",
+        unitCost: "120000",
+        unitSellPrice: "165000",
+        targetMarginPct: "37.5",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "مورد",
+        leadTimeDays: "9",
+        ownerRoleId: "operations_manager",
+        dependsOnBoqId: "qa-01",
+        dependencyType: "FS",
+      },
+      {
+        id: "qa-03",
+        category: "التجهيزات الفنية",
+        scopeAxisId: "technical_setup",
+        item: "شاشات LED جانبية",
+        spec: "شاشتان 5x3 متر مع وحدة تحكم وبث احتياطي",
+        unit: "قطعة",
+        qty: "2",
+        unitCost: "45000",
+        unitSellPrice: "63000",
+        targetMarginPct: "40",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "مورد",
+        leadTimeDays: "8",
+        ownerRoleId: "operations_manager",
+        dependsOnBoqId: "qa-01",
+        dependencyType: "FS",
+      },
+      {
+        id: "qa-04",
+        category: "التجهيزات الفنية",
+        scopeAxisId: "technical_setup",
+        item: "شبكة إنترنت + بث مباشر",
+        spec: "خط رئيسي + خط احتياطي + مزود بث سحابي",
+        unit: "باكدج",
+        qty: "1",
+        unitCost: "38000",
+        unitSellPrice: "56000",
+        targetMarginPct: "47",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "مورد",
+        leadTimeDays: "6",
+        ownerRoleId: "program_director",
+        dependsOnBoqId: "qa-02",
+        dependencyType: "FS",
+      },
+      {
+        id: "qa-05",
+        category: "المراسم والضيافة",
+        scopeAxisId: "ceremony_documentation",
+        item: "ضيافة وكبار الشخصيات",
+        spec: "تجهيز مناطق استقبال VIP وخدمة ضيافة متكاملة",
+        unit: "باكدج",
+        qty: "1",
+        unitCost: "52000",
+        unitSellPrice: "79000",
+        targetMarginPct: "51.9",
         vatApplicable: true,
         vatRate: String(DEFAULT_BOQ_VAT_RATE),
         source: "أصل داخلي",
-        leadTimeDays: "2",
+        leadTimeDays: "5",
         ownerRoleId: "visitor_experience_manager",
-        dependsOnBoqId: "demo-1",
+        dependsOnBoqId: "qa-01",
         dependencyType: "FS",
       },
-    ]);
+      {
+        id: "qa-06",
+        category: "التشغيل واللوجستيات",
+        scopeAxisId: "operations_logistics",
+        item: "بوابات دخول ومسح QR",
+        spec: "6 مسارات دخول مع أجهزة تحقق وتوجيه ميداني",
+        unit: "مسار",
+        qty: "6",
+        unitCost: "4500",
+        unitSellPrice: "7800",
+        targetMarginPct: "73.3",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "أصل داخلي",
+        leadTimeDays: "4",
+        ownerRoleId: "visitor_experience_manager",
+        dependsOnBoqId: "qa-01",
+        dependencyType: "FS",
+      },
+      {
+        id: "qa-07",
+        category: "التسويق والاتصال",
+        scopeAxisId: "marketing_communication",
+        item: "حملة تسويق رقمي وتحويل",
+        spec: "خطة محتوى + إعلانات أداء + صفحات هبوط + تتبع تحويلات",
+        unit: "باكدج",
+        qty: "1",
+        unitCost: "85000",
+        unitSellPrice: "130000",
+        targetMarginPct: "52.9",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "مورد",
+        leadTimeDays: "14",
+        ownerRoleId: "marketing_manager",
+        dependsOnBoqId: "",
+        dependencyType: "FS",
+      },
+      {
+        id: "qa-08",
+        category: "الامتثال والتصاريح",
+        scopeAxisId: "permits_compliance",
+        item: "اعتماد سلامة وخطة طوارئ",
+        spec: "مراجعة ميدانية مع اعتماد نهائي قبل التشغيل",
+        unit: "باكدج",
+        qty: "1",
+        unitCost: "18000",
+        unitSellPrice: "28000",
+        targetMarginPct: "55.6",
+        vatApplicable: true,
+        vatRate: String(DEFAULT_BOQ_VAT_RATE),
+        source: "أصل داخلي",
+        leadTimeDays: "7",
+        ownerRoleId: "operations_manager",
+        dependsOnBoqId: "qa-01",
+        dependencyType: "FS",
+      },
+    ];
+
     const demoLeads: Record<OrgRoleId, string> = {
-      operations_manager: "خالد",
-      creative_director: "نورة",
-      finance_manager: "فهد",
-      marketing_manager: "سارة",
-      sponsorship_manager: "عبدالله",
-      visitor_experience_manager: "ريم",
-      program_director: "ليان",
+      operations_manager: "خالد الشمري",
+      creative_director: "نورة القحطاني",
+      finance_manager: "فهد الحربي",
+      marketing_manager: "سارة الزهراني",
+      sponsorship_manager: "عبدالله الغامدي",
+      visitor_experience_manager: "ريم السبيعي",
+      program_director: "ليان العتيبي",
     };
+
+    const demoRiskItems: LiveRiskItem[] = [
+      {
+        id: "risk-qa-1",
+        title: "تأخر مورد LED عن موعد التسليم",
+        probability: "مرتفع",
+        impact: "مرتفع",
+        owner: "خالد الشمري",
+        mitigation: "تفعيل مورد بديل A مع تسليم عاجل + حجز وحدة احتياطية.",
+        reviewDate: "2026-04-10",
+        status: "قيد المعالجة",
+      },
+      {
+        id: "risk-qa-2",
+        title: "ازدحام البوابات في ساعة الذروة",
+        probability: "متوسط",
+        impact: "مرتفع",
+        owner: "ريم السبيعي",
+        mitigation: "فتح مسارين إضافيين وتوزيع فرق إرشاد متحركة.",
+        reviewDate: "2026-04-13",
+        status: "مفتوح",
+      },
+      {
+        id: "risk-qa-3",
+        title: "انقطاع بث مباشر أثناء الفقرة الرئيسية",
+        probability: "متوسط",
+        impact: "مرتفع",
+        owner: "ليان العتيبي",
+        mitigation: "تفعيل Encoder احتياطي وخط إنترنت بديل.",
+        reviewDate: "2026-04-14",
+        status: "مصعّد",
+      },
+      {
+        id: "risk-qa-4",
+        title: "تجاوز تكلفة البنود الفنية",
+        probability: "متوسط",
+        impact: "متوسط",
+        owner: "فهد الحربي",
+        mitigation: "إيقاف أي تغيير غير معتمد وتفعيل موافقة مالية مسبقة.",
+        reviewDate: "2026-04-12",
+        status: "مفتوح",
+      },
+      {
+        id: "risk-qa-5",
+        title: "تأخر اعتماد السلامة",
+        probability: "منخفض",
+        impact: "مرتفع",
+        owner: "خالد الشمري",
+        mitigation: "اجتماع اعتماد عاجل مع الجهة المختصة قبل نافذة التجميد.",
+        reviewDate: "2026-04-09",
+        status: "مفتوح",
+      },
+      {
+        id: "risk-qa-6",
+        title: "انخفاض مفاجئ في التسجيلات المدفوعة",
+        probability: "منخفض",
+        impact: "متوسط",
+        owner: "سارة الزهراني",
+        mitigation: "حملات تحفيزية سريعة مع عروض تسجيل مبكر.",
+        reviewDate: "2026-04-08",
+        status: "مغلق",
+      },
+    ];
+
+    const demoActionTasks: ActionTaskItem[] = [
+      {
+        id: "qa-task-01",
+        phase: "الإعداد",
+        stream: "الحوكمة والتخطيط",
+        task: "اعتماد النطاق النهائي ونافذة تجميد التغييرات",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-06",
+        status: "مكتمل",
+        notes: "تم الاعتماد بمحضر رسمي.",
+      },
+      {
+        id: "qa-task-02",
+        phase: "الإعداد",
+        stream: "التجهيزات الفنية",
+        task: "إغلاق عقد مورد LED الأساسي والبديل",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-07",
+        status: "جاري",
+        notes: "العقد الأساسي مكتمل، البديل قيد التوقيع.",
+      },
+      {
+        id: "qa-task-03",
+        phase: "الإعداد",
+        stream: "الرقابة المالية",
+        task: "تحديث لوحة الانحراف المالي اليومي",
+        owner: "فهد الحربي",
+        dueDate: "2026-04-07",
+        status: "جاري",
+        notes: "لوحة النسخة 2 جاهزة وتنتظر ربطًا نهائيًا.",
+      },
+      {
+        id: "qa-task-04",
+        phase: "الإعداد",
+        stream: "التسويق والاتصال",
+        task: "إطلاق موجة الأداء التسويقية قبل الحدث بـ12 يوم",
+        owner: "سارة الزهراني",
+        dueDate: "2026-04-02",
+        status: "مكتمل",
+        notes: "تحقق 63% من مستهدف التسجيل حتى الآن.",
+      },
+      {
+        id: "qa-task-05",
+        phase: "الإعداد",
+        stream: "الحوكمة والامتثال",
+        task: "إغلاق اعتماد خطة السلامة النهائية",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-09",
+        status: "متعثر",
+        notes: "بانتظار زيارة ميدانية نهائية من الجهة المنظمة.",
+      },
+      {
+        id: "qa-task-06",
+        phase: "التنفيذ",
+        stream: "البرنامج التنفيذي",
+        task: "تنفيذ بروفة تشغيل كاملة قبل الافتتاح بـ24 ساعة",
+        owner: "ليان العتيبي",
+        dueDate: "2026-04-13",
+        status: "لم تبدأ",
+        notes: "",
+      },
+      {
+        id: "qa-task-07",
+        phase: "التنفيذ",
+        stream: "التشغيل واللوجستيات",
+        task: "اختبار مسارات الدخول وأجهزة QR",
+        owner: "ريم السبيعي",
+        dueDate: "2026-04-13",
+        status: "جاري",
+        notes: "تم اختبار 4 مسارات، متبقي مساران.",
+      },
+      {
+        id: "qa-task-08",
+        phase: "التنفيذ",
+        stream: "المراسم والتوثيق",
+        task: "تثبيت خطة استقبال VIP وتوزيع الطواقم",
+        owner: "ريم السبيعي",
+        dueDate: "2026-04-12",
+        status: "لم تبدأ",
+        notes: "",
+      },
+      {
+        id: "qa-task-09",
+        phase: "المتابعة",
+        stream: "الجودة والمخاطر",
+        task: "اجتماع مخاطر يومي مع تحديث سجل التصعيد",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-14",
+        status: "لم تبدأ",
+        notes: "",
+      },
+      {
+        id: "qa-task-10",
+        phase: "المتابعة",
+        stream: "القيادة التشغيلية",
+        task: "تقرير تشغيل نهاية اليوم مع الإجراءات التصحيحية",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-14",
+        status: "لم تبدأ",
+        notes: "",
+      },
+      {
+        id: "qa-task-11",
+        phase: "الإقفال",
+        stream: "الإزالة والتسليم",
+        task: "تفكيك التجهيزات وتسليم الموقع خلال 8 ساعات",
+        owner: "خالد الشمري",
+        dueDate: "2026-04-17",
+        status: "لم تبدأ",
+        notes: "",
+      },
+      {
+        id: "qa-task-12",
+        phase: "الإقفال",
+        stream: "الحوكمة والتخطيط",
+        task: "إصدار تقرير الدروس المستفادة وخطة التحسين",
+        owner: "فهد الحربي",
+        dueDate: "2026-04-18",
+        status: "لم تبدأ",
+        notes: "",
+      },
+    ];
+
+    setDeliveryTrack("advanced");
+    setAdvisorSelectionMode("all");
+    setSelectedAdvisors(ALL_ADVISOR_KEYS);
+    setMode("تحليل معمّق");
+    setInitStep("project");
+    setEventType("مؤتمر تقني ومعرض حلول رقمية");
+    setVenueType("فندق");
+    setCommissioningDate("2026-03-24");
+    setProjectStartDate("2026-03-25");
+    setStartAt(qaStart);
+    setEndAt(qaEnd);
+    setBudget("780000");
+    setProject(
+      "تنفيذ مؤتمر تقني ومعرض مصاحب لمدة 3 أيام يشمل منصة رئيسية، مسارات VIP، بث مباشر، ولوحة تشغيل موحدة."
+    );
+
+    setRound1Questions(demoRound1);
+    setFollowupQuestions(demoFollowups);
+    setAnswers(demoAnswers);
+    setDialogue(demoDialogue);
+    setDialogueSignature("qa_dialogue_seed_v2");
+    setOpenIssues([
+      "اعتماد السلامة النهائي قبل نافذة التجميد",
+      "تثبيت العقد الاحتياطي لمورد LED",
+      "اختبار كامل لخطة دخول الذروة",
+    ]);
+    setHasAddition("yes");
+    setUserAddition("إضافة مسار استقبال منفصل لكبار الشخصيات وتحسين تجربة التسجيل السريع.");
+    setAnalysis(demoAnalysis);
+    setAnalysisSignature("");
+    setReportText(demoReportText);
+
+    setScopeSite("تجهيز المسرح الرئيسي وقاعات جانبية ومسارات VIP ونقاط الدعم الميداني.");
+    setScopeTechnical("صوت احترافي، LED، إضاءة ذكية، إنترنت احتياطي، وبث مباشر.");
+    setScopeProgram("إدارة الجلسات والبرنامج الزمني مع نقاط تحويل واضحة بين الفقرات.");
+    setScopeCeremony("استقبال الضيوف، مسارات بروتوكول، توثيق إعلامي، وتغطية مباشرة.");
+    setExecutionStrategy("اعتماد مبكر > تجميد تغييرات > تجهيز > بروفة شاملة > تشغيل > إقفال.");
+    setQualityStandards("قائمة فحص قبل التشغيل + فحص لحظي أثناء التنفيذ + محضر إقفال يومي.");
+    setRiskManagement("سجل مخاطر ديناميكي مع عتبات تصعيد وملاك مخاطر وخطة بدائل معتمدة.");
+    setResponseSla("حرج: 10 دقائق | عالي: 20 دقيقة | تشغيلي: 30 دقيقة.");
+    setClosureRemovalHours("8");
+    setDemoMode(false);
+    setBoqItems(demoBoqItems);
     setOrgRoles(
       hydrateOrgRoles(
         ORG_ROLE_TEMPLATES.map((role) => ({
@@ -5117,31 +6606,10 @@ export default function Home() {
         }))
       )
     );
-    setLiveRiskItems([
-      {
-        id: "risk-demo-1",
-        title: "تأخر تجهيز الشاشة الرئيسية",
-        probability: "مرتفع",
-        impact: "مرتفع",
-        owner: "مدير العمليات",
-        mitigation: "تفعيل شاشة احتياطية ومورد بديل قبل 48 ساعة.",
-        reviewDate: "2026-03-18",
-        status: "قيد المعالجة",
-      },
-      {
-        id: "risk-demo-2",
-        title: "ازدحام عند بوابات الدخول",
-        probability: "متوسط",
-        impact: "مرتفع",
-        owner: "مدير تجربة الزائر",
-        mitigation: "زيادة مسارات الدخول وتوزيع فرق الاستقبال.",
-        reviewDate: "2026-03-20",
-        status: "مفتوح",
-      },
-    ]);
-    setActionTrackerItems([]);
-    setManagementBriefText("");
-    setFieldChecklistText("");
+    setLiveRiskItems(demoRiskItems);
+    setActionTrackerItems(demoActionTasks);
+    setManagementBriefText(demoManagementBrief);
+    setFieldChecklistText(demoFieldChecklist);
     setBaselineFreeze(null);
     setChangeRequests([]);
     setCrTitle("");
@@ -5151,13 +6619,13 @@ export default function Home() {
     setCrImpactScope("منخفض");
     setCrRequestedBy("");
     setAdvancedPlanText(demoPlan);
-    setAdvancedApproved(false);
+    setAdvancedApproved(true);
     setNeedsReanalysisHint(false);
     setLoading(false);
     setLoadingContext("");
-    setStage("init");
+    setStage("final_done");
     showSuccess(
-      "تم تحميل نموذج تجريبي شامل لجميع المراحل. ابدأ الاختبار من الجولة الأولى ثم أكمل حتى المسار المتقدم."
+      "تمت تعبئة بيئة اختبار شاملة (مؤقت). البيانات تشمل جميع المراحل والبنود والمؤشرات المالية والتنفيذية."
     );
   }
 
@@ -5179,16 +6647,20 @@ export default function Home() {
       case "round2":
         return 45;
       case "dialogue":
-        return 62;
+        return 56;
       case "addition":
-        return 76;
+        return 64;
       case "done":
-        return deliveryTrack === "advanced" ? 78 : 100;
+        return deliveryTrack === "advanced" ? 72 : 100;
       case "advanced_scope":
-        return 86;
+        return 80;
       case "advanced_boq":
-        return 93;
+        return 88;
       case "advanced_plan":
+        return 94;
+      case "final_addition":
+        return 97;
+      case "final_done":
         return 100;
       default:
         return 14;
@@ -5212,9 +6684,11 @@ export default function Home() {
       case "dialogue":
         return "حوار المستشارين";
       case "addition":
-        return "معلومة إضافية قبل التحليل";
+        return "استشارة تمهيدية قبل التحليل";
       case "done":
-        return "التحليل والقرار والتقرير";
+        return deliveryTrack === "advanced"
+          ? "نتيجة تمهيدية قبل المسار المتقدم"
+          : "التحليل والقرار النهائي";
       case "advanced_scope":
         return advancedScopeStep === "scope"
           ? "المسار المتقدم: نطاق واستراتيجية"
@@ -5225,21 +6699,31 @@ export default function Home() {
         return "المسار المتقدم: التشغيل والجاهزية";
       case "advanced_plan":
         return "المسار المتقدم: خطة التنفيذ";
+      case "final_addition":
+        return "الاستشارة الختامية قبل القرار النهائي";
+      case "final_done":
+        return "القرار التنفيذي النهائي";
       default:
         return stage;
     }
   }
 
   function sessionSectionLead() {
+    if (stage === "final_done") {
+      return "هذه هي المخرجات النهائية بعد استكمال المسار المتقدم والاستشارة الختامية.";
+    }
+
     if (stage === "done") {
-      return "أصبحت لديك الآن رؤية أوضح للمشروع، وهذه هي المخرجات التنفيذية النهائية لاتخاذ القرار.";
+      return deliveryTrack === "advanced"
+        ? "هذه نتيجة تمهيدية تساعدك على دخول المسار المتقدم قبل اعتماد القرار النهائي."
+        : "أصبحت لديك الآن رؤية أوضح للمشروع، وهذه هي المخرجات التنفيذية النهائية لاتخاذ القرار.";
     }
 
     if (stage === "advanced_scope" || stage === "advanced_boq" || stage === "advanced_plan") {
       return "أنت في المسار المتقدم لبناء خطة تنفيذ متكاملة تعتمد على النطاق، جدول الكميات، والجودة والمخاطر.";
     }
 
-    if (stage === "dialogue" || stage === "addition") {
+    if (stage === "dialogue" || stage === "addition" || stage === "final_addition") {
       return "أنت الآن في مرحلة متقدمة من بناء القرار؛ راجع النقاط الحاسمة قبل اعتماد التوصيات النهائية.";
     }
 
@@ -5268,7 +6752,7 @@ export default function Home() {
     }
 
     if (stage === "done") {
-      return "مكتمل";
+      return deliveryTrack === "advanced" ? "نتيجة تمهيدية" : "مكتمل";
     }
 
     if (stage === "advanced_scope") {
@@ -5289,7 +6773,15 @@ export default function Home() {
     }
 
     if (stage === "advanced_plan") {
-      return advancedApproved ? "تم اعتماد الخطة المتقدمة" : "الخطة جاهزة للمراجعة";
+      return advancedApproved ? "تم اعتماد الخطة المتقدمة" : "الخطة جاهزة للاستشارة الختامية";
+    }
+
+    if (stage === "final_addition") {
+      return "تحضير القرار النهائي";
+    }
+
+    if (stage === "final_done") {
+      return "مكتمل";
     }
 
     return "";
@@ -5300,7 +6792,11 @@ export default function Home() {
       case "projects_hub":
         return "active";
       case "done":
+        return deliveryTrack === "advanced" ? "active" : "ready";
       case "advanced_plan":
+      case "final_addition":
+        return "active";
+      case "final_done":
         return "ready";
       case "advanced_scope":
       case "advanced_boq":
@@ -5322,7 +6818,7 @@ export default function Home() {
       case "projects_hub":
         return "إدارة ومتابعة المشاريع";
       case "done":
-        return "النتائج جاهزة";
+        return deliveryTrack === "advanced" ? "نتيجة تمهيدية جاهزة" : "النتائج النهائية جاهزة";
       case "advanced_scope":
         return advancedScopeStep === "scope"
           ? "تجهيز النطاق والاستراتيجية"
@@ -5332,11 +6828,15 @@ export default function Home() {
         if (advancedBoqStep === "quality_risk") return "تجهيز الجودة والمخاطر";
         return "جاهزية التشغيل قبل توليد الخطة";
       case "advanced_plan":
-        return advancedApproved ? "الخطة المعتمدة جاهزة" : "مراجعة الخطة المتقدمة";
+        return advancedApproved ? "الخطة جاهزة للاستشارة الختامية" : "مراجعة الخطة المتقدمة";
+      case "final_addition":
+        return "استشارة ختامية قبل القرار النهائي";
+      case "final_done":
+        return "القرار النهائي جاهز";
       case "dialogue":
         return "مراجعة الحوار";
       case "addition":
-        return "قبل التحليل النهائي";
+        return "قبل التحليل التمهيدي";
       case "round1":
         return "جمع المعلومات الأساسية";
       case "round2":
@@ -5379,7 +6879,13 @@ export default function Home() {
         tone: "warn",
       });
     }
-    if ((stage === "addition" || stage === "done") && answerQuality.level !== "جيد") {
+    if (
+      (stage === "addition" ||
+        stage === "done" ||
+        stage === "final_addition" ||
+        stage === "final_done") &&
+      answerQuality.level !== "جيد"
+    ) {
       alerts.push({
         text:
           answerQuality.level === "ضعيف"
@@ -5388,7 +6894,10 @@ export default function Home() {
         tone: "warn",
       });
     }
-    if (stage === "done" && (analysis?.strategic_analysis?.risks || []).length > 0) {
+    if (
+      (stage === "done" || stage === "final_done") &&
+      (analysis?.strategic_analysis?.risks || []).length > 0
+    ) {
       alerts.push({
         text: `يوجد ${toArabicDigits((analysis?.strategic_analysis?.risks || []).length)} مخاطر بحاجة متابعة.`,
         tone: "warn",
@@ -5758,7 +7267,6 @@ export default function Home() {
     }
 
     startLoading("start_session");
-    setStage("round1");
 
     // reset downstream
     setRound1Questions([]);
@@ -5773,6 +7281,8 @@ export default function Home() {
     setAnalysisSignature("");
     setReportText("");
 
+    await waitForNextPaint();
+
     const json = await callAPI<{ questions?: Question[] }>({
       stage: "questions",
       ...commonPayload(),
@@ -5781,7 +7291,6 @@ export default function Home() {
 
     if (!json?.ok) {
       showError(json?.error || "حدث خطأ في توليد الأسئلة");
-      setStage("init");
       return;
     }
 
@@ -5815,6 +7324,7 @@ export default function Home() {
     }
 
     startLoading("submit_round1");
+    await waitForNextPaint();
 
     const round1Answers = answers.filter((a) => ids.includes(a.id));
 
@@ -5883,6 +7393,7 @@ export default function Home() {
     }
 
     startLoading("build_dialogue");
+    await waitForNextPaint();
 
     const json = await callAPI<{
       council_dialogue?: DialogueLine[];
@@ -5907,10 +7418,12 @@ export default function Home() {
   }
 
   async function runAnalysis() {
+    const resultStage: StageUI = stage === "final_addition" ? "final_done" : "done";
+
     if (demoMode) {
       setNeedsReanalysisHint(false);
       clearStatus();
-      setStage("done");
+      setStage(resultStage);
       return;
     }
 
@@ -5922,17 +7435,27 @@ export default function Home() {
 
     if (hasCachedAnalysis) {
       setNeedsReanalysisHint(false);
-      showSuccess(UX_MESSAGES.reusedCurrentAnalysis);
-      setStage("done");
+      if (resultStage === "final_done" && analysis) {
+        const synced = syncDecisionActionTasks(analysis);
+        showSuccess(
+          synced
+            ? "تم تحديث مصفوفة المهام تلقائيًا من القرار النهائي الحالي."
+            : UX_MESSAGES.reusedCurrentAnalysis
+        );
+      } else {
+        showSuccess(UX_MESSAGES.reusedCurrentAnalysis);
+      }
+      setStage(resultStage);
       return;
     }
 
     setNeedsReanalysisHint(false);
     startLoading("run_analysis");
+    await waitForNextPaint();
 
     const json = await callAPI<AnalysisData>({
       stage: "analysis",
-      ...commonPayload(),
+      ...analysisPayload(),
       answers,
       dialogue,
       userAddition: hasAddition === "yes" ? userAddition : "",
@@ -5948,7 +7471,13 @@ export default function Home() {
     setAnalysis(json.data);
     setAnalysisSignature(currentAnalysisSignature);
     setReportText(json.data?.report_text || "");
-    setStage("done");
+    if (resultStage === "final_done") {
+      const synced = syncDecisionActionTasks(json.data || {});
+      if (synced) {
+        showSuccess("تم توليد وتحديث مهام تنفيذية من القرار النهائي.");
+      }
+    }
+    setStage(resultStage);
   }
 
   async function copyReport() {
@@ -6186,6 +7715,7 @@ export default function Home() {
         backdropFilter: "blur(14px)",
         padding: isMobile ? mobileCardPad : space.md,
         marginBottom: isMobile ? 10 : space.sm,
+        display: isWelcome ? "block" : "none",
       } as CSSProperties,
       header: {
         display: "flex",
@@ -6237,111 +7767,130 @@ export default function Home() {
         width: isMobile ? "100%" : "min(420px, 100%)",
         marginLeft: isMobile ? 0 : "auto",
       } as CSSProperties,
-      themeControlInfo: {
-        display: "grid",
-        gap: 3,
-        textAlign: "right",
-      } as CSSProperties,
-      themeControlLabel: {
-        fontSize: 11.5,
-        fontWeight: 800,
-        color: textTone(0.72),
-      } as CSSProperties,
-      themeControlState: {
-        fontSize: 12.5,
-        fontWeight: 600,
-        color: textTone(0.84),
-        lineHeight: 1.55,
-      } as CSSProperties,
-      themeControlSwitch: {
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 4,
-        padding: 4,
-        borderRadius: 12,
-        border: palette.secondaryBorder,
-        background: palette.secondaryBg,
-        width: "100%",
-      } as CSSProperties,
       sessionAdminBar: {
         marginTop: 12,
         borderRadius: 12,
         border: palette.cardBorder,
         background: palette.cardBg,
-        padding: isMobile ? "9px" : "10px 12px",
-        display: "grid",
-        gap: 8,
+        padding: isMobile ? "8px 10px" : "9px 12px",
       } as CSSProperties,
-      sessionAdminGrid: {
-        display: "grid",
-        gridTemplateColumns: isMobile
-          ? "1fr"
-          : "minmax(260px, 1.35fr) minmax(180px, 1fr) minmax(260px, 1.2fr)",
-        gap: 8,
-        alignItems: "stretch",
-      } as CSSProperties,
-      sessionAdminPanel: {
-        borderRadius: 12,
-        border: palette.secondaryBorder,
-        background: palette.secondaryBg,
-        padding: isMobile ? "8px 9px" : "9px 10px",
-      } as CSSProperties,
-      sessionAdminRoleField: {
-        minWidth: 0,
-      } as CSSProperties,
-      sessionAdminProjectContext: {
-        minWidth: 0,
-      } as CSSProperties,
-      sessionAdminProjectName: {
-        minHeight: touchTarget,
-        borderRadius: 12,
-        border: palette.inputBorder,
-        background: palette.inputBg,
-        color: textTone(0.94),
+      sessionAdminTopRow: {
         display: "flex",
         alignItems: "center",
-        padding: "0 12px",
-        fontSize: 14,
-        fontWeight: 800,
-        lineHeight: 1.2,
-      } as CSSProperties,
-      sessionAdminProjectField: {
-        minWidth: isMobile ? "100%" : 220,
-        maxWidth: isMobile ? "100%" : 280,
-      } as CSSProperties,
-      sessionAdminProjectNameField: {
-        minWidth: isMobile ? "100%" : 260,
-        flex: isMobile ? "none" : 1,
-      } as CSSProperties,
-      sessionAdminActions: {
-        display: "flex",
+        justifyContent: "space-between",
         gap: 8,
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: isMobile ? "stretch" : "flex-end",
         flexWrap: "wrap",
-        width: "100%",
+      } as CSSProperties,
+      sessionAdminProjectInline: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        minHeight: touchTarget - 4,
         borderRadius: 12,
+        border: palette.subtleBorder,
+        background: palette.subtleBg,
+        padding: "0 10px",
+      } as CSSProperties,
+      sessionAdminInlineLabel: {
+        fontSize: 12,
+        fontWeight: 800,
+        color: textTone(0.7),
+      } as CSSProperties,
+      sessionAdminProjectInlineName: {
+        fontSize: 14,
+        fontWeight: 900,
+        color: textTone(0.95),
+      } as CSSProperties,
+      sessionAdminInlineIconBtn: (disabled: boolean) =>
+        ({
+          minWidth: 30,
+          minHeight: 30,
+          borderRadius: 8,
+          border: palette.inputBorder,
+          background: palette.inputBg,
+          color: textTone(0.92),
+          fontSize: 13,
+          fontWeight: 900,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.6 : 1,
+        } as CSSProperties),
+      sessionAdminStatusChip: (tone: "neutral" | "warning" | "success") =>
+        ({
+          minHeight: 32,
+          borderRadius: 999,
+          border:
+            tone === "warning"
+              ? "1px solid rgba(244,126,126,0.45)"
+              : tone === "success"
+              ? "1px solid rgba(108,227,181,0.42)"
+              : palette.inputBorder,
+          background:
+            tone === "warning"
+              ? "rgba(58,26,32,0.7)"
+              : tone === "success"
+              ? "rgba(15,45,35,0.72)"
+              : palette.inputBg,
+          color: tone === "warning" ? "#ffb3b3" : tone === "success" ? "#8df2c7" : textTone(0.88),
+          padding: "0 11px",
+          display: "inline-flex",
+          alignItems: "center",
+          fontSize: 12,
+          fontWeight: 800,
+          whiteSpace: "nowrap",
+        } as CSSProperties),
+      sessionAdminMenuWrap: {
+        position: "relative",
+      } as CSSProperties,
+      sessionAdminMenuBtn: {
+        minHeight: touchTarget - 4,
+        borderRadius: 10,
+        border: palette.inputBorder,
+        background: palette.inputBg,
+        color: textTone(0.92),
+        padding: "0 12px",
+        fontSize: 13,
+        fontWeight: 800,
+        cursor: "pointer",
+      } as CSSProperties,
+      sessionAdminMenuPanel: {
+        position: "absolute",
+        top: "calc(100% + 6px)",
+        insetInlineEnd: 0,
+        minWidth: 220,
+        borderRadius: 12,
+        border: palette.cardBorder,
+        background: palette.cardBg,
+        padding: 6,
+        display: "grid",
+        gap: 4,
+        zIndex: 40,
+        boxShadow: "0 10px 26px rgba(0,0,0,0.34)",
+      } as CSSProperties,
+      sessionAdminMenuItem: {
+        minHeight: touchTarget - 8,
+        borderRadius: 9,
         border: palette.secondaryBorder,
         background: palette.secondaryBg,
-        padding: isMobile ? "8px" : "8px 10px",
+        color: textTone(0.92),
+        padding: "0 10px",
+        textAlign: "right",
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: "pointer",
       } as CSSProperties,
-      themeSwitchBtn: (active: boolean) =>
+      sessionAdminMenuItemDanger: (disabled: boolean) =>
         ({
-          minHeight: touchTarget - 6,
-          borderRadius: 10,
-          border: "none",
-          background: active
-            ? (isCalmTheme
-                ? "#552d80"
-                : "linear-gradient(180deg, rgba(93,53,142,0.24), rgba(122,75,193,0.12))")
-            : "transparent",
-          color: active ? "white" : isCalmTheme ? textTone(0.95) : "white",
+          minHeight: touchTarget - 8,
+          borderRadius: 9,
+          border: "1px solid rgba(244,126,126,0.45)",
+          background: "rgba(52,23,27,0.72)",
+          color: "#ffb3b3",
+          padding: "0 10px",
+          textAlign: "right",
           fontSize: 13,
-          fontWeight: active ? 900 : 700,
-          padding: "8px 10px",
-          cursor: "pointer",
-          width: "100%",
-          transition: "background 150ms ease, color 150ms ease",
+          fontWeight: 700,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.55 : 1,
         } as CSSProperties),
       dangerGhostBtn: (disabled: boolean) =>
         ({
@@ -6517,6 +8066,33 @@ export default function Home() {
         fontSize: isMobile ? 16 : 14,
         lineHeight: 1.35,
       },
+      fieldInlineHint: {
+        marginTop: 4,
+        fontSize: 12,
+        color: textTone(0.68),
+        lineHeight: 1.55,
+      } as CSSProperties,
+      fieldInlineError: {
+        marginTop: 4,
+        fontSize: 12,
+        fontWeight: 800,
+        color: isCalmTheme ? palette.dangerText : "#ffb3b3",
+        lineHeight: 1.55,
+      } as CSSProperties,
+      fieldInlineMeta: {
+        marginTop: 4,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      } as CSSProperties,
+      fieldInlineCounter: (valid: boolean) =>
+        ({
+          fontSize: 12,
+          fontWeight: 800,
+          color: valid ? textTone(0.78) : isCalmTheme ? palette.warnText : "#ffd39a",
+          lineHeight: 1.4,
+        } as CSSProperties),
       inputSuffixWrap: {
         position: "relative",
         width: "100%",
@@ -6661,6 +8237,84 @@ export default function Home() {
         marginTop: 10,
         display: "grid",
         gap: 10,
+      } as CSSProperties,
+      questionStepperShell: {
+        marginTop: 10,
+        borderRadius: 12,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: isMobile ? "9px 10px" : "10px 11px",
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      questionStepperHead: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+      } as CSSProperties,
+      questionStepperTitle: {
+        fontSize: 13.5,
+        fontWeight: 900,
+        color: textTone(0.95),
+        lineHeight: 1.45,
+      } as CSSProperties,
+      questionStepperBadge: {
+        minHeight: 24,
+        borderRadius: 999,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        padding: "0 8px",
+        display: "inline-flex",
+        alignItems: "center",
+        fontSize: 12,
+        fontWeight: 900,
+        color: textTone(0.95),
+      } as CSSProperties,
+      questionStepperMeta: {
+        fontSize: 12,
+        color: textTone(0.74),
+        lineHeight: 1.55,
+      } as CSSProperties,
+      round1NavRow: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      round1ReviewGrid: {
+        marginTop: 10,
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      round1ReviewItem: (answered: boolean, active: boolean) =>
+        ({
+          borderRadius: 12,
+          border: active
+            ? palette.infoBorder
+            : answered
+              ? palette.successBorder
+              : palette.warnBorder,
+          background: active
+            ? palette.infoBg
+            : answered
+              ? palette.successBg
+              : palette.warnBg,
+          padding: "9px 10px",
+          textAlign: "right",
+          cursor: "pointer",
+          display: "grid",
+          gap: 4,
+        } as CSSProperties),
+      round1ReviewItemTitle: {
+        fontSize: 13,
+        fontWeight: 900,
+        color: textTone(0.95),
+        lineHeight: 1.5,
+      } as CSSProperties,
+      round1ReviewItemMeta: {
+        fontSize: 11.8,
+        color: textTone(0.76),
+        lineHeight: 1.55,
       } as CSSProperties,
       advisorFlowCard: (tone: "round1" | "round2" | "dialogue") => {
         const palette = {
@@ -6947,6 +8601,70 @@ export default function Home() {
         backdropFilter: "none",
         fontWeight: 800,
       } as CSSProperties,
+      loadingBannerWrap: {
+        position: "fixed" as const,
+        top: isMobile ? 10 : 16,
+        left: isMobile ? 10 : 18,
+        right: isMobile ? 10 : 18,
+        zIndex: 70,
+        display: "flex",
+        justifyContent: "center",
+        pointerEvents: "none" as const,
+      } as CSSProperties,
+      loadingBannerBox: {
+        width: "fit-content",
+        maxWidth: "min(94vw, 640px)",
+        padding: isMobile ? "10px 12px" : "11px 14px",
+        borderRadius: 12,
+        border: isCalmTheme ? "1px solid rgba(59,138,103,0.34)" : "1px solid rgba(81,205,255,0.52)",
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(236,248,241,0.98), rgba(250,255,252,0.96))"
+          : "linear-gradient(180deg, rgba(7,24,55,0.9), rgba(8,13,33,0.95))",
+        color: isCalmTheme ? "#124734" : "rgba(229,247,255,0.98)",
+        boxShadow: isCalmTheme
+          ? "0 10px 22px rgba(19,92,69,0.14)"
+          : "0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(81,205,255,0.2) inset",
+        display: "flex",
+        alignItems: "center",
+        gap: 9,
+        fontSize: isMobile ? 13 : 13.5,
+        fontWeight: 800,
+        lineHeight: 1.5,
+        pointerEvents: "auto" as const,
+      } as CSSProperties,
+      loadingBannerSpinner: {
+        width: 16,
+        height: 16,
+        borderRadius: "50%",
+        border: isCalmTheme ? "2px solid rgba(25,111,77,0.28)" : "2px solid rgba(191,238,255,0.35)",
+        borderTopColor: isCalmTheme ? "#1F8D62" : "#7EE7FF",
+        animation: "loadingSpin 0.9s linear infinite",
+        flexShrink: 0,
+      } as CSSProperties,
+      sessionStartInlineHint: {
+        marginTop: 6,
+        borderRadius: 12,
+        border: isCalmTheme ? "1px solid rgba(67,142,105,0.32)" : "1px solid rgba(121,216,255,0.38)",
+        background: isCalmTheme
+          ? "linear-gradient(180deg, rgba(236,248,241,0.78), rgba(255,255,255,0.86))"
+          : "linear-gradient(180deg, rgba(18,40,87,0.62), rgba(11,21,48,0.75))",
+        color: isCalmTheme ? "#174F39" : "rgba(220,241,255,0.95)",
+        padding: "10px 12px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 12.8,
+        fontWeight: 700,
+      } as CSSProperties,
+      sessionStartInlineSpinner: {
+        width: 14,
+        height: 14,
+        borderRadius: "50%",
+        border: isCalmTheme ? "2px solid rgba(20,95,67,0.24)" : "2px solid rgba(196,232,255,0.28)",
+        borderTopColor: isCalmTheme ? "#198458" : "#5DD7FF",
+        animation: "loadingSpin 0.9s linear infinite",
+        flexShrink: 0,
+      } as CSSProperties,
       confirmOverlay: {
         position: "fixed" as const,
         inset: 0,
@@ -7027,27 +8745,94 @@ export default function Home() {
         borderRadius: 16,
         border: palette.cardBorder,
         background: palette.cardBg,
-        padding: isMobile ? "12px 10px" : "14px 12px",
+        padding: isMobile ? "14px 12px" : "18px 16px",
         display: "grid",
-        gap: 10,
+        gap: 12,
+        maxWidth: isMobile ? "100%" : 860,
+        marginInline: "auto",
+      } as CSSProperties,
+      projectHubNoActiveBadge: {
+        width: "fit-content",
+        minHeight: 24,
+        borderRadius: 999,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        color: palette.tabActiveText,
+        fontSize: 11.5,
+        fontWeight: 900,
+        padding: "0 10px",
+        display: "inline-flex",
+        alignItems: "center",
       } as CSSProperties,
       projectHubNoActiveTitle: {
         margin: 0,
-        fontSize: isMobile ? 18 : 20,
+        fontSize: isMobile ? 22 : 28,
         color: palette.strongText,
         fontWeight: 900,
         lineHeight: 1.35,
       } as CSSProperties,
       projectHubNoActiveText: {
         margin: 0,
-        fontSize: 13,
+        fontSize: isMobile ? 13 : 14,
         color: palette.mutedText,
         lineHeight: 1.7,
       } as CSSProperties,
-      projectHubNoActiveActions: {
+      projectHubNoActiveActionCards: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 10,
+      } as CSSProperties,
+      projectHubNoActiveCreateForm: {
+        display: "grid",
+        gap: 6,
+        gridColumn: "1 / -1",
+      } as CSSProperties,
+      projectHubNoActiveGuide: {
+        borderRadius: 12,
+        border: palette.subtleBorder,
+        background: palette.subtleBg,
+        padding: isMobile ? "10px" : "11px 12px",
+        display: "grid",
         gap: 8,
+      } as CSSProperties,
+      projectHubNoActiveGuideTitle: {
+        margin: 0,
+        fontSize: 12.5,
+        fontWeight: 900,
+        color: palette.strongText,
+      } as CSSProperties,
+      projectHubNoActiveGuideRow: {
+        display: "grid",
+        gridTemplateColumns: "22px minmax(0, 1fr)",
+        gap: 8,
+        alignItems: "start",
+        fontSize: 12.5,
+        color: palette.mutedText,
+        lineHeight: 1.65,
+      } as CSSProperties,
+      projectHubNoActiveGuideIndex: {
+        width: 22,
+        height: 22,
+        borderRadius: 999,
+        border: palette.infoBorder,
+        background: palette.infoBg,
+        color: palette.tabActiveText,
+        fontSize: 12,
+        fontWeight: 900,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        lineHeight: 1,
+      } as CSSProperties,
+      projectHubNoActiveArchiveShell: {
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      projectHubNoActiveArchiveTitle: {
+        margin: 0,
+        fontSize: 12.5,
+        fontWeight: 900,
+        color: palette.strongText,
       } as CSSProperties,
       projectHubNoActiveArchiveList: {
         display: "grid",
@@ -7911,6 +9696,71 @@ export default function Home() {
         gridTemplateColumns: isNarrowMobile ? "1fr" : "1fr 1fr",
         gap: 12,
       } as CSSProperties,
+      projectInitHero: {
+        borderRadius: 14,
+        border: isCalmTheme ? palette.sectionBorder : palette.infoBorder,
+        background: isCalmTheme
+          ? palette.sectionBg
+          : "linear-gradient(180deg, rgba(0,229,255,0.08), rgba(255,255,255,0.03) 60%, rgba(255,255,255,0.02))",
+        padding: isMobile ? "11px 11px" : "12px 13px",
+        display: "grid",
+        gap: 8,
+      } as CSSProperties,
+      projectInitHeroTitle: {
+        margin: 0,
+        fontSize: isMobile ? 15.5 : 16.5,
+        fontWeight: 900,
+        color: textTone(0.96),
+        lineHeight: 1.5,
+      } as CSSProperties,
+      projectInitHeroHint: {
+        margin: 0,
+        fontSize: 12.5,
+        lineHeight: 1.65,
+        color: textTone(0.78),
+      } as CSSProperties,
+      projectInitKpiGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      projectInitKpiCard: {
+        borderRadius: 10,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: "7px 8px",
+        display: "grid",
+        gap: 3,
+      } as CSSProperties,
+      projectInitKpiLabel: {
+        fontSize: 11.2,
+        color: textTone(0.72),
+        lineHeight: 1.4,
+      } as CSSProperties,
+      projectInitKpiValue: {
+        fontSize: 13.5,
+        fontWeight: 900,
+        color: textTone(0.96),
+        lineHeight: 1.4,
+      } as CSSProperties,
+      projectInitSection: {
+        borderRadius: 14,
+        border: palette.sectionBorder,
+        background: palette.sectionBg,
+        padding: isMobile ? "11px 11px" : "12px 13px",
+      } as CSSProperties,
+      projectInitSectionTitle: {
+        fontSize: 14.5,
+        fontWeight: 900,
+        color: textTone(0.95),
+        marginBottom: 4,
+      } as CSSProperties,
+      projectInitSectionHint: {
+        fontSize: 12.2,
+        lineHeight: 1.6,
+        color: textTone(0.74),
+        marginBottom: 9,
+      } as CSSProperties,
       boqInputsGrid: {
         display: "grid",
         gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
@@ -8481,6 +10331,36 @@ export default function Home() {
       finalReportCopyBtn: {
         width: isMobile ? "100%" : "auto",
       } as CSSProperties,
+      finalDecisionQuickNav: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile
+          ? "1fr 1fr"
+          : isMobile
+            ? "repeat(3, minmax(0, 1fr))"
+            : "repeat(5, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      finalDecisionQuickBtn: (active: boolean) =>
+        ({
+          minHeight: 34,
+          borderRadius: 10,
+          border: active ? palette.tabActiveBorder : palette.secondaryBorder,
+          background: active ? palette.tabActiveBg : palette.secondaryBg,
+          color: active ? palette.tabActiveText : textTone(0.84),
+          fontSize: 12,
+          fontWeight: active ? 900 : 800,
+          padding: "7px 8px",
+          textAlign: "center",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        } as CSSProperties),
+      finalDecisionQuickHint: {
+        marginTop: 7,
+        fontSize: 11.5,
+        lineHeight: 1.5,
+        color: textTone(0.72),
+      } as CSSProperties,
       finalBodyText: {
         marginTop: space.xs,
         lineHeight: 1.7,
@@ -8718,6 +10598,117 @@ export default function Home() {
         marginTop: 8,
         display: "grid",
         gap: 6,
+      } as CSSProperties,
+      summaryExecutiveShell: {
+        marginTop: isMobile ? 8 : 10,
+        borderRadius: 14,
+        border: palette.sideBlockBorder,
+        background: palette.sideBlockBg,
+        padding: isMobile ? "10px 10px" : "11px 12px",
+        display: "grid",
+        gap: 10,
+      } as CSSProperties,
+      summaryHeadline: {
+        fontSize: 13.5,
+        fontWeight: 900,
+        color: textTone(0.96),
+        lineHeight: 1.5,
+      } as CSSProperties,
+      summaryDominantGap: (tone: SummaryTone) =>
+        ({
+          borderRadius: 10,
+          border:
+            tone === "critical"
+              ? "1px solid rgba(255,111,120,0.45)"
+              : tone === "warning"
+              ? "1px solid rgba(255,184,107,0.40)"
+              : tone === "ok"
+              ? "1px solid rgba(31,208,145,0.38)"
+              : palette.secondaryBorder,
+          background:
+            tone === "critical"
+              ? "rgba(255,111,120,0.12)"
+              : tone === "warning"
+              ? "rgba(255,184,107,0.12)"
+              : tone === "ok"
+              ? "rgba(31,208,145,0.11)"
+              : palette.secondaryBg,
+          color: textTone(0.92),
+          fontSize: 12.5,
+          fontWeight: 700,
+          lineHeight: 1.65,
+          padding: "8px 9px",
+        } as CSSProperties),
+      summaryMetricsGrid: {
+        display: "grid",
+        gridTemplateColumns: isNarrowMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gap: 8,
+      } as CSSProperties,
+      summaryMetricCard: (tone: SummaryTone) =>
+        ({
+          borderRadius: 11,
+          border:
+            tone === "critical"
+              ? "1px solid rgba(255,111,120,0.40)"
+              : tone === "warning"
+              ? "1px solid rgba(255,184,107,0.36)"
+              : tone === "ok"
+              ? "1px solid rgba(31,208,145,0.34)"
+              : palette.secondaryBorder,
+          background:
+            tone === "critical"
+              ? "rgba(255,111,120,0.10)"
+              : tone === "warning"
+              ? "rgba(255,184,107,0.10)"
+              : tone === "ok"
+              ? "rgba(31,208,145,0.10)"
+              : palette.secondaryBg,
+          padding: "8px 9px",
+          display: "grid",
+          gap: 3,
+        } as CSSProperties),
+      summaryMetricLabel: {
+        fontSize: 11.5,
+        color: textTone(0.74),
+        lineHeight: 1.4,
+      } as CSSProperties,
+      summaryMetricValue: {
+        fontSize: 14,
+        fontWeight: 900,
+        color: textTone(0.96),
+        lineHeight: 1.4,
+      } as CSSProperties,
+      summaryTopList: {
+        display: "grid",
+        gap: 6,
+      } as CSSProperties,
+      summaryTopItem: (tone: SummaryTone) =>
+        ({
+          borderRadius: 10,
+          border:
+            tone === "critical"
+              ? "1px solid rgba(255,111,120,0.36)"
+              : tone === "warning"
+              ? "1px solid rgba(255,184,107,0.34)"
+              : tone === "ok"
+              ? "1px solid rgba(31,208,145,0.32)"
+              : palette.secondaryBorder,
+          background:
+            tone === "critical"
+              ? "rgba(255,111,120,0.08)"
+              : tone === "warning"
+              ? "rgba(255,184,107,0.08)"
+              : tone === "ok"
+              ? "rgba(31,208,145,0.08)"
+              : palette.secondaryBg,
+          padding: "7px 9px",
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          color: textTone(0.9),
+        } as CSSProperties),
+      summaryActionsRow: {
+        display: "grid",
+        gap: 8,
       } as CSSProperties,
       sideSectionTitle: {
         margin: 0,
@@ -10451,7 +12442,7 @@ export default function Home() {
       } as CSSProperties,
     });
     },
-    [isMobile, isNarrowMobile, isTablet, isProjectsHub, experimentalHubEnabled]
+    [isMobile, isNarrowMobile, isTablet, isProjectsHub, experimentalHubEnabled, isWelcome]
   );
 
   const renderSummarySection = (
@@ -10493,7 +12484,330 @@ export default function Home() {
 
   const answerQuality = analyzeAnswerQuality();
   const indicators = projectIndicators();
+  const additionNoteTrimmed = userAddition.trim();
+  const additionNoteLength = additionNoteTrimmed.length;
+  const additionProgressPercent =
+    hasAddition === "yes" ? (additionNoteLength > 0 ? 100 : 50) : 100;
+  const additionStatusText =
+    hasAddition === "yes"
+      ? additionNoteLength > 0
+        ? "تمت إضافة ملاحظة داعمة للتحليل."
+        : "اخترت إضافة معلومات؛ أضف ملاحظة قصيرة قبل تشغيل التحليل."
+      : "سيتم تشغيل التحليل اعتمادًا على المدخلات الحالية.";
+  const round1CurrentQuestion = round1Questions[round1CurrentIndex] ?? null;
+  const round1CurrentAnswer = round1CurrentQuestion
+    ? answers.find((item) => item.id === round1CurrentQuestion.id)
+    : null;
+  const round1AnsweredCount = round1Questions.filter((question) => {
+    const answer = answers.find((item) => item.id === question.id);
+    return Boolean(answer?.answer.trim());
+  }).length;
+  const round1CompletionPercent =
+    round1Questions.length === 0
+      ? 0
+      : Math.round((round1AnsweredCount / round1Questions.length) * 100);
+  const round1UnansweredIndexes = round1Questions
+    .map((question, idx) => {
+      const answer = answers.find((item) => item.id === question.id);
+      return answer?.answer.trim() ? -1 : idx;
+    })
+    .filter((idx) => idx >= 0);
+  const round2CurrentQuestion = followupQuestions[round2CurrentIndex] ?? null;
+  const round2CurrentAnswer = round2CurrentQuestion
+    ? answers.find((item) => item.id === round2CurrentQuestion.id)
+    : null;
+  const round2AnsweredCount = followupQuestions.filter((question) => {
+    const answer = answers.find((item) => item.id === question.id);
+    return Boolean(answer?.answer.trim());
+  }).length;
+  const round2CompletionPercent =
+    followupQuestions.length === 0
+      ? 0
+      : Math.round((round2AnsweredCount / followupQuestions.length) * 100);
+  const round2UnansweredIndexes = followupQuestions
+    .map((question, idx) => {
+      const answer = answers.find((item) => item.id === question.id);
+      return answer?.answer.trim() ? -1 : idx;
+    })
+    .filter((idx) => idx >= 0);
+  const dialogueCurrentLine = dialogue[dialogueCurrentIndex] ?? null;
+  const dialogueReviewedCount =
+    dialogue.length === 0 ? 0 : Math.min(dialogueCurrentIndex + 1, dialogue.length);
+  const dialogueCoveragePercent =
+    dialogue.length === 0
+      ? 0
+      : showDialogueReview
+        ? 100
+        : Math.round((dialogueReviewedCount / dialogue.length) * 100);
+  const dialogueAdvisorsCount = new Set(dialogue.map((item) => item.advisor)).size;
+  const visibleOpenIssues =
+    showAllOpenIssues || openIssues.length <= 3 ? openIssues : openIssues.slice(0, 3);
+  const visibleWeakExamples =
+    showAllWeakExamples || answerQuality.weakExamples.length <= 2
+      ? answerQuality.weakExamples
+      : answerQuality.weakExamples.slice(0, 2);
+  const round1OpenSectionsCount =
+    (round1SectionsOpen.progress ? 1 : 0) + (round1SectionsOpen.content ? 1 : 0);
+  const round1SectionsTotalCount = 2;
+  const round2OpenSectionsCount =
+    (round2SectionsOpen.progress ? 1 : 0) + (round2SectionsOpen.content ? 1 : 0);
+  const round2SectionsTotalCount = 2;
+  const dialogueOpenSectionsCount =
+    (dialogueSectionsOpen.progress ? 1 : 0) +
+    (dialogueSectionsOpen.content ? 1 : 0) +
+    (openIssues.length > 0 && dialogueSectionsOpen.open_issues ? 1 : 0);
+  const dialogueSectionsTotalCount = openIssues.length > 0 ? 3 : 2;
+  const additionOpenSectionsCount =
+    (additionSectionsOpen.progress ? 1 : 0) +
+    (additionSectionsOpen.decision ? 1 : 0) +
+    (hasAddition === "yes" && additionSectionsOpen.note ? 1 : 0) +
+    (additionSectionsOpen.quality ? 1 : 0);
+  const additionSectionsTotalCount = hasAddition === "yes" ? 4 : 3;
+  const initOpenSectionsCount =
+    initStep === "session"
+      ? (initSectionsOpen.session_setup ? 1 : 0) + (initSectionsOpen.session_advisors ? 1 : 0)
+      : (initSectionsOpen.project_overview ? 1 : 0) +
+        (initSectionsOpen.project_basic ? 1 : 0) +
+        (initSectionsOpen.project_summary ? 1 : 0);
+  const initSectionsTotalCount = initStep === "session" ? 2 : 3;
+  const finalDecisionOpenSectionsCount =
+    (finalDecisionSectionsOpen.summary ? 1 : 0) +
+    (finalDecisionSectionsOpen.analysis ? 1 : 0) +
+    (finalDecisionSectionsOpen.upgrades ? 1 : 0) +
+    (finalDecisionSectionsOpen.advisors ? 1 : 0) +
+    (finalDecisionSectionsOpen.report ? 1 : 0);
+  const finalDecisionSectionsTotalCount = 5;
+  const activeFinalDecisionSection = (Object.entries(finalDecisionSectionsOpen).find(
+    ([, isOpen]) => isOpen
+  )?.[0] ?? null) as FinalDecisionSectionKey | null;
+  const toggleFinalDecisionSection = useCallback(
+    (section: FinalDecisionSectionKey) => {
+      setFinalDecisionSectionsOpen((prev) => {
+        const shouldOpen = !prev[section];
+        if (!finalDecisionFocusMode) {
+          return {
+            ...prev,
+            [section]: shouldOpen,
+          };
+        }
+        if (!shouldOpen) {
+          return {
+            ...prev,
+            [section]: false,
+          };
+        }
+        return {
+          summary: false,
+          analysis: false,
+          upgrades: false,
+          advisors: false,
+          report: false,
+          [section]: true,
+        };
+      });
+    },
+    [finalDecisionFocusMode]
+  );
+  const openFinalDecisionSection = useCallback(
+    (section: FinalDecisionSectionKey) => {
+      setFinalDecisionSectionsOpen((prev) => {
+        if (finalDecisionFocusMode) {
+          return {
+            summary: false,
+            analysis: false,
+            upgrades: false,
+            advisors: false,
+            report: false,
+            [section]: true,
+          };
+        }
+        if (prev[section]) return prev;
+        return {
+          ...prev,
+          [section]: true,
+        };
+      });
+      if (typeof window === "undefined") return;
+
+      const anchor = FINAL_DECISION_SECTION_ANCHORS[section];
+      const { pathname, search } = window.location;
+      window.history.replaceState({}, "", `${pathname}${search}#${anchor}`);
+      setHighlightedFinalDecisionSection(section);
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const sectionNode = finalDecisionSectionRefs.current[section];
+          if (sectionNode) {
+            const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+            const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            window.setTimeout(() => {
+              sectionNode.focus({ preventScroll: true });
+            }, 260);
+          }
+        });
+      });
+
+      window.setTimeout(() => {
+        setHighlightedFinalDecisionSection((current) => (current === section ? null : current));
+      }, 1100);
+    },
+    [finalDecisionFocusMode]
+  );
+  const jumpToPostDecisionCenter = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const { pathname, search } = window.location;
+    window.history.replaceState({}, "", `${pathname}${search}#${FINAL_DECISION_POST_CENTER_ANCHOR}`);
+    setHighlightedFinalDecisionSection("post_center");
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = finalDecisionSectionRefs.current.post_center;
+        if (!sectionNode) return;
+        const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+        const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        window.setTimeout(() => {
+          sectionNode.focus({ preventScroll: true });
+        }, 260);
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedFinalDecisionSection((current) => (current === "post_center" ? null : current));
+    }, 1100);
+  }, []);
+  const finalDecisionBlockStyle = (
+    section: FinalDecisionSectionKey | "post_center"
+  ): CSSProperties => {
+    if (highlightedFinalDecisionSection !== section) return styles.finalSectionBlock;
+    return {
+      ...styles.finalSectionBlock,
+      borderRadius: 12,
+      outline: "1px solid rgba(151,122,255,0.56)",
+      boxShadow: "0 0 0 2px rgba(151,122,255,0.14)",
+    };
+  };
+  const scrollToAdvancedSection = useCallback(
+    (anchor: string, node: HTMLDivElement | null) => {
+      if (typeof window === "undefined") return;
+      const { pathname, search } = window.location;
+      window.history.replaceState({}, "", `${pathname}${search}#${anchor}`);
+      if (!node) return;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = node.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+          window.setTimeout(() => {
+            node.focus({ preventScroll: true });
+          }, 240);
+        });
+      });
+    },
+    []
+  );
+  const openAdvancedScopeSection = useCallback(
+    (section: AdvancedScopeSectionKey) => {
+      setAdvancedScopeSectionsOpen((prev) => {
+        if (prev[section]) return prev;
+        return { ...prev, [section]: true };
+      });
+      setHighlightedAdvancedScopeSection(section);
+      scrollToAdvancedSection(
+        ADVANCED_SCOPE_SECTION_ANCHORS[section],
+        advancedScopeSectionRefs.current[section]
+      );
+      window.setTimeout(() => {
+        setHighlightedAdvancedScopeSection((current) => (current === section ? null : current));
+      }, 1100);
+    },
+    [scrollToAdvancedSection]
+  );
+  const openAdvancedBoqSection = useCallback(
+    (section: AdvancedBoqSectionKey) => {
+      setAdvancedBoqSectionsOpen((prev) => {
+        if (prev[section]) return prev;
+        return { ...prev, [section]: true };
+      });
+      setHighlightedAdvancedBoqSection(section);
+      scrollToAdvancedSection(ADVANCED_BOQ_SECTION_ANCHORS[section], advancedBoqSectionRefs.current[section]);
+      window.setTimeout(() => {
+        setHighlightedAdvancedBoqSection((current) => (current === section ? null : current));
+      }, 1100);
+    },
+    [scrollToAdvancedSection]
+  );
+  const openAdvancedPlanSection = useCallback(
+    (section: AdvancedPlanSectionKey) => {
+      setAdvancedPlanSectionsOpen((prev) => {
+        if (prev[section]) return prev;
+        return { ...prev, [section]: true };
+      });
+      setHighlightedAdvancedPlanSection(section);
+      scrollToAdvancedSection(
+        ADVANCED_PLAN_SECTION_ANCHORS[section],
+        advancedPlanSectionRefs.current[section]
+      );
+      window.setTimeout(() => {
+        setHighlightedAdvancedPlanSection((current) => (current === section ? null : current));
+      }, 1100);
+    },
+    [scrollToAdvancedSection]
+  );
+  const advancedSectionBlockStyle = <K extends string>(
+    baseStyle: CSSProperties,
+    highlighted: K | null,
+    section: K
+  ): CSSProperties => {
+    if (highlighted !== section) return baseStyle;
+    return {
+      ...baseStyle,
+      borderRadius: 12,
+      outline: "1px solid rgba(151,122,255,0.56)",
+      boxShadow: "0 0 0 2px rgba(151,122,255,0.14)",
+    };
+  };
+  const advancedScopeOpenSectionsCount =
+    advancedScopeStep === "scope"
+      ? (advancedScopeSectionsOpen.timeline ? 1 : 0) +
+        (advancedScopeSectionsOpen.scope ? 1 : 0) +
+        (advancedScopeSectionsOpen.strategy ? 1 : 0)
+      : advancedScopeSectionsOpen.org
+        ? 1
+        : 0;
+  const advancedScopeSectionsTotalCount = advancedScopeStep === "scope" ? 3 : 1;
+  const visibleOrgRoles = showEnabledOrgRolesOnly
+    ? orgRoles.filter((role) => role.enabled)
+    : orgRoles;
+  const advancedBoqOpenSectionsCount =
+    advancedBoqStep === "boq"
+      ? advancedBoqSectionsOpen.boq_items
+        ? 1
+        : 0
+      : advancedBoqStep === "quality_risk"
+        ? advancedBoqSectionsOpen.quality_risk
+          ? 1
+          : 0
+        : (advancedBoqSectionsOpen.ops_risk_board ? 1 : 0) +
+          (advancedBoqSectionsOpen.ops_meta ? 1 : 0);
+  const advancedBoqSectionsTotalCount = advancedBoqStep === "operations" ? 2 : 1;
+  const advancedPlanSectionKeys = Object.keys(
+    ADVANCED_PLAN_SECTION_LABELS
+  ) as AdvancedPlanSectionKey[];
+  const advancedPlanOpenSectionsCount = advancedPlanSectionKeys.filter(
+    (section) => advancedPlanSectionsOpen[section]
+  ).length;
+  const advancedPlanSectionsTotalCount = advancedPlanSectionKeys.length;
   const brandLogoSrc = experimentalHubEnabled ? "/logo.svg" : "/logo-basic.svg";
+  const isFinalConsultationStage = stage === "final_addition";
+  const isFinalDecisionStage =
+    stage === "final_done" || (stage === "done" && deliveryTrack !== "advanced");
+  const canManageFinancialPostDecision =
+    userRole === "project_manager" || userRole === "finance_manager";
+  const canManageExecutionPostDecision =
+    userRole === "project_manager" || userRole === "operations_manager";
+  const canManageClosurePostDecision = userRole === "project_manager";
   const stageQuickNav: StageQuickNavModel = (() => {
     if (isWelcome || isProjectsHub || isSelectionStep) {
       return {};
@@ -10504,7 +12818,9 @@ export default function Home() {
         return {
           next: {
             label: "التالي: تفاصيل المشروع",
-            onClick: () => setInitStep("project"),
+            onClick: () => {
+              void switchInitStep("project");
+            },
             disabled: !canMoveToProjectStep || !canEditSessionSetup,
             title: !canEditSessionSetup
               ? permissionHintText(
@@ -10520,7 +12836,9 @@ export default function Home() {
       return {
         previous: {
           label: "رجوع: نوع الجلسة والمستشارون",
-          onClick: () => setInitStep("session"),
+          onClick: () => {
+            void switchInitStep("session");
+          },
           disabled: isProcessing(),
         },
         next: {
@@ -10604,15 +12922,21 @@ export default function Home() {
       };
     }
 
-    if (stage === "addition") {
+    if (stage === "addition" || stage === "final_addition") {
+      const isFinalConsultation = stage === "final_addition";
       return {
         previous: {
-          label: "رجوع: حوار المستشارين",
-          onClick: () => setStage("dialogue"),
+          label: isFinalConsultation ? "رجوع: خطة التنفيذ المتقدمة" : "رجوع: حوار المستشارين",
+          onClick: () => setStage(isFinalConsultation ? "advanced_plan" : "dialogue"),
           disabled: isProcessing(),
         },
         next: {
-          label: actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis"),
+          label: actionLabel(
+            isFinalConsultation
+              ? "ابدأ التحليل النهائي + القرار النهائي"
+              : "ابدأ التحليل التمهيدي + التوصيات",
+            "run_analysis"
+          ),
           onClick: runAnalysis,
           disabled: isProcessing() || !canRunAnalysisFlow,
           title: !canRunAnalysisFlow
@@ -10629,7 +12953,7 @@ export default function Home() {
     if (stage === "done") {
       return {
         previous: {
-          label: "رجوع: تعديل قبل التحليل",
+          label: deliveryTrack === "advanced" ? "رجوع: تعديل قبل الاستشارة التمهيدية" : "رجوع: تعديل قبل التحليل",
           onClick: () => {
             setStage("addition");
             setNeedsReanalysisHint(true);
@@ -10644,18 +12968,71 @@ export default function Home() {
               )
             : undefined,
         },
-        next: {
-          label: deliveryTrack === "advanced" ? "التالي: استكمال المسار المتقدم" : "ترقية إلى المسار المتقدم",
-          onClick: openAdvancedTrack,
-          disabled: isProcessing() || (!canEditAdvancedExecution && !canEditGovernance),
-          title: !canEditAdvancedExecution && !canEditGovernance
+        next:
+          deliveryTrack === "advanced"
+            ? {
+                label: "التالي: استكمال المسار المتقدم",
+                onClick: openAdvancedTrack,
+                disabled: isProcessing() || (!canEditAdvancedExecution && !canEditGovernance),
+                title: !canEditAdvancedExecution && !canEditGovernance
+                  ? permissionHintText(
+                      "فتح المسار المتقدم",
+                      ["project_manager", "operations_manager", "finance_manager"],
+                      userRole
+                    )
+                  : undefined,
+              }
+            : {
+                label: "ترقية إلى المسار المتقدم",
+                onClick: openAdvancedTrack,
+                disabled: isProcessing() || (!canEditAdvancedExecution && !canEditGovernance),
+                title: !canEditAdvancedExecution && !canEditGovernance
+                  ? permissionHintText(
+                      "فتح المسار المتقدم",
+                      ["project_manager", "operations_manager", "finance_manager"],
+                      userRole
+                    )
+                  : undefined,
+              },
+      };
+    }
+
+    if (stage === "final_done") {
+      const nextPostDecisionAction: StageQuickNavAction = canManageFinancialPostDecision
+        ? {
+            label: "التالي: الخطة المالية",
+            onClick: () => openPostDecisionRoute("budget"),
+            disabled: isProcessing(),
+          }
+        : canManageExecutionPostDecision
+          ? {
+              label: "التالي: الخطة التنفيذية",
+              onClick: () => openPostDecisionRoute("plan"),
+              disabled: isProcessing(),
+            }
+          : {
+              label: "التالي: المراجعة النهائية",
+              onClick: () => openPostDecisionRoute("review"),
+              disabled: isProcessing(),
+            };
+      return {
+        previous: {
+          label: "رجوع: الاستشارة الختامية",
+          onClick: () => {
+            setStage("final_addition");
+            setNeedsReanalysisHint(true);
+            showError(UX_MESSAGES.reanalysisRequired);
+          },
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
             ? permissionHintText(
-                "فتح المسار المتقدم",
-                ["project_manager", "operations_manager", "finance_manager"],
+                "الرجوع لتعديل الاستشارة الختامية وإعادة التحليل",
+                ["project_manager", "operations_manager"],
                 userRole
               )
             : undefined,
         },
+        next: nextPostDecisionAction,
       };
     }
 
@@ -10764,11 +13141,55 @@ export default function Home() {
           },
           disabled: isProcessing(),
         },
+        next: {
+          label: "التالي: الاستشارة الختامية",
+          onClick: openFinalConsultation,
+          disabled: isProcessing() || !canRunAnalysisFlow,
+          title: !canRunAnalysisFlow
+            ? permissionHintText(
+                "فتح الاستشارة الختامية",
+                ["project_manager", "operations_manager"],
+                userRole
+              )
+            : undefined,
+        },
       };
     }
 
     return {};
   })();
+
+  const summaryAlertsSnapshot = sessionAlerts();
+  const sessionExecutiveSummary = buildSessionSummary({
+    stageLabel: stageLabel(),
+    stageStatus: stageStatusText(),
+    progressPercent: progressPercent(),
+    hasActiveProject,
+    projectName: hasActiveProject ? activeProjectName : "غير محدد",
+    deliveryTrack,
+    nextActionLabel: stageQuickNav.next?.label,
+    alerts: summaryAlertsSnapshot,
+    advisorCount: effectiveSelectedAdvisors.length,
+    answerQualityLevel: answerQuality.level,
+    answerQualityWeakCount: answerQuality.weakCount,
+    hasAnalysis: Boolean(analysis),
+    finalDecisionText: analysis?.executive_decision?.decision,
+    finalReadinessLevel: analysis?.strategic_analysis?.readiness_level,
+    finalRiskCount: (analysis?.strategic_analysis?.risks || []).length,
+    finalGapCount: (analysis?.strategic_analysis?.gaps || []).length,
+    advancedCriticalRisks: liveRiskStats.critical,
+    advancedOverdueRisks: liveRiskStats.overdue,
+    advancedBlockedTasks: actionTrackerStats.blocked,
+    advancedProfitStatus: boqFinancialSummary.status,
+  });
+  const projectReadinessCriticalDone = strategyReadiness.fields.filter(
+    (field) => field.critical && field.done
+  ).length;
+  const projectReadinessCriticalTotal = strategyReadiness.fields.filter((field) => field.critical).length;
+  const projectReadinessOptionalDone = strategyReadiness.fields.filter(
+    (field) => !field.critical && field.done
+  ).length;
+  const projectReadinessOptionalTotal = strategyReadiness.fields.filter((field) => !field.critical).length;
 
   if (!hasMounted) {
     return (
@@ -10818,6 +13239,15 @@ export default function Home() {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @keyframes loadingSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
           }
         }
 
@@ -10958,14 +13388,14 @@ export default function Home() {
                     canLoadDemo
                       ? undefined
                       : permissionHintText(
-                          "تحميل النموذج التجريبي",
+                          "تعبئة نموذج الاختبار المؤقت",
                           ["project_manager", "operations_manager", "finance_manager"],
                           userRole
                         )
                   }
                   onClick={fillFullTestModel}
                 >
-                  🧪 تحميل نموذج تجريبي كامل
+                  🧪 تعبئة اختبار شاملة (مؤقت)
                 </button>
               </div>
               <p style={styles.welcomeFootnote}>
@@ -11002,92 +13432,130 @@ export default function Home() {
             </header>
           )}
 
-          {!isWelcome ? (
+          {showSessionAdminBar ? (
             <div style={styles.sessionAdminBar}>
-              <div style={styles.sessionAdminGrid}>
-                <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminProjectContext }}>
-                  <div style={styles.label}>المشروع الحالي</div>
-                <div style={styles.sessionAdminProjectName}>
+              <div style={styles.sessionAdminTopRow}>
+                <div style={styles.sessionAdminProjectInline}>
+                  <span style={styles.sessionAdminInlineLabel}>المشروع</span>
+                  <span style={styles.sessionAdminProjectInlineName}>
                     {hasActiveProject ? activeProjectName : "غير محدد"}
-                </div>
-                </div>
-
-                <div style={{ ...styles.sessionAdminPanel, ...styles.sessionAdminRoleField }}>
-                  <div style={styles.label}>الدور الحالي</div>
-                  <select
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value as UserRole)}
-                    style={styles.input}
-                  >
-                    <option value="project_manager">مدير مشروع</option>
-                    <option value="operations_manager">عمليات</option>
-                    <option value="finance_manager">مالي</option>
-                    <option value="viewer">مشاهد فقط</option>
-                  </select>
-                </div>
-
-                <div style={styles.sessionAdminPanel}>
-                  <div style={styles.themeControlInfo}>
-                    <div style={styles.themeControlLabel}>نمط الواجهة</div>
-                    <div style={styles.themeControlState}>
-                      اختر بين النمطين حسب تفضيل العرض.
-                    </div>
-                  </div>
-                  <div style={styles.themeControlSwitch}>
+                  </span>
+                  {hasActiveProject ? (
                     <button
                       type="button"
-                      style={styles.themeSwitchBtn(!experimentalHubEnabled)}
-                      aria-pressed={!experimentalHubEnabled}
-                      onClick={() => setExperimentalHubEnabled(false)}
+                      style={styles.sessionAdminInlineIconBtn(!canEditSessionSetup)}
+                      disabled={!canEditSessionSetup}
+                      onClick={() => {
+                        if (!activeProjectId) return;
+                        requestRenameProjectById(activeProjectId);
+                      }}
+                      title={
+                        canEditSessionSetup
+                          ? "تعديل اسم المشروع"
+                          : permissionHintText("تعديل اسم المشروع", ["project_manager", "operations_manager"], userRole)
+                      }
                     >
-                      كلاسيكي
+                      ✎
                     </button>
-                    <button
-                      type="button"
-                      style={styles.themeSwitchBtn(experimentalHubEnabled)}
-                      aria-pressed={experimentalHubEnabled}
-                      onClick={() => setExperimentalHubEnabled(true)}
-                    >
-                      حديث
-                    </button>
-                  </div>
+                  ) : null}
                 </div>
-              </div>
 
-              <div style={styles.sessionAdminActions}>
-                <button
-                  style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
-                  onClick={() => setStage("projects_hub")}
-                >
-                  مركز المشاريع
-                </button>
-                <button
-                  style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
-                  onClick={() => setShowProjectManager(true)}
-                >
-                  إدارة المشاريع
-                </button>
-                {!isSelectionStep ? (
+                <div style={styles.sessionAdminStatusChip(sessionDataStatus.tone)}>
+                  وضع البيانات: {sessionDataStatus.label}
+                </div>
+
+                <div ref={projectsMenuRef} style={styles.sessionAdminMenuWrap}>
                   <button
-                    style={styles.dangerGhostBtn(!canResetSession)}
-                    onClick={requestClearSession}
-                    disabled={!canResetSession}
-                    title={
-                      canResetSession
-                        ? undefined
-                        : permissionHintText("مسح الجلسة", ["project_manager"], userRole)
-                    }
+                    type="button"
+                    style={styles.sessionAdminMenuBtn}
+                    onClick={() => setShowProjectsMenu((prev) => !prev)}
+                    aria-haspopup="menu"
+                    aria-expanded={showProjectsMenu}
                   >
-                    مسح الجلسة
+                    المشاريع
                   </button>
-                ) : null}
+                  {showProjectsMenu ? (
+                    <div style={styles.sessionAdminMenuPanel} role="menu">
+                      <button
+                        type="button"
+                        style={styles.sessionAdminMenuItem}
+                        onClick={() => {
+                          setShowProjectsMenu(false);
+                          setStage("projects_hub");
+                        }}
+                      >
+                        مركز المشاريع
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.sessionAdminMenuItem}
+                        onClick={() => {
+                          setShowProjectsMenu(false);
+                          setShowProjectManager(true);
+                        }}
+                      >
+                        إدارة المشاريع
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.sessionAdminMenuItem}
+                        onClick={() => {
+                          setShowProjectsMenu(false);
+                          setStage("projects_hub");
+                          setProjectHubView("list");
+                          setProjectHubFilter("archived");
+                        }}
+                      >
+                        الأرشيف
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.sessionAdminMenuItem}
+                        onClick={() => {
+                          setShowProjectsMenu(false);
+                          fillFullTestModel();
+                        }}
+                        disabled={!canLoadDemo}
+                        title={
+                          canLoadDemo
+                            ? "زر مؤقت لتعبئة بيانات اختبار شاملة."
+                            : permissionHintText(
+                                "تعبئة نموذج الاختبار المؤقت",
+                                ["project_manager", "operations_manager", "finance_manager"],
+                                userRole
+                              )
+                        }
+                      >
+                        🧪 تعبئة اختبار مؤقت
+                      </button>
+                      {!isSelectionStep ? (
+                        <button
+                          type="button"
+                          style={styles.sessionAdminMenuItemDanger(!canResetSession)}
+                          onClick={() => {
+                            setShowProjectsMenu(false);
+                            requestClearSession();
+                          }}
+                          disabled={!canResetSession}
+                          title={
+                            canResetSession
+                              ? undefined
+                              : permissionHintText("إعادة تهيئة الجلسة", ["project_manager"], userRole)
+                          }
+                        >
+                          إعادة تهيئة الجلسة
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}
         </div>
 
         {/* Progress */}
-        {!isWelcome && !isSelectionStep && !isProjectsHub ? (
+        {showLegacyProgressPanel && !isWelcome && !isSelectionStep && !isProjectsHub ? (
           <div style={styles.progressWrapper}>
             <div style={styles.progressHeadRow}>
               <div style={styles.progressTitle}>✨ مسار التقدم</div>
@@ -11162,11 +13630,17 @@ export default function Home() {
           {/* Main */}
           <section style={styles.card}>
             <h2 ref={initStageHeadingRef} style={{ ...styles.cardTitle, ...styles.stageScrollAnchor }}>
-              {isProjectsHub ? "مركز المشاريع" : "الجلسة الإستشارية"}
+              {isProjectsHub
+                ? isProjectsHubWithoutProject
+                  ? "بوابة بداية المشروع"
+                  : "مركز المشاريع"
+                : "الجلسة الإستشارية"}
             </h2>
             <p style={styles.muted}>
               {isProjectsHub
-                ? "لوحة موحدة لإدارة كل مشاريعك: فتح سريع، نسخ، أرشفة، واستعادة."
+                ? isProjectsHubWithoutProject
+                  ? "ابدأ من نقطة واحدة واضحة: أنشئ مشروعًا جديدًا أو افتح مشروعًا سابقًا من الأرشيف."
+                  : "لوحة موحدة لإدارة كل مشاريعك: فتح سريع، نسخ، أرشفة، واستعادة."
                 : initStep === "session"
                 ? "اختر نوع الجلسة وحدد المستشارين المشاركين. اختر طريقة العمل (سريعة أو معمّقة)، ثم حدد من سيشارك في الجلسة قبل الانتقال إلى تفاصيل المشروع."
                 : sessionSectionLead()}
@@ -11190,84 +13664,114 @@ export default function Home() {
               <>
                 {!hasActiveProject ? (
                   <div style={styles.projectHubNoActiveShell}>
-                    <h3 style={styles.projectHubNoActiveTitle}>ابدأ بدون مشروع نشط</h3>
+                    <div style={styles.projectHubNoActiveBadge}>وضع الانطلاق</div>
+                    <h3 style={styles.projectHubNoActiveTitle}>ابدأ مشروعك الآن</h3>
                     <p style={styles.projectHubNoActiveText}>
-                      اختر الآن: أنشئ مشروعًا جديدًا أو افتح مشروعًا سابقًا من الأرشيف.
+                      لا يوجد مشروع نشط حاليًا. ابدأ فورًا بمشروع جديد (سيُنشأ باسم تلقائي)، أو افتح مشروعًا سابقًا.
                     </p>
-                    <div style={styles.projectHubNoActiveActions}>
+                    <div style={styles.projectHubNoActiveActionCards}>
                       <button
                         type="button"
-                        style={styles.primaryBtn(!canEditSessionSetup)}
-                        disabled={!canEditSessionSetup}
-                        onClick={createNewProject}
+                        style={{
+                          ...styles.primaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy),
+                          minHeight: 48,
+                          fontWeight: 900,
+                        }}
+                        disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                        onClick={() => {
+                          void createNewProject();
+                        }}
                         title={
-                          canEditSessionSetup
-                            ? undefined
-                            : permissionHintText(
+                          !canEditSessionSetup
+                            ? permissionHintText(
                                 "إنشاء مشروع جديد",
                                 ["project_manager", "operations_manager"],
                                 userRole
                               )
+                            : isProjectHubTransitionBusy
+                              ? inlineLoadingHint("create_project")
+                              : undefined
                         }
                       >
                         مشروع جديد
                       </button>
                       <button
                         type="button"
-                        style={styles.secondaryBtn(!canEditSessionSetup || archivedProjects.length === 0)}
-                        disabled={!canEditSessionSetup || archivedProjects.length === 0}
-                        onClick={() => {
-                          if (archivedProjects.length === 0) return;
-                          restoreAndOpenArchivedProject(archivedProjects[0].id);
-                        }}
-                        title={
-                          archivedProjects.length === 0
-                            ? "لا توجد مشاريع مؤرشفة حالياً."
-                            : canEditSessionSetup
-                              ? undefined
-                              : permissionHintText(
-                                  "فتح مشروع من الأرشيف",
-                                  ["project_manager", "operations_manager"],
-                                  userRole
-                                )
-                        }
+                        style={styles.secondaryBtn(isProjectHubTransitionBusy)}
+                        disabled={isProjectHubTransitionBusy}
+                        onClick={() => setShowProjectManager(true)}
+                        title={isProjectHubTransitionBusy ? inlineLoadingHint(loadingContext) : undefined}
                       >
-                        فتح مشروع من الأرشيف
+                        عرض كل المشاريع
                       </button>
                     </div>
+                    {isProjectHubTransitionBusy ? (
+                      <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                        <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                        {isProcessing("create_project")
+                          ? inlineLoadingHint("create_project")
+                          : isProcessing("open_archived_project")
+                          ? inlineLoadingHint("open_archived_project")
+                          : isProcessing("switch_project")
+                          ? inlineLoadingHint("switch_project")
+                          : inlineLoadingHint("open_archived_project")}
+                      </div>
+                    ) : null}
 
-                    {archivedProjects.length > 0 ? (
-                      <div style={styles.projectHubNoActiveArchiveList}>
-                        {archivedProjects.slice(0, 6).map((entry) => (
-                          <div key={entry.id} style={styles.projectHubNoActiveArchiveRow}>
-                            <div style={{ display: "grid", gap: 3 }}>
-                              <div style={styles.sideSummaryPrimaryText}>{entry.name || "مشروع بدون اسم"}</div>
-                              <div style={styles.textMutedSmall}>
-                                أُرشف: {entry.archivedAt ? formatDateTimeLabel(entry.archivedAt) : "غير محدد"}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              style={styles.secondaryBtn(!canEditSessionSetup)}
-                              disabled={!canEditSessionSetup}
-                              onClick={() => restoreAndOpenArchivedProject(entry.id)}
-                              title={
-                                canEditSessionSetup
-                                  ? undefined
-                                  : permissionHintText(
-                                      "فتح مشروع من الأرشيف",
-                                      ["project_manager", "operations_manager"],
-                                      userRole
-                                    )
+                    {recentProjectOptions.length > 0 ? (
+                      <div style={styles.projectHubNoActiveArchiveShell}>
+                        <div style={styles.projectHubNoActiveArchiveTitle}>فتح مشروع سابق (آخر 4)</div>
+                        <div style={styles.projectHubNoActiveArchiveRow}>
+                          <select
+                            value={recentQuickPickId}
+                            onChange={(e) => setRecentQuickPickId(e.target.value)}
+                            disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                            style={styles.input}
+                          >
+                            {recentProjectOptions.map((entry) => (
+                              <option key={entry.id} value={entry.id}>
+                                {entry.name || "مشروع بدون اسم"}
+                                {entry.isArchived ? " · مؤرشف" : " · نشط"}
+                                {entry.updatedAt ? ` · ${formatDateTimeLabel(entry.updatedAt)}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            style={styles.secondaryBtn(
+                              !canEditSessionSetup || !recentQuickPickId || isProjectHubTransitionBusy
+                            )}
+                            disabled={!canEditSessionSetup || !recentQuickPickId || isProjectHubTransitionBusy}
+                            onClick={() => {
+                              if (!recentQuickPickId) return;
+                              const target = projectRegistry.find((entry) => entry.id === recentQuickPickId);
+                              if (!target) return;
+                              if (target.isArchived) {
+                                void restoreAndOpenArchivedProject(target.id);
+                                return;
                               }
-                            >
-                              فتح
-                            </button>
-                          </div>
-                        ))}
+                              void openProjectFromHub(target.id);
+                            }}
+                            title={
+                              isProjectHubTransitionBusy
+                                ? isProcessing("open_archived_project")
+                                  ? inlineLoadingHint("open_archived_project")
+                                  : inlineLoadingHint("switch_project")
+                                : canEditSessionSetup
+                                ? undefined
+                                : permissionHintText(
+                                    "فتح مشروع سابق",
+                                    ["project_manager", "operations_manager"],
+                                    userRole
+                                  )
+                            }
+                          >
+                            فتح المشروع
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div style={styles.projectHubExpEmpty}>لا توجد مشاريع مؤرشفة حالياً.</div>
+                      <div style={styles.projectHubExpEmpty}>لا توجد مشاريع سابقة حالياً.</div>
                     )}
                   </div>
                 ) : experimentalHubEnabled && showExperimentalProjectsHubShell ? (
@@ -11282,11 +13786,15 @@ export default function Home() {
                       <div style={styles.projectHubExperimentActions}>
                         <button
                           type="button"
-                          style={styles.projectHubExpPrimaryBtn(!canEditSessionSetup)}
-                          disabled={!canEditSessionSetup}
-                          onClick={createNewProject}
+                          style={styles.projectHubExpPrimaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                          disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                          onClick={() => {
+                            void createNewProject();
+                          }}
                           title={
-                            canEditSessionSetup
+                            isProjectHubTransitionBusy
+                              ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                              : canEditSessionSetup
                               ? undefined
                               : permissionHintText(
                                   "إنشاء مشروع جديد",
@@ -11299,11 +13807,13 @@ export default function Home() {
                         </button>
                         <button
                           type="button"
-                          style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
-                          disabled={!canEditSessionSetup}
+                          style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                          disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                           onClick={() => requestRenameProjectById(activeProjectId)}
                           title={
-                            canEditSessionSetup
+                            isProjectHubTransitionBusy
+                              ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                              : canEditSessionSetup
                               ? undefined
                               : permissionHintText(
                                   "تعديل اسم المشروع",
@@ -11314,14 +13824,13 @@ export default function Home() {
                         >
                           تعديل اسم المشروع
                         </button>
-                        <button
-                          type="button"
-                          style={styles.projectHubExperimentBackBtn}
-                          onClick={() => setStage("welcome")}
-                        >
-                          العودة لشاشة البداية
-                        </button>
                       </div>
+                      {isProjectHubTransitionBusy ? (
+                        <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                          <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                          {inlineLoadingHint(projectHubLoadingContext ?? "")}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div style={styles.projectHubViewTabs}>
@@ -11550,40 +14059,86 @@ export default function Home() {
                                       {!item.isArchived ? (
                                         <>
                                           <button
-                                            style={styles.projectHubExpPrimaryBtn(false)}
-                                            onClick={() => openProjectFromHub(item.id)}
+                                            style={styles.projectHubExpPrimaryBtn(isProjectHubTransitionBusy)}
+                                            disabled={isProjectHubTransitionBusy}
+                                            onClick={() => {
+                                              void openProjectFromHub(item.id);
+                                            }}
+                                            title={
+                                              isProjectHubTransitionBusy
+                                                ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                                : undefined
+                                            }
                                           >
                                             فتح المشروع
                                           </button>
                                           <button
-                                            style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
-                                            disabled={!canEditSessionSetup}
+                                            style={styles.projectHubExpSecondaryBtn(
+                                              !canEditSessionSetup || isProjectHubTransitionBusy
+                                            )}
+                                            disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                                             onClick={() => requestRenameProjectById(item.id)}
+                                            title={
+                                              isProjectHubTransitionBusy
+                                                ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                                : undefined
+                                            }
                                           >
                                             تعديل الاسم
                                           </button>
                                           <button
-                                            style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
-                                            disabled={!canEditSessionSetup}
-                                            onClick={() => duplicateProjectById(item.id, false)}
+                                            style={styles.projectHubExpSecondaryBtn(
+                                              !canEditSessionSetup || isProjectHubTransitionBusy
+                                            )}
+                                            disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                                            onClick={() => {
+                                              void duplicateProjectById(item.id, false);
+                                            }}
+                                            title={
+                                              isProjectHubTransitionBusy
+                                                ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                                : undefined
+                                            }
                                           >
                                             نسخ
                                           </button>
                                           <button
                                             style={styles.projectHubExpDangerBtn(
-                                              !canEditSessionSetup || activeProjects.length <= 1
+                                              !canEditSessionSetup ||
+                                                activeProjects.length <= 1 ||
+                                                isProjectHubTransitionBusy
                                             )}
-                                            disabled={!canEditSessionSetup || activeProjects.length <= 1}
-                                            onClick={() => archiveProjectById(item.id)}
+                                            disabled={
+                                              !canEditSessionSetup ||
+                                              activeProjects.length <= 1 ||
+                                              isProjectHubTransitionBusy
+                                            }
+                                            onClick={() => {
+                                              void archiveProjectById(item.id);
+                                            }}
+                                            title={
+                                              isProjectHubTransitionBusy
+                                                ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                                : undefined
+                                            }
                                           >
                                             أرشفة
                                           </button>
                                         </>
                                       ) : (
                                         <button
-                                          style={styles.projectHubExpSecondaryBtn(!canEditSessionSetup)}
-                                          disabled={!canEditSessionSetup}
-                                          onClick={() => restoreArchivedProject(item.id)}
+                                          style={styles.projectHubExpSecondaryBtn(
+                                            !canEditSessionSetup || isProjectHubTransitionBusy
+                                          )}
+                                          disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                                          onClick={() => {
+                                            void restoreArchivedProject(item.id);
+                                          }}
+                                          title={
+                                            isProjectHubTransitionBusy
+                                              ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                              : undefined
+                                          }
                                         >
                                           استعادة
                                         </button>
@@ -11603,13 +14158,19 @@ export default function Home() {
                                     <button
                                       type="button"
                                       style={{
-                                        ...styles.projectHubExpPrimaryBtn(!canEditSessionSetup),
+                                        ...styles.projectHubExpPrimaryBtn(
+                                          !canEditSessionSetup || isProjectHubTransitionBusy
+                                        ),
                                         ...styles.projectHubExpCreateBtn,
                                       }}
-                                      onClick={createNewProject}
-                                      disabled={!canEditSessionSetup}
+                                      onClick={() => {
+                                        void createNewProject();
+                                      }}
+                                      disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                                       title={
-                                        canEditSessionSetup
+                                        isProjectHubTransitionBusy
+                                          ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                          : canEditSessionSetup
                                           ? undefined
                                           : permissionHintText(
                                               "إنشاء مشروع جديد",
@@ -11708,8 +14269,16 @@ export default function Home() {
                                       ) : (
                                         <button
                                           type="button"
-                                          style={styles.projectHubExpSecondaryBtn(false)}
-                                          onClick={() => openProjectFromHub(task.projectId)}
+                                          style={styles.projectHubExpSecondaryBtn(isProjectHubTransitionBusy)}
+                                          disabled={isProjectHubTransitionBusy}
+                                          onClick={() => {
+                                            void openProjectFromHub(task.projectId);
+                                          }}
+                                          title={
+                                            isProjectHubTransitionBusy
+                                              ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                              : undefined
+                                          }
                                         >
                                           فتح المشروع
                                         </button>
@@ -11757,11 +14326,15 @@ export default function Home() {
                     <div style={styles.projectHubQuickActions}>
                       <button
                         type="button"
-                        style={styles.primaryBtn(!canEditSessionSetup)}
-                        disabled={!canEditSessionSetup}
-                        onClick={createNewProject}
+                        style={styles.primaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                        disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                        onClick={() => {
+                          void createNewProject();
+                        }}
                         title={
-                          canEditSessionSetup
+                          isProjectHubTransitionBusy
+                            ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                            : canEditSessionSetup
                             ? undefined
                             : permissionHintText(
                                 "إنشاء مشروع جديد",
@@ -11774,11 +14347,13 @@ export default function Home() {
                       </button>
                       <button
                         type="button"
-                        style={styles.secondaryBtn(!canEditSessionSetup)}
-                        disabled={!canEditSessionSetup}
+                        style={styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                        disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                         onClick={() => requestRenameProjectById(activeProjectId)}
                         title={
-                          canEditSessionSetup
+                          isProjectHubTransitionBusy
+                            ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                            : canEditSessionSetup
                             ? undefined
                             : permissionHintText(
                                 "تعديل اسم المشروع",
@@ -11790,15 +14365,12 @@ export default function Home() {
                         تعديل اسم المشروع
                       </button>
                     </div>
-                    <div style={styles.blockTop12}>
-                      <button
-                        style={{ ...styles.secondaryBtn(false), width: isMobile ? "100%" : "auto" }}
-                        onClick={() => setStage("welcome")}
-                      >
-                        العودة لشاشة البداية
-                      </button>
-                    </div>
-
+                    {isProjectHubTransitionBusy ? (
+                      <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                        <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                        {inlineLoadingHint(projectHubLoadingContext ?? "")}
+                      </div>
+                    ) : null}
                     {projectHubRows.length === 0 ? (
                       <div style={styles.projectHubEmpty}>
                         لا توجد نتائج مطابقة للبحث الحالي.
@@ -11858,38 +14430,80 @@ export default function Home() {
                               {!item.isArchived ? (
                                 <>
                                   <button
-                                    style={styles.primaryBtn(false)}
-                                    onClick={() => openProjectFromHub(item.id)}
+                                    style={styles.primaryBtn(isProjectHubTransitionBusy)}
+                                    disabled={isProjectHubTransitionBusy}
+                                    onClick={() => {
+                                      void openProjectFromHub(item.id);
+                                    }}
+                                    title={
+                                      isProjectHubTransitionBusy
+                                        ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                        : undefined
+                                    }
                                   >
                                     فتح المشروع
                                   </button>
                                   <button
-                                    style={styles.secondaryBtn(!canEditSessionSetup)}
-                                    disabled={!canEditSessionSetup}
+                                    style={styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                                    disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                                     onClick={() => requestRenameProjectById(item.id)}
+                                    title={
+                                      isProjectHubTransitionBusy
+                                        ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                        : undefined
+                                    }
                                   >
                                     تعديل الاسم
                                   </button>
                                   <button
-                                    style={styles.secondaryBtn(!canEditSessionSetup)}
-                                    disabled={!canEditSessionSetup}
-                                    onClick={() => duplicateProjectById(item.id, false)}
+                                    style={styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                                    disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                                    onClick={() => {
+                                      void duplicateProjectById(item.id, false);
+                                    }}
+                                    title={
+                                      isProjectHubTransitionBusy
+                                        ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                        : undefined
+                                    }
                                   >
                                     نسخ
                                   </button>
                                   <button
-                                    style={styles.dangerGhostBtn(!canEditSessionSetup || activeProjects.length <= 1)}
-                                    disabled={!canEditSessionSetup || activeProjects.length <= 1}
-                                    onClick={() => archiveProjectById(item.id)}
+                                    style={styles.dangerGhostBtn(
+                                      !canEditSessionSetup ||
+                                        activeProjects.length <= 1 ||
+                                        isProjectHubTransitionBusy
+                                    )}
+                                    disabled={
+                                      !canEditSessionSetup ||
+                                      activeProjects.length <= 1 ||
+                                      isProjectHubTransitionBusy
+                                    }
+                                    onClick={() => {
+                                      void archiveProjectById(item.id);
+                                    }}
+                                    title={
+                                      isProjectHubTransitionBusy
+                                        ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                        : undefined
+                                    }
                                   >
                                     أرشفة
                                   </button>
                                 </>
                               ) : (
                                 <button
-                                  style={styles.secondaryBtn(!canEditSessionSetup)}
-                                  disabled={!canEditSessionSetup}
-                                  onClick={() => restoreArchivedProject(item.id)}
+                                  style={styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                                  disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                                  onClick={() => {
+                                    void restoreArchivedProject(item.id);
+                                  }}
+                                  title={
+                                    isProjectHubTransitionBusy
+                                      ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                                      : undefined
+                                  }
                                 >
                                   استعادة
                                 </button>
@@ -11905,175 +14519,333 @@ export default function Home() {
             )}
 
             {/* INIT */}
-            {stage === "init" && (
-              <>
-                {initStep === "session" && (
-                  <>
-                    <div style={styles.selectorRow}>
-                      <button
-                        type="button"
-                        style={styles.selectorBtn(advisorSelectionMode === "all")}
-                        disabled={!canEditSessionSetup}
-                        onClick={() => {
-                          setAdvisorSelectionMode("all");
-                          setSelectedAdvisors(ALL_ADVISOR_KEYS);
-                        }}
-                      >
-                        جلسة كاملة (كل المستشارين)
-                      </button>
-                      <button
-                        type="button"
-                        style={styles.selectorBtn(advisorSelectionMode === "custom")}
-                        disabled={!canEditSessionSetup}
-                        onClick={() => {
-                          if (advisorSelectionMode === "custom") return;
-                          setAdvisorSelectionMode("custom");
-                          setSelectedAdvisors([]);
-                        }}
-                      >
-                        اختيار مخصص (مستشار واحد أو أكثر)
-                      </button>
-                    </div>
+	            {stage === "init" && (
+	              <>
+	                <div style={styles.blockTop12}>
+	                  <div style={styles.qCard}>
+	                    <div style={styles.sectionHeaderRow}>
+	                      <div>
+	                        <div style={styles.qTitle}>
+	                          {initStep === "session" ? "تهيئة الجلسة" : "تهيئة بيانات المشروع"}
+	                        </div>
+	                        <div style={styles.upgradeSectionHint}>
+	                          افتح فقط القسم المطلوب الآن لتقليل الزحام والحفاظ على التركيز.
+	                        </div>
+	                      </div>
+	                      <div style={styles.additionStateBadge(initOpenSectionsCount > 0)}>
+	                        مفتوح {toArabicDigits(initOpenSectionsCount)} /{" "}
+	                        {toArabicDigits(initSectionsTotalCount)}
+	                      </div>
+	                    </div>
+	                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          if (initStep === "session") {
+	                            setInitSectionsOpen((prev) => ({
+	                              ...prev,
+	                              session_setup: true,
+	                              session_advisors: true,
+	                            }));
+	                            return;
+	                          }
+	                          setInitSectionsOpen((prev) => ({
+	                            ...prev,
+	                            project_overview: true,
+	                            project_basic: true,
+	                            project_summary: true,
+	                          }));
+	                        }}
+	                      >
+	                        فتح تفاصيل الخطوة
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          if (initStep === "session") {
+	                            setInitSectionsOpen((prev) => ({
+	                              ...prev,
+	                              session_setup: false,
+	                              session_advisors: false,
+	                            }));
+	                            return;
+	                          }
+	                          setInitSectionsOpen((prev) => ({
+	                            ...prev,
+	                            project_overview: false,
+	                            project_basic: false,
+	                            project_summary: false,
+	                          }));
+	                        }}
+	                      >
+	                        إغلاق كل التفاصيل
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          if (initStep === "session") {
+	                            setInitSectionsOpen((prev) => ({
+	                              ...prev,
+	                              session_setup: true,
+	                              session_advisors: false,
+	                            }));
+	                            return;
+	                          }
+	                          setInitSectionsOpen((prev) => ({
+	                            ...prev,
+	                            project_overview: true,
+	                            project_basic: true,
+	                            project_summary: false,
+	                          }));
+	                        }}
+	                      >
+	                        الوضع الافتراضي
+	                      </button>
+	                    </div>
+	                  </div>
+	                </div>
 
-                    <div style={styles.blockTop12}>
-                      <div style={styles.label}>نوع الجلسة</div>
-                      <div style={styles.sessionModeGrid}>
-                        <button
-                          type="button"
-                          style={styles.sessionModeCard(mode === "مراجعة تنفيذية سريعة")}
-                          disabled={!canEditSessionSetup}
-                          onClick={() => setMode("مراجعة تنفيذية سريعة")}
-                        >
-                          <div style={styles.sessionModeTitle}>مراجعة تنفيذية سريعة</div>
-                          <div style={styles.sessionModeDesc}>
-                            مناسبة للحصول على قرار سريع بأسئلة أقل ومخرجات مختصرة.
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          style={styles.sessionModeCard(mode === "تحليل معمّق")}
-                          disabled={!canEditSessionSetup}
-                          onClick={() => setMode("تحليل معمّق")}
-                        >
-                          <div style={styles.sessionModeTitle}>تحليل معمّق</div>
-                          <div style={styles.sessionModeDesc}>
-                            أسئلة أكثر وحوار أعمق لتقييم المشروع بشكل تفصيلي.
-                          </div>
-                        </button>
-                      </div>
-                    </div>
+	                {initStep === "session" && (
+	                  <>
+	                    <div style={styles.blockTop12}>
+	                      <div style={styles.qCard}>
+	                        <div style={styles.sectionHeaderRow}>
+	                          <div>
+	                            <div style={styles.qTitle}>إعداد الجلسة</div>
+	                            <div style={styles.upgradeSectionHint}>
+	                              اختر نمط الجلسة ومسار التنفيذ قبل الانتقال لتفاصيل المشروع.
+	                            </div>
+	                          </div>
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() =>
+	                              setInitSectionsOpen((prev) => ({
+	                                ...prev,
+	                                session_setup: !prev.session_setup,
+	                              }))
+	                            }
+	                          >
+	                            {initSectionsOpen.session_setup ? "إخفاء" : "عرض"}
+	                          </button>
+	                        </div>
+	                        {initSectionsOpen.session_setup ? (
+	                          <>
+	                            <div style={styles.selectorRow}>
+	                              <button
+	                                type="button"
+	                                style={styles.selectorBtn(advisorSelectionMode === "all")}
+	                                disabled={!canEditSessionSetup}
+	                                onClick={() => {
+	                                  setAdvisorSelectionMode("all");
+	                                  setSelectedAdvisors(ALL_ADVISOR_KEYS);
+	                                }}
+	                              >
+	                                جلسة كاملة (كل المستشارين)
+	                              </button>
+	                              <button
+	                                type="button"
+	                                style={styles.selectorBtn(advisorSelectionMode === "custom")}
+	                                disabled={!canEditSessionSetup}
+	                                onClick={() => {
+	                                  if (advisorSelectionMode === "custom") return;
+	                                  setAdvisorSelectionMode("custom");
+	                                  setSelectedAdvisors([]);
+	                                }}
+	                              >
+	                                اختيار مخصص (مستشار واحد أو أكثر)
+	                              </button>
+	                            </div>
 
-                    <div style={styles.blockTop12}>
-                      <div style={styles.label}>مسار التنفيذ</div>
-                      <div style={styles.selectorRow}>
-                        <button
-                          type="button"
-                          style={styles.selectorBtn(deliveryTrack === "fast")}
-                          disabled={!canEditSessionSetup}
-                          onClick={() => setDeliveryTrack("fast")}
-                        >
-                          المسار السريع (النموذج الحالي)
-                        </button>
-                        <button
-                          type="button"
-                          style={styles.selectorBtn(deliveryTrack === "advanced")}
-                          disabled={!canEditSessionSetup}
-                          onClick={() => setDeliveryTrack("advanced")}
-                        >
-                          المسار المتقدم (اختياري)
-                        </button>
-                      </div>
-                    </div>
+	                            <div style={styles.blockTop12}>
+	                              <div style={styles.label}>نوع الجلسة</div>
+	                              <div style={styles.sessionModeGrid}>
+	                                <button
+	                                  type="button"
+	                                  style={styles.sessionModeCard(mode === "مراجعة تنفيذية سريعة")}
+	                                  disabled={!canEditSessionSetup}
+	                                  onClick={() => setMode("مراجعة تنفيذية سريعة")}
+	                                >
+	                                  <div style={styles.sessionModeTitle}>مراجعة تنفيذية سريعة</div>
+	                                  <div style={styles.sessionModeDesc}>
+	                                    مناسبة للحصول على قرار سريع بأسئلة أقل ومخرجات مختصرة.
+	                                  </div>
+	                                </button>
+	                                <button
+	                                  type="button"
+	                                  style={styles.sessionModeCard(mode === "تحليل معمّق")}
+	                                  disabled={!canEditSessionSetup}
+	                                  onClick={() => setMode("تحليل معمّق")}
+	                                >
+	                                  <div style={styles.sessionModeTitle}>تحليل معمّق</div>
+	                                  <div style={styles.sessionModeDesc}>
+	                                    أسئلة أكثر وحوار أعمق لتقييم المشروع بشكل تفصيلي.
+	                                  </div>
+	                                </button>
+	                              </div>
+	                            </div>
 
-                    <div style={styles.smallMuted}>
-                      {advisorSelectionMode === "all"
-                        ? "المستشارون المشاركون"
-                        : "المستشارون المشاركون (اختيار مخصص)"}
-                    </div>
+	                            <div style={styles.blockTop12}>
+	                              <div style={styles.label}>مسار التنفيذ</div>
+	                              <div style={styles.selectorRow}>
+	                                <button
+	                                  type="button"
+	                                  style={styles.selectorBtn(deliveryTrack === "fast")}
+	                                  disabled={!canEditSessionSetup}
+	                                  onClick={() => setDeliveryTrack("fast")}
+	                                >
+	                                  المسار السريع (النموذج الحالي)
+	                                </button>
+	                                <button
+	                                  type="button"
+	                                  style={styles.selectorBtn(deliveryTrack === "advanced")}
+	                                  disabled={!canEditSessionSetup}
+	                                  onClick={() => setDeliveryTrack("advanced")}
+	                                >
+	                                  المسار المتقدم (اختياري)
+	                                </button>
+	                              </div>
+	                            </div>
+	                          </>
+	                        ) : (
+	                          <div style={styles.emptyHintText}>تم إخفاء تفاصيل إعداد الجلسة مؤقتًا.</div>
+	                        )}
+	                      </div>
+	                    </div>
 
-                    <div style={{ ...styles.smallMuted, ...styles.smallMutedTop4 }}>
-                      {advisorSelectionMode === "all"
-                        ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
-                        : `المحددون حاليًا: ${toArabicDigits(
-                            selectedAdvisors.length
-                          )} من ${toArabicDigits(ALL_ADVISOR_KEYS.length)}`}
-                    </div>
+	                    <div style={styles.blockTop12}>
+	                      <div style={styles.qCard}>
+	                        <div style={styles.sectionHeaderRow}>
+	                          <div>
+	                            <div style={styles.qTitle}>المستشارون المشاركون</div>
+	                            <div style={styles.upgradeSectionHint}>
+	                              راجع التشكيلة أو خصّصها قبل بدء التحليل.
+	                            </div>
+	                          </div>
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() =>
+	                              setInitSectionsOpen((prev) => ({
+	                                ...prev,
+	                                session_advisors: !prev.session_advisors,
+	                              }))
+	                            }
+	                          >
+	                            {initSectionsOpen.session_advisors ? "إخفاء" : "عرض"}
+	                          </button>
+	                        </div>
+	                        {initSectionsOpen.session_advisors ? (
+	                          <>
+	                            <div style={styles.smallMuted}>
+	                              {advisorSelectionMode === "all"
+	                                ? "المستشارون المشاركون"
+	                                : "المستشارون المشاركون (اختيار مخصص)"}
+	                            </div>
 
-                    <div style={styles.advisorsGrid}>
-                      {[
-                        "financial_advisor",
-                        "regulatory_advisor",
-                        "operations_advisor",
-                        "marketing_advisor",
-                        "risk_advisor",
-                      ].map((key) => {
-                        return (
-                          <button
-                            type="button"
-                            key={key}
-                            onClick={() => {
-                              if (advisorSelectionMode === "custom") {
-                                toggleAdvisorSelection(key as AdvisorKey);
-                              }
-                            }}
-                            disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
-                            aria-disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
-                            style={
-                              advisorSelectionMode === "custom"
-                                ? styles.advisorTileSelectable(
-                                    key,
-                                    selectedAdvisors.includes(key as AdvisorKey)
-                                  )
-                                : {
-                                    ...styles.advisorTile(key),
-                                    cursor: "default",
-                                    opacity: 1,
-                                    position: "relative",
-                                  }
-                            }
-                          >
-                            <span
-                              style={styles.advisorAccentBar(
-                                key,
-                                effectiveSelectedAdvisors.includes(key as AdvisorKey)
-                              )}
-                            />
-                            <span
-                              style={styles.advisorSelectDot(
-                                effectiveSelectedAdvisors.includes(key as AdvisorKey)
-                              )}
-                            />
-                            <div style={styles.advisorIconS}>
-                              {advisorIconSrc(key) ? (
-                                <Image
-                                  src={advisorIconSrc(key)}
-                                  alt=""
-                                  aria-hidden="true"
-                                  width={34}
-                                  height={34}
-                                  style={styles.advisorIconSImage}
-                                />
-                              ) : (
-                                advisorIconFallback(key)
-                              )}
-                            </div>
-                            <div style={styles.advisorNameS}>{advisorName(key)}</div>
-                            <div style={styles.advisorRoleS}>{advisorRoleCardLabel(key)}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
+	                            <div style={{ ...styles.smallMuted, ...styles.smallMutedTop4 }}>
+	                              {advisorSelectionMode === "all"
+	                                ? "سيتم إشراك جميع المستشارين في الأسئلة والحوار والتحليل."
+	                                : `المحددون حاليًا: ${toArabicDigits(
+	                                    selectedAdvisors.length
+	                                  )} من ${toArabicDigits(ALL_ADVISOR_KEYS.length)}`}
+	                            </div>
 
-                    {advisorSelectionMode === "custom" && selectedAdvisors.length === 0 ? (
-                      <div style={styles.warnBox}>
-                        <strong>تنبيه:</strong> اختر مستشارًا واحدًا على الأقل للمتابعة.
-                      </div>
-                    ) : null}
+	                            <div style={styles.advisorsGrid}>
+	                              {[
+	                                "financial_advisor",
+	                                "regulatory_advisor",
+	                                "operations_advisor",
+	                                "marketing_advisor",
+	                                "risk_advisor",
+	                              ].map((key) => {
+	                                return (
+	                                  <button
+	                                    type="button"
+	                                    key={key}
+	                                    onClick={() => {
+	                                      if (advisorSelectionMode === "custom") {
+	                                        toggleAdvisorSelection(key as AdvisorKey);
+	                                      }
+	                                    }}
+	                                    disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
+	                                    aria-disabled={!canEditSessionSetup || advisorSelectionMode !== "custom"}
+	                                    style={
+	                                      advisorSelectionMode === "custom"
+	                                        ? styles.advisorTileSelectable(
+	                                            key,
+	                                            selectedAdvisors.includes(key as AdvisorKey)
+	                                          )
+	                                        : {
+	                                            ...styles.advisorTile(key),
+	                                            cursor: "default",
+	                                            opacity: 1,
+	                                            position: "relative",
+	                                          }
+	                                    }
+	                                  >
+	                                    <span
+	                                      style={styles.advisorAccentBar(
+	                                        key,
+	                                        effectiveSelectedAdvisors.includes(key as AdvisorKey)
+	                                      )}
+	                                    />
+	                                    <span
+	                                      style={styles.advisorSelectDot(
+	                                        effectiveSelectedAdvisors.includes(key as AdvisorKey)
+	                                      )}
+	                                    />
+	                                    <div style={styles.advisorIconS}>
+	                                      {advisorIconSrc(key) ? (
+	                                        <Image
+	                                          src={advisorIconSrc(key)}
+	                                          alt=""
+	                                          aria-hidden="true"
+	                                          width={34}
+	                                          height={34}
+	                                          style={styles.advisorIconSImage}
+	                                        />
+	                                      ) : (
+	                                        advisorIconFallback(key)
+	                                      )}
+	                                    </div>
+	                                    <div style={styles.advisorNameS}>{advisorName(key)}</div>
+	                                    <div style={styles.advisorRoleS}>{advisorRoleCardLabel(key)}</div>
+	                                  </button>
+	                                );
+	                              })}
+	                            </div>
+
+	                            {advisorSelectionMode === "custom" && selectedAdvisors.length === 0 ? (
+	                              <div style={styles.warnBox}>
+	                                <strong>تنبيه:</strong> اختر مستشارًا واحدًا على الأقل للمتابعة.
+	                              </div>
+	                            ) : null}
+	                          </>
+	                        ) : (
+	                          <div style={styles.emptyHintText}>
+	                            تم إخفاء تفاصيل المستشارين مؤقتًا.
+	                          </div>
+	                        )}
+	                      </div>
+	                    </div>
 
                     <div style={styles.stackAfterSection}>
                       <button
-                        style={styles.primaryBtn(!canMoveToProjectStep || !canEditSessionSetup)}
-                        disabled={!canMoveToProjectStep || !canEditSessionSetup}
+                        style={styles.primaryBtn(
+                          !canMoveToProjectStep || !canEditSessionSetup || isProcessing("init_step_transition")
+                        )}
+                        disabled={
+                          !canMoveToProjectStep || !canEditSessionSetup || isProcessing("init_step_transition")
+                        }
                         title={
                           !canEditSessionSetup
                             ? permissionHintText(
@@ -12083,100 +14855,225 @@ export default function Home() {
                               )
                             : undefined
                         }
-                        onClick={() => setInitStep("project")}
+                        onClick={() => {
+                          void switchInitStep("project");
+                        }}
                       >
-                        التالي: تفاصيل المشروع
+                        {actionLabel("التالي: تفاصيل المشروع", "init_step_transition")}
                       </button>
+                      {isProcessing("init_step_transition") ? (
+                        <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                          <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                          {inlineLoadingHint("init_step_transition")}
+                        </div>
+                      ) : null}
                     </div>
                   </>
                 )}
 
                 {initStep === "project" && (
                   <>
-                    <div style={styles.initFormGrid}>
-                  <div>
-                    <div style={styles.label}>نوع الفعالية</div>
-                    <select
-                      value={eventType}
-                      onChange={(e) => setEventType(e.target.value)}
-                      disabled={!canEditProjectCore}
-                      style={styles.input}
-                    >
-                      <option>فعالية مفتوحة عامة</option>
-                      <option>فعالية موسمية</option>
-                      <option>مؤتمر احترافي مدفوع</option>
-                      <option>فعالية برعاية رئيسية</option>
-                      <option>فعالية مؤسسية (حكومية / قطاع خاص)</option>
-                      <option>نموذج هجين</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <div style={styles.label}>نوع الموقع</div>
-                    <select
-                      value={venueType}
-                      onChange={(e) => {
-                        if (isVenueType(e.target.value)) {
-                          setVenueType(e.target.value);
-                        }
-                      }}
-                      disabled={!canEditProjectCore}
-                      style={styles.input}
-                    >
-                      <option value="غير محدد">غير محدد</option>
-                      <option value="منتجع">منتجع</option>
-                      <option value="فندق">فندق</option>
-                      <option value="قاعة">قاعة</option>
-                      <option value="مساحة عامة">مساحة عامة</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <div style={styles.label}>الميزانية التقديرية</div>
-                    <div style={styles.inputSuffixWrap}>
-                      <input
-                        value={budget}
-                        onChange={(e) => setBudget(normalizeDigitsToEnglish(e.target.value))}
-                        disabled={!canEditBudget}
-                        style={{ ...styles.input, paddingLeft: 44 }}
-                        placeholder="مثال: 250000"
-                      />
-                      <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={styles.label}>بداية الفعالية</div>
-                    <input
-                      type="datetime-local"
-                      value={startAt}
-                      onChange={(e) => setStartAt(e.target.value)}
-                      disabled={!canEditProjectCore}
-                      style={styles.input}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={styles.label}>نهاية الفعالية</div>
-                    <input
-                      type="datetime-local"
-                      value={endAt}
-                      onChange={(e) => setEndAt(e.target.value)}
-                      disabled={!canEditProjectCore}
-                      style={styles.input}
-                    />
-                  </div>
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div>
+                            <div style={styles.qTitle}>نظرة التهيئة</div>
+                            <div style={styles.upgradeSectionHint}>
+                              راجع مؤشرات الجاهزية بسرعة قبل تعبئة التفاصيل.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+                            onClick={() =>
+                              setInitSectionsOpen((prev) => ({
+                                ...prev,
+                                project_overview: !prev.project_overview,
+                              }))
+                            }
+                          >
+                            {initSectionsOpen.project_overview ? "إخفاء" : "عرض"}
+                          </button>
+                        </div>
+                        {initSectionsOpen.project_overview ? (
+                          <div style={styles.projectInitHero}>
+                            <h4 style={styles.projectInitHeroTitle}>تهيئة بيانات المشروع قبل الجلسة</h4>
+                            <p style={styles.projectInitHeroHint}>
+                              أدخل الحد الأدنى من البيانات بشكل منظم، ثم ابدأ الجلسة من نفس الشاشة بدون انتقالات إضافية.
+                            </p>
+                            <div style={styles.projectInitKpiGrid}>
+                              <div style={styles.projectInitKpiCard}>
+                                <div style={styles.projectInitKpiLabel}>اكتمال البيانات</div>
+                                <div style={styles.projectInitKpiValue}>%{toArabicDigits(strategyReadiness.score)}</div>
+                              </div>
+                              <div style={styles.projectInitKpiCard}>
+                                <div style={styles.projectInitKpiLabel}>الحقول الحرجة</div>
+                                <div style={styles.projectInitKpiValue}>
+                                  {toArabicDigits(projectReadinessCriticalDone)}/
+                                  {toArabicDigits(projectReadinessCriticalTotal)}
+                                </div>
+                              </div>
+                              <div style={styles.projectInitKpiCard}>
+                                <div style={styles.projectInitKpiLabel}>الحقول الاختيارية</div>
+                                <div style={styles.projectInitKpiValue}>
+                                  {toArabicDigits(projectReadinessOptionalDone)}/
+                                  {toArabicDigits(projectReadinessOptionalTotal)}
+                                </div>
+                              </div>
+                              <div style={styles.projectInitKpiCard}>
+                                <div style={styles.projectInitKpiLabel}>وضع البيانات</div>
+                                <div style={styles.projectInitKpiValue}>
+                                  {strategyReadiness.mode === "gap" ? "بحاجة استكمال" : "جاهز للبدء"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء نظرة الجاهزية مؤقتًا.</div>
+                        )}
+                      </div>
                     </div>
 
                     <div style={styles.blockTop12}>
-                      <div style={styles.label}>وصف المشروع</div>
-                      <textarea
-                        value={project}
-                        onChange={(e) => setProject(e.target.value)}
-                        disabled={!canEditProjectCore}
-                        style={{ ...styles.textarea, ...styles.projectTextarea }}
-                        placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
-                      />
+                      <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div>
+                            <div style={styles.qTitle}>1) البيانات الأساسية</div>
+                            <div style={styles.upgradeSectionHint}>
+                              هذه البيانات تؤثر مباشرة على جودة الأسئلة والاستشارة والقرار النهائي.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+                            onClick={() =>
+                              setInitSectionsOpen((prev) => ({
+                                ...prev,
+                                project_basic: !prev.project_basic,
+                              }))
+                            }
+                          >
+                            {initSectionsOpen.project_basic ? "إخفاء" : "عرض"}
+                          </button>
+                        </div>
+                        {initSectionsOpen.project_basic ? (
+                          <div style={styles.initFormGrid}>
+                            <div>
+                              <div style={styles.label}>نوع الفعالية</div>
+                              <select
+                                value={eventType}
+                                onChange={(e) => setEventType(e.target.value)}
+                                disabled={!canEditProjectCore}
+                                style={styles.input}
+                              >
+                                <option>فعالية مفتوحة عامة</option>
+                                <option>فعالية موسمية</option>
+                                <option>مؤتمر احترافي مدفوع</option>
+                                <option>فعالية برعاية رئيسية</option>
+                                <option>فعالية مؤسسية (حكومية / قطاع خاص)</option>
+                                <option>نموذج هجين</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <div style={styles.label}>نوع الموقع</div>
+                              <select
+                                value={venueType}
+                                onChange={(e) => {
+                                  if (isVenueType(e.target.value)) {
+                                    setVenueType(e.target.value);
+                                  }
+                                }}
+                                disabled={!canEditProjectCore}
+                                style={styles.input}
+                              >
+                                <option value="غير محدد">غير محدد</option>
+                                <option value="منتجع">منتجع</option>
+                                <option value="فندق">فندق</option>
+                                <option value="قاعة">قاعة</option>
+                                <option value="مساحة عامة">مساحة عامة</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <div style={styles.label}>الميزانية التقديرية</div>
+                              <div style={styles.inputSuffixWrap}>
+                                <input
+                                  value={budget}
+                                  onChange={(e) => setBudget(normalizeDigitsToEnglish(e.target.value))}
+                                  disabled={!canEditBudget}
+                                  style={{ ...styles.input, paddingLeft: 44 }}
+                                  placeholder="مثال: 250000"
+                                />
+                                <span style={styles.inputSuffix}>{renderRiyalSuffix()}</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={styles.label}>بداية الفعالية</div>
+                              <input
+                                type="datetime-local"
+                                value={startAt}
+                                onChange={(e) => setStartAt(e.target.value)}
+                                disabled={!canEditProjectCore}
+                                style={styles.input}
+                              />
+                            </div>
+
+                            <div>
+                              <div style={styles.label}>نهاية الفعالية</div>
+                              <input
+                                type="datetime-local"
+                                value={endAt}
+                                onChange={(e) => setEndAt(e.target.value)}
+                                disabled={!canEditProjectCore}
+                                style={styles.input}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء الحقول الأساسية مؤقتًا.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.blockTop12}>
+                      <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div>
+                            <div style={styles.qTitle}>2) ملخص المشروع</div>
+                            <div style={styles.upgradeSectionHint}>
+                              اكتب الهدف والنطاق والمخرجات المتوقعة بصورة مركزة لدعم دقة التوصيات.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+                            onClick={() =>
+                              setInitSectionsOpen((prev) => ({
+                                ...prev,
+                                project_summary: !prev.project_summary,
+                              }))
+                            }
+                          >
+                            {initSectionsOpen.project_summary ? "إخفاء" : "عرض"}
+                          </button>
+                        </div>
+                        {initSectionsOpen.project_summary ? (
+                          <textarea
+                            value={project}
+                            onChange={(e) => setProject(e.target.value)}
+                            disabled={!canEditProjectCore}
+                            style={{ ...styles.textarea, ...styles.projectTextarea }}
+                            placeholder="اكتب الفكرة: الهدف، الجمهور، البوثات/التذاكر/الرعاة، التكاليف، الزمن..."
+                          />
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء ملخص المشروع مؤقتًا.</div>
+                        )}
+                      </div>
                     </div>
 
                     <div style={styles.stackAfterSection}>
@@ -12215,13 +15112,21 @@ export default function Home() {
                       >
                         {actionLabel("ابدأ الجلسة", "start_session")}
                       </button>
+                      {isProcessing("start_session") ? (
+                        <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                          <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                          {inlineLoadingHint("start_session")}
+                        </div>
+                      ) : null}
 
                       <button
-                        style={styles.secondaryBtn(isProcessing())}
-                        disabled={isProcessing()}
-                        onClick={() => setInitStep("session")}
+                        style={styles.secondaryBtn(isProcessing() || isProcessing("init_step_transition"))}
+                        disabled={isProcessing() || isProcessing("init_step_transition")}
+                        onClick={() => {
+                          void switchInitStep("session");
+                        }}
                       >
-                        رجوع: نوع الجلسة والمستشارون
+                        {actionLabel("رجوع: نوع الجلسة والمستشارون", "init_step_transition")}
                       </button>
                     </div>
                   </>
@@ -12242,56 +15147,305 @@ export default function Home() {
                   اجمع مدخلات البداية من كل مستشار لتكوين خط أساس واضح قبل التدقيق.
                 </div>
 
-                <div style={styles.stageFlowList}>
-                  {round1Questions.map((q) => {
-                    const a = answers.find((x) => x.id === q.id);
-
-                    return (
-                      <div key={q.id} style={styles.advisorFlowCard("round1")}>
-                        <div style={styles.advisorQuestionHeader(q.advisor_key)}>
-                          <span style={styles.advisorQuestionAccentBar(q.advisor_key)} />
-                          <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                            {advisorIconSrc(q.advisor_key) ? (
-                              <Image
-                                src={advisorIconSrc(q.advisor_key)}
-                                alt=""
-                                aria-hidden="true"
-                                width={16}
-                                height={16}
-                                style={styles.advisorQuestionIconImage}
-                              />
-                            ) : (
-                              advisorIconFallback(q.advisor_key)
-                            )}
-                          </span>
-                          <span style={styles.advisorQuestionText}>
-                            {advisorTitle(q.advisor_key)}
-                          </span>
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>هرمية الجولة الأولى</div>
+                        <div style={styles.upgradeSectionHint}>
+                          افتح فقط القسم الذي تعمل عليه الآن لتقليل التشتت أثناء الإجابة.
                         </div>
-
-                        <div style={styles.questionPromptText}>• {q.question}</div>
-                        <div style={styles.qHint}>سبب السؤال: {q.intent}</div>
-
-                        <textarea
-                          value={a?.answer ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAnswers((prev) =>
-                              prev.map((x) =>
-                                x.id === q.id ? { ...x, answer: val } : x
-                              )
-                            );
-                          }}
-                          disabled={!canEditAnswers}
-                          placeholder="اكتب إجابتك..."
-                          style={{ ...styles.textarea, ...styles.questionTextarea }}
-                        />
                       </div>
-                    );
-                  })}
+                      <div style={styles.additionStateBadge(round1OpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(round1OpenSectionsCount)} /{" "}
+                        {toArabicDigits(round1SectionsTotalCount)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          setRound1SectionsOpen({
+                            progress: true,
+                            content: true,
+                          });
+                        }}
+                      >
+                        فتح تفاصيل الخطوة
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          setRound1SectionsOpen({
+                            progress: false,
+                            content: false,
+                          });
+                        }}
+                      >
+                        إغلاق كل التفاصيل
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          setRound1SectionsOpen({
+                            progress: true,
+                            content: true,
+                          });
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
+                    <div style={styles.finalDecisionQuickNav}>
+                      {(advancedScopeStep === "scope"
+                        ? (["timeline", "scope", "strategy"] as AdvancedScopeSectionKey[])
+                        : (["org"] as AdvancedScopeSectionKey[])
+                      ).map((sectionKey) => (
+                        <button
+                          key={sectionKey}
+                          type="button"
+                          style={styles.finalDecisionQuickBtn(advancedScopeSectionsOpen[sectionKey])}
+                          disabled={isProcessing()}
+                          onClick={() => openAdvancedScopeSection(sectionKey)}
+                        >
+                          {ADVANCED_SCOPE_SECTION_LABELS[sectionKey]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>تتبع التقدم</div>
+                        <div style={styles.upgradeSectionHint}>
+                          عرض سريع لحالة الإجابات ونسبة الإنجاز قبل متابعة الأسئلة.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setRound1SectionsOpen((prev) => ({
+                            ...prev,
+                            progress: !prev.progress,
+                          }))
+                        }
+                      >
+                        {round1SectionsOpen.progress ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {round1SectionsOpen.progress ? (
+                      <div style={styles.questionStepperShell}>
+                        <div style={styles.questionStepperHead}>
+                          <div style={styles.questionStepperTitle}>
+                            {round1Questions.length > 0
+                              ? `السؤال ${toArabicDigits(round1CurrentIndex + 1)} من ${toArabicDigits(round1Questions.length)}`
+                              : "لا توجد أسئلة متاحة"}
+                          </div>
+                          <div style={styles.questionStepperBadge}>%{toArabicDigits(round1CompletionPercent)}</div>
+                        </div>
+                        <div style={styles.progressBar}>
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${round1CompletionPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <div style={styles.questionStepperMeta}>
+                          تمت الإجابة على {toArabicDigits(round1AnsweredCount)} من {toArabicDigits(round1Questions.length)}.
+                          {round1UnansweredIndexes.length > 0
+                            ? ` المتبقي: ${toArabicDigits(round1UnansweredIndexes.length)} سؤال.`
+                            : " كل الأسئلة مكتملة."}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء تتبع التقدم مؤقتًا.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>محتوى الجولة</div>
+                        <div style={styles.upgradeSectionHint}>
+                          {showRound1Review
+                            ? "راجع البطاقات بسرعة ثم ارجع للسؤال المطلوب."
+                            : "أجب على السؤال الحالي ثم انتقل بشكل تسلسلي."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setRound1SectionsOpen((prev) => ({
+                            ...prev,
+                            content: !prev.content,
+                          }))
+                        }
+                      >
+                        {round1SectionsOpen.content ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {round1SectionsOpen.content ? (
+                      !showRound1Review ? (
+                        <div style={styles.stageFlowList}>
+                          {round1CurrentQuestion ? (
+                            <div key={round1CurrentQuestion.id} style={styles.advisorFlowCard("round1")}>
+                              <div style={styles.advisorQuestionHeader(round1CurrentQuestion.advisor_key)}>
+                                <span style={styles.advisorQuestionAccentBar(round1CurrentQuestion.advisor_key)} />
+                                <span style={styles.advisorQuestionIcon(round1CurrentQuestion.advisor_key)}>
+                                  {advisorIconSrc(round1CurrentQuestion.advisor_key) ? (
+                                    <Image
+                                      src={advisorIconSrc(round1CurrentQuestion.advisor_key)}
+                                      alt=""
+                                      aria-hidden="true"
+                                      width={16}
+                                      height={16}
+                                      style={styles.advisorQuestionIconImage}
+                                    />
+                                  ) : (
+                                    advisorIconFallback(round1CurrentQuestion.advisor_key)
+                                  )}
+                                </span>
+                                <span style={styles.advisorQuestionText}>
+                                  {advisorTitle(round1CurrentQuestion.advisor_key)}
+                                </span>
+                              </div>
+
+                              <div style={styles.questionPromptText}>• {round1CurrentQuestion.question}</div>
+                              <div style={styles.qHint}>سبب السؤال: {round1CurrentQuestion.intent}</div>
+
+                              <textarea
+                                value={round1CurrentAnswer?.answer ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAnswers((prev) =>
+                                    prev.map((x) =>
+                                      x.id === round1CurrentQuestion.id ? { ...x, answer: val } : x
+                                    )
+                                  );
+                                }}
+                                disabled={!canEditAnswers}
+                                placeholder="اكتب إجابتك..."
+                                style={{ ...styles.textarea, ...styles.questionTextarea }}
+                              />
+                            </div>
+                          ) : (
+                            <div style={styles.warnBox}>
+                              لا توجد أسئلة متاحة الآن. أعد بدء الجلسة لتوليد الأسئلة.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={styles.round1ReviewGrid}>
+                          {round1Questions.map((q, idx) => {
+                            const answer = answers.find((item) => item.id === q.id);
+                            const answered = Boolean(answer?.answer.trim());
+                            const preview = answer?.answer.trim().slice(0, 90) || "لم تتم الإجابة بعد";
+                            return (
+                              <button
+                                key={q.id}
+                                type="button"
+                                style={styles.round1ReviewItem(answered, idx === round1CurrentIndex)}
+                                onClick={() => {
+                                  setRound1CurrentIndex(idx);
+                                  setShowRound1Review(false);
+                                }}
+                              >
+                                <div style={styles.round1ReviewItemTitle}>
+                                  سؤال {toArabicDigits(idx + 1)} • {answered ? "مجاب" : "مؤجل"}
+                                </div>
+                                <div style={styles.round1ReviewItemMeta}>{q.question}</div>
+                                <div style={styles.round1ReviewItemMeta}>
+                                  {preview}
+                                  {answer?.answer.trim() && answer.answer.trim().length > 90 ? "..." : ""}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء محتوى الجولة مؤقتًا.</div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={styles.stackAfterSection}>
+                  {!showRound1Review ? (
+                    <div style={styles.round1NavRow}>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || round1CurrentIndex <= 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || round1CurrentIndex <= 0 || !canEditAnswers}
+                        onClick={() => setRound1CurrentIndex((prev) => Math.max(0, prev - 1))}
+                      >
+                        السابق
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || round1Questions.length === 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || round1Questions.length === 0 || !canEditAnswers}
+                        onClick={() => {
+                          if (round1CurrentIndex >= round1Questions.length - 1) {
+                            setShowRound1Review(true);
+                            return;
+                          }
+                          setRound1CurrentIndex((prev) => Math.min(round1Questions.length - 1, prev + 1));
+                        }}
+                      >
+                        أجب لاحقًا
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || round1Questions.length === 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || round1Questions.length === 0 || !canEditAnswers}
+                        onClick={() => {
+                          if (round1CurrentIndex >= round1Questions.length - 1) {
+                            setShowRound1Review(true);
+                            return;
+                          }
+                          setRound1CurrentIndex((prev) => Math.min(round1Questions.length - 1, prev + 1));
+                        }}
+                      >
+                        {round1CurrentIndex >= round1Questions.length - 1 ? "مراجعة سريعة" : "التالي"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      style={styles.secondaryBtn(isProcessing() || round1Questions.length === 0)}
+                      disabled={isProcessing() || round1Questions.length === 0}
+                      onClick={() => {
+                        const firstPending = round1UnansweredIndexes[0] ?? 0;
+                        setRound1CurrentIndex(firstPending);
+                        setShowRound1Review(false);
+                      }}
+                    >
+                      العودة للأسئلة غير المكتملة
+                    </button>
+                  )}
+
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
@@ -12308,11 +15462,20 @@ export default function Home() {
                   >
                     {actionLabel("التالي: تدقيق إضافي", "submit_round1")}
                   </button>
+                  {isProcessing("submit_round1") ? (
+                    <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                      <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                      {inlineLoadingHint("submit_round1")}
+                    </div>
+                  ) : null}
 
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
-                    onClick={() => setStage("init")}
+                    onClick={() => {
+                      setShowRound1Review(false);
+                      setStage("init");
+                    }}
                   >
                     رجوع للإعدادات
                   </button>
@@ -12333,56 +15496,308 @@ export default function Home() {
                   عمّق الإجابات غير المكتملة ووضّح النقاط المؤثرة قبل الانتقال للحوار.
                 </div>
 
-                <div style={styles.stageFlowList}>
-                  {followupQuestions.map((q) => {
-                    const a = answers.find((x) => x.id === q.id);
-                    return (
-                      <div key={q.id} style={styles.advisorFlowCard("round2")}>
-                        <div style={styles.advisorQuestionHeader(q.advisor_key)}>
-                          <span style={styles.advisorQuestionAccentBar(q.advisor_key)} />
-                          <span style={styles.advisorQuestionIcon(q.advisor_key)}>
-                            {advisorIconSrc(q.advisor_key) ? (
-                              <Image
-                                src={advisorIconSrc(q.advisor_key)}
-                                alt=""
-                                aria-hidden="true"
-                                width={16}
-                                height={16}
-                                style={styles.advisorQuestionIconImage}
-                              />
-                            ) : (
-                              advisorIconFallback(q.advisor_key)
-                            )}
-                          </span>
-                          <span style={styles.advisorQuestionText}>
-                            {advisorTitle(q.advisor_key)}
-                          </span>
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>هرمية التدقيق الإضافي</div>
+                        <div style={styles.upgradeSectionHint}>
+                          نظّم العمل بين متابعة التقدم ومحتوى التدقيق لتقليل الزحام.
                         </div>
-                        <div style={styles.questionPromptText}>• {q.question}</div>
-                        <div style={styles.qHint}>
-                          {q.advisor_name} • سبب السؤال: {q.intent}
-                        </div>
-
-                        <textarea
-                          value={a?.answer ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAnswers((prev) =>
-                              prev.map((x) =>
-                                x.id === q.id ? { ...x, answer: val } : x
-                              )
-                            );
-                          }}
-                          disabled={!canEditAnswers}
-                          placeholder="اكتب إجابتك..."
-                          style={{ ...styles.textarea, ...styles.questionTextarea }}
-                        />
                       </div>
-                    );
-                  })}
+                      <div style={styles.additionStateBadge(round2OpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(round2OpenSectionsCount)} /{" "}
+                        {toArabicDigits(round2SectionsTotalCount)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          setRound2SectionsOpen({
+	                            progress: true,
+	                            content: true,
+	                          });
+	                        }}
+	                      >
+	                        فتح تفاصيل الخطوة
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          setRound2SectionsOpen({
+	                            progress: false,
+	                            content: false,
+	                          });
+	                        }}
+	                      >
+	                        إغلاق كل التفاصيل
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+                          setRound2SectionsOpen({
+                            progress: true,
+                            content: true,
+                          });
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
+                    <div style={styles.finalDecisionQuickNav}>
+                      {(advancedBoqStep === "boq"
+                        ? (["boq_items"] as AdvancedBoqSectionKey[])
+                        : advancedBoqStep === "quality_risk"
+                          ? (["quality_risk"] as AdvancedBoqSectionKey[])
+                          : (["ops_risk_board", "ops_meta"] as AdvancedBoqSectionKey[])
+                      ).map((sectionKey) => (
+                        <button
+                          key={sectionKey}
+                          type="button"
+                          style={styles.finalDecisionQuickBtn(advancedBoqSectionsOpen[sectionKey])}
+                          disabled={isProcessing()}
+                          onClick={() => openAdvancedBoqSection(sectionKey)}
+                        >
+                          {ADVANCED_BOQ_SECTION_LABELS[sectionKey]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>تتبع التقدم</div>
+                        <div style={styles.upgradeSectionHint}>
+                          حالة الإجابات في التدقيق الإضافي قبل الانتقال للحوار.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setRound2SectionsOpen((prev) => ({
+                            ...prev,
+                            progress: !prev.progress,
+                          }))
+                        }
+                      >
+                        {round2SectionsOpen.progress ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {round2SectionsOpen.progress ? (
+                      <div style={styles.questionStepperShell}>
+                        <div style={styles.questionStepperHead}>
+                          <div style={styles.questionStepperTitle}>
+                            {followupQuestions.length > 0
+                              ? `السؤال ${toArabicDigits(round2CurrentIndex + 1)} من ${toArabicDigits(followupQuestions.length)}`
+                              : "لا توجد أسئلة متاحة"}
+                          </div>
+                          <div style={styles.questionStepperBadge}>%{toArabicDigits(round2CompletionPercent)}</div>
+                        </div>
+                        <div style={styles.progressBar}>
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${round2CompletionPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <div style={styles.questionStepperMeta}>
+                          تمت الإجابة على {toArabicDigits(round2AnsweredCount)} من {toArabicDigits(followupQuestions.length)}.
+                          {round2UnansweredIndexes.length > 0
+                            ? ` المتبقي: ${toArabicDigits(round2UnansweredIndexes.length)} سؤال.`
+                            : " كل الأسئلة مكتملة."}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء تتبع التقدم مؤقتًا.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>محتوى التدقيق</div>
+                        <div style={styles.upgradeSectionHint}>
+                          {showRound2Review
+                            ? "راجع قائمة التدقيق بسرعة ثم ارجع للنقاط غير المكتملة."
+                            : "أجب على أسئلة التدقيق قبل الانتقال للحوار."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setRound2SectionsOpen((prev) => ({
+                            ...prev,
+                            content: !prev.content,
+                          }))
+                        }
+                      >
+                        {round2SectionsOpen.content ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {round2SectionsOpen.content ? (
+                      !showRound2Review ? (
+                        <div style={styles.stageFlowList}>
+                          {round2CurrentQuestion ? (
+                            <div key={round2CurrentQuestion.id} style={styles.advisorFlowCard("round2")}>
+                              <div style={styles.advisorQuestionHeader(round2CurrentQuestion.advisor_key)}>
+                                <span style={styles.advisorQuestionAccentBar(round2CurrentQuestion.advisor_key)} />
+                                <span style={styles.advisorQuestionIcon(round2CurrentQuestion.advisor_key)}>
+                                  {advisorIconSrc(round2CurrentQuestion.advisor_key) ? (
+                                    <Image
+                                      src={advisorIconSrc(round2CurrentQuestion.advisor_key)}
+                                      alt=""
+                                      aria-hidden="true"
+                                      width={16}
+                                      height={16}
+                                      style={styles.advisorQuestionIconImage}
+                                    />
+                                  ) : (
+                                    advisorIconFallback(round2CurrentQuestion.advisor_key)
+                                  )}
+                                </span>
+                                <span style={styles.advisorQuestionText}>
+                                  {advisorTitle(round2CurrentQuestion.advisor_key)}
+                                </span>
+                              </div>
+                              <div style={styles.questionPromptText}>• {round2CurrentQuestion.question}</div>
+                              <div style={styles.qHint}>
+                                {round2CurrentQuestion.advisor_name} • سبب السؤال: {round2CurrentQuestion.intent}
+                              </div>
+
+                              <textarea
+                                value={round2CurrentAnswer?.answer ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAnswers((prev) =>
+                                    prev.map((x) =>
+                                      x.id === round2CurrentQuestion.id ? { ...x, answer: val } : x
+                                    )
+                                  );
+                                }}
+                                disabled={!canEditAnswers}
+                                placeholder="اكتب إجابتك..."
+                                style={{ ...styles.textarea, ...styles.questionTextarea }}
+                              />
+                            </div>
+                          ) : (
+                            <div style={styles.warnBox}>
+                              لا توجد أسئلة متاحة الآن. يمكنك المتابعة إلى الحوار مباشرة.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={styles.round1ReviewGrid}>
+                          {followupQuestions.map((q, idx) => {
+                            const answer = answers.find((item) => item.id === q.id);
+                            const answered = Boolean(answer?.answer.trim());
+                            const preview = answer?.answer.trim().slice(0, 90) || "لم تتم الإجابة بعد";
+                            return (
+                              <button
+                                key={q.id}
+                                type="button"
+                                style={styles.round1ReviewItem(answered, idx === round2CurrentIndex)}
+                                onClick={() => {
+                                  setRound2CurrentIndex(idx);
+                                  setShowRound2Review(false);
+                                }}
+                              >
+                                <div style={styles.round1ReviewItemTitle}>
+                                  تدقيق {toArabicDigits(idx + 1)} • {answered ? "مجاب" : "مؤجل"}
+                                </div>
+                                <div style={styles.round1ReviewItemMeta}>{q.question}</div>
+                                <div style={styles.round1ReviewItemMeta}>
+                                  {preview}
+                                  {answer?.answer.trim() && answer.answer.trim().length > 90 ? "..." : ""}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء محتوى التدقيق مؤقتًا.</div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={styles.stackAfterSection}>
+                  {!showRound2Review ? (
+                    <div style={styles.round1NavRow}>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || round2CurrentIndex <= 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || round2CurrentIndex <= 0 || !canEditAnswers}
+                        onClick={() => setRound2CurrentIndex((prev) => Math.max(0, prev - 1))}
+                      >
+                        السابق
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || followupQuestions.length === 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || followupQuestions.length === 0 || !canEditAnswers}
+                        onClick={() => {
+                          if (round2CurrentIndex >= followupQuestions.length - 1) {
+                            setShowRound2Review(true);
+                            return;
+                          }
+                          setRound2CurrentIndex((prev) => Math.min(followupQuestions.length - 1, prev + 1));
+                        }}
+                      >
+                        أجب لاحقًا
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(
+                          isProcessing() || followupQuestions.length === 0 || !canEditAnswers
+                        )}
+                        disabled={isProcessing() || followupQuestions.length === 0 || !canEditAnswers}
+                        onClick={() => {
+                          if (round2CurrentIndex >= followupQuestions.length - 1) {
+                            setShowRound2Review(true);
+                            return;
+                          }
+                          setRound2CurrentIndex((prev) => Math.min(followupQuestions.length - 1, prev + 1));
+                        }}
+                      >
+                        {round2CurrentIndex >= followupQuestions.length - 1 ? "مراجعة سريعة" : "التالي"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      style={styles.secondaryBtn(isProcessing() || followupQuestions.length === 0)}
+                      disabled={isProcessing() || followupQuestions.length === 0}
+                      onClick={() => {
+                        const firstPending = round2UnansweredIndexes[0] ?? 0;
+                        setRound2CurrentIndex(firstPending);
+                        setShowRound2Review(false);
+                      }}
+                    >
+                      العودة للأسئلة غير المكتملة
+                    </button>
+                  )}
+
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
@@ -12399,11 +15814,20 @@ export default function Home() {
                   >
                     {actionLabel("التالي: حوار المستشارين", "build_dialogue")}
                   </button>
+                  {isProcessing("build_dialogue") ? (
+                    <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                      <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                      {inlineLoadingHint("build_dialogue")}
+                    </div>
+                  ) : null}
 
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
-                    onClick={() => setStage("round1")}
+                    onClick={() => {
+                      setShowRound2Review(false);
+                      setStage("round1");
+                    }}
                   >
                     رجوع: الجولة الأولى
                   </button>
@@ -12424,56 +15848,343 @@ export default function Home() {
                   راجع خلاصات الحوار بين المستشارين وحدد النقاط العالقة قبل بدء التحليل النهائي.
                 </div>
 
-                <div style={styles.stageFlowList}>
-                  {dialogue.map((m, i) => (
-                    <div key={i} style={styles.advisorFlowCard("dialogue")}>
-                      <div style={styles.advisorQuestionHeader(m.advisor)}>
-                        <span style={styles.advisorQuestionAccentBar(m.advisor)} />
-                        <span style={styles.advisorQuestionIcon(m.advisor)}>
-                          {advisorIconSrc(m.advisor) ? (
-                            <Image
-                              src={advisorIconSrc(m.advisor)}
-                              alt=""
-                              aria-hidden="true"
-                              width={16}
-                              height={16}
-                              style={styles.advisorQuestionIconImage}
-                            />
-                          ) : (
-                            advisorIconFallback(m.advisor)
-                          )}
-                        </span>
-                        <span style={styles.advisorQuestionText}>
-                          {advisorTitle(m.advisor)}
-                        </span>
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>هرمية الحوار</div>
+                        <div style={styles.upgradeSectionHint}>
+                          افتح الأقسام المطلوبة فقط للحفاظ على تركيز القراءة.
+                        </div>
                       </div>
-
-                      <div style={styles.dialogueStatement}>
-                        {m.statement}
+                      <div style={styles.additionStateBadge(dialogueOpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(dialogueOpenSectionsCount)} /{" "}
+                        {toArabicDigits(dialogueSectionsTotalCount)}
                       </div>
                     </div>
-                  ))}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          setDialogueSectionsOpen({
+	                            progress: true,
+	                            content: true,
+	                            open_issues: openIssues.length > 0,
+	                          });
+	                        }}
+	                      >
+	                        فتح تفاصيل الخطوة
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          setDialogueSectionsOpen({
+	                            progress: false,
+	                            content: false,
+	                            open_issues: false,
+	                          });
+	                        }}
+	                      >
+	                        إغلاق كل التفاصيل
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+                          setDialogueSectionsOpen({
+                            progress: true,
+                            content: true,
+                            open_issues: openIssues.length > 0,
+                          });
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
+                    <div style={styles.finalDecisionQuickNav}>
+                      {advancedPlanSectionKeys.map((sectionKey) => (
+                        <button
+                          key={sectionKey}
+                          type="button"
+                          style={styles.finalDecisionQuickBtn(advancedPlanSectionsOpen[sectionKey])}
+                          disabled={isProcessing()}
+                          onClick={() => openAdvancedPlanSection(sectionKey)}
+                        >
+                          {ADVANCED_PLAN_SECTION_LABELS[sectionKey]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  id={ADVANCED_PLAN_SECTION_ANCHORS.plan_text}
+                  ref={(node) => {
+                    advancedPlanSectionRefs.current.plan_text = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedPlanSection,
+                    "plan_text"
+                  )}
+                >
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>تتبع التقدم</div>
+                        <div style={styles.upgradeSectionHint}>
+                          قياس تغطية مراجعة الحوار قبل الانتقال للتحليل.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setDialogueSectionsOpen((prev) => ({
+                            ...prev,
+                            progress: !prev.progress,
+                          }))
+                        }
+                      >
+                        {dialogueSectionsOpen.progress ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {dialogueSectionsOpen.progress ? (
+                      <div style={styles.questionStepperShell}>
+                        <div style={styles.questionStepperHead}>
+                          <div style={styles.questionStepperTitle}>
+                            {dialogue.length > 0
+                              ? `المداخلة ${toArabicDigits(dialogueCurrentIndex + 1)} من ${toArabicDigits(dialogue.length)}`
+                              : "لا يوجد حوار متاح"}
+                          </div>
+                          <div style={styles.questionStepperBadge}>%{toArabicDigits(dialogueCoveragePercent)}</div>
+                        </div>
+                        <div style={styles.progressBar}>
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${dialogueCoveragePercent}%`,
+                            }}
+                          />
+                        </div>
+                        <div style={styles.questionStepperMeta}>
+                          تمت مراجعة {toArabicDigits(dialogueReviewedCount)} من {toArabicDigits(dialogue.length)} مداخلة.
+                          {dialogue.length > 0
+                            ? ` المستشارون المشاركون: ${toArabicDigits(dialogueAdvisorsCount)}.`
+                            : " ابدأ الجولة الثانية لتوليد الحوار."}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء تتبع التقدم مؤقتًا.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>محتوى الحوار</div>
+                        <div style={styles.upgradeSectionHint}>
+                          {showDialogueReview
+                            ? "راجع ملخص المداخلات ثم ارجع للنقطة المطلوبة."
+                            : "اعرض المداخلة الحالية وتقدم نقطة بنقطة."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setDialogueSectionsOpen((prev) => ({
+                            ...prev,
+                            content: !prev.content,
+                          }))
+                        }
+                      >
+                        {dialogueSectionsOpen.content ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {dialogueSectionsOpen.content ? (
+                      !showDialogueReview ? (
+                        <div style={styles.stageFlowList}>
+                          {dialogueCurrentLine ? (
+                            <div style={styles.advisorFlowCard("dialogue")}>
+                              <div style={styles.advisorQuestionHeader(dialogueCurrentLine.advisor)}>
+                                <span style={styles.advisorQuestionAccentBar(dialogueCurrentLine.advisor)} />
+                                <span style={styles.advisorQuestionIcon(dialogueCurrentLine.advisor)}>
+                                  {advisorIconSrc(dialogueCurrentLine.advisor) ? (
+                                    <Image
+                                      src={advisorIconSrc(dialogueCurrentLine.advisor)}
+                                      alt=""
+                                      aria-hidden="true"
+                                      width={16}
+                                      height={16}
+                                      style={styles.advisorQuestionIconImage}
+                                    />
+                                  ) : (
+                                    advisorIconFallback(dialogueCurrentLine.advisor)
+                                  )}
+                                </span>
+                                <span style={styles.advisorQuestionText}>
+                                  {advisorTitle(dialogueCurrentLine.advisor)}
+                                </span>
+                              </div>
+
+                              <div style={styles.qHint}>
+                                نقطة {toArabicDigits(dialogueCurrentIndex + 1)} من {toArabicDigits(dialogue.length)}
+                              </div>
+                              <div style={styles.dialogueStatement}>
+                                {dialogueCurrentLine.statement}
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={styles.warnBox}>
+                              لا يوجد حوار متاح الآن. أكمل الجولة الثانية أولًا.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={styles.round1ReviewGrid}>
+                          {dialogue.map((item, idx) => {
+                            const preview = item.statement.trim().slice(0, 110) || "لا توجد مداخلة";
+                            return (
+                              <button
+                                key={`${item.advisor}-${idx}`}
+                                type="button"
+                                style={styles.round1ReviewItem(true, idx === dialogueCurrentIndex)}
+                                onClick={() => {
+                                  setDialogueCurrentIndex(idx);
+                                  setShowDialogueReview(false);
+                                }}
+                              >
+                                <div style={styles.round1ReviewItemTitle}>
+                                  مداخلة {toArabicDigits(idx + 1)} • {advisorTitle(item.advisor)}
+                                </div>
+                                <div style={styles.round1ReviewItemMeta}>
+                                  {preview}
+                                  {item.statement.trim().length > 110 ? "..." : ""}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء محتوى الحوار مؤقتًا.</div>
+                    )}
+                  </div>
                 </div>
 
                 {openIssues.length > 0 ? (
                   <div style={styles.blockTop12}>
-                    <div style={styles.openIssuesCard}>
-                      <div style={styles.openIssuesHead}>
-                        <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
-                        <div style={styles.openIssuesCountBadge}>
-                          {toArabicDigits(openIssues.length)}
+                    <div style={styles.qCard}>
+                      <div style={styles.sectionHeaderRow}>
+                        <div>
+                          <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
+                          <div style={styles.upgradeSectionHint}>
+                            نقاط يجب معالجتها قبل تثبيت القرار التنفيذي.
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            setDialogueSectionsOpen((prev) => ({
+                              ...prev,
+                              open_issues: !prev.open_issues,
+                            }))
+                          }
+                        >
+                          {dialogueSectionsOpen.open_issues ? "إخفاء" : "عرض"}
+                        </button>
                       </div>
-                      {openIssues.map((x, idx) => (
-                        <div key={idx} style={styles.openIssueItem}>
-                          • {x}
+                      {dialogueSectionsOpen.open_issues ? (
+                        <div style={styles.openIssuesCard}>
+                          <div style={styles.openIssuesHead}>
+                            <div style={styles.qTitle}>نقاط مفتوحة قبل القرار</div>
+                            <div style={styles.openIssuesCountBadge}>
+                              {toArabicDigits(openIssues.length)}
+                            </div>
+                          </div>
+                          {visibleOpenIssues.map((x, idx) => (
+                            <div key={idx} style={styles.openIssueItem}>
+                              • {x}
+                            </div>
+                          ))}
+                          {openIssues.length > 3 ? (
+                            <div style={styles.blockTop8}>
+                              <button
+                                type="button"
+                                style={styles.secondaryBtn(isProcessing())}
+                                disabled={isProcessing()}
+                                onClick={() => setShowAllOpenIssues((prev) => !prev)}
+                              >
+                                {showAllOpenIssues ? "عرض مختصر" : `عرض الكل (${toArabicDigits(openIssues.length)})`}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
-                      ))}
+                      ) : (
+                        <div style={styles.emptyHintText}>تم إخفاء النقاط المفتوحة مؤقتًا.</div>
+                      )}
                     </div>
                   </div>
                 ) : null}
 
                 <div style={styles.stackAfterSection}>
+                  {!showDialogueReview ? (
+                    <div style={styles.round1NavRow}>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(isProcessing() || dialogueCurrentIndex <= 0)}
+                        disabled={isProcessing() || dialogueCurrentIndex <= 0}
+                        onClick={() => setDialogueCurrentIndex((prev) => Math.max(0, prev - 1))}
+                      >
+                        السابق
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(isProcessing() || dialogue.length === 0)}
+                        disabled={isProcessing() || dialogue.length === 0}
+                        onClick={() => setShowDialogueReview(true)}
+                      >
+                        مراجعة سريعة
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.secondaryBtn(isProcessing() || dialogue.length === 0)}
+                        disabled={isProcessing() || dialogue.length === 0}
+                        onClick={() => {
+                          if (dialogueCurrentIndex >= dialogue.length - 1) {
+                            setShowDialogueReview(true);
+                            return;
+                          }
+                          setDialogueCurrentIndex((prev) => Math.min(dialogue.length - 1, prev + 1));
+                        }}
+                      >
+                        {dialogueCurrentIndex >= dialogue.length - 1 ? "مراجعة سريعة" : "التالي"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      style={styles.secondaryBtn(isProcessing() || dialogue.length === 0)}
+                      disabled={isProcessing() || dialogue.length === 0}
+                      onClick={() => setShowDialogueReview(false)}
+                    >
+                      العودة لمسار الحوار
+                    </button>
+                  )}
+
                   <button
                     style={styles.primaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
@@ -12505,118 +16216,372 @@ export default function Home() {
             )}
 
             {/* ADDITION */}
-            {stage === "addition" && (
+            {(stage === "addition" || stage === "final_addition") && (
               <>
                 <h3
                   ref={additionStageHeadingRef}
                   style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
                 >
-                  المرحلة 4: مراجعة قبل التحليل
+                  {isFinalConsultationStage
+                    ? "المرحلة 9: الاستشارة الختامية"
+                    : "المرحلة 4: مراجعة قبل التحليل التمهيدي"}
                 </h3>
                 <div style={styles.stageFlowLead}>
-                  تأكد من اكتمال المدخلات وأضف أي معلومة مؤثرة قبل تشغيل التحليل النهائي.
+                  {isFinalConsultationStage
+                    ? "أضف آخر المستجدات بعد المسار المتقدم قبل تشغيل التحليل النهائي."
+                    : "تأكد من اكتمال المدخلات وأضف أي معلومة مؤثرة قبل تشغيل التحليل التمهيدي."}
                 </div>
 
-                <div style={styles.additionDecisionCard}>
-                  <div style={styles.sectionHeaderRow}>
-                    <div style={styles.qTitle}>هل تحتاج إضافة قبل التحليل؟</div>
-                    <div style={styles.additionStateBadge(hasAddition === "yes")}>
-                      {hasAddition === "yes" ? "يوجد إضافة" : "بدون إضافة"}
-                    </div>
-                  </div>
-                  <div style={styles.qHint}>
-                    اختر وضع المراجعة المناسب قبل تشغيل التحليل النهائي.
-                  </div>
-
-                  <div style={styles.additionChoiceGrid}>
-                    <button
-                      type="button"
-                      style={styles.additionChoiceCard(hasAddition === "no")}
-                      disabled={!canEditAnswers}
-                      onClick={() => setHasAddition("no")}
-                      aria-pressed={hasAddition === "no"}
-                    >
-                      <div style={styles.additionChoiceTitle}>بدون إضافة</div>
-                      <div style={styles.additionChoiceDesc}>
-                        تشغيل التحليل اعتمادًا على الإجابات الحالية فقط.
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      style={styles.additionChoiceCard(hasAddition === "yes")}
-                      disabled={!canEditAnswers}
-                      onClick={() => setHasAddition("yes")}
-                      aria-pressed={hasAddition === "yes"}
-                    >
-                      <div style={styles.additionChoiceTitle}>إضافة معلومات</div>
-                      <div style={styles.additionChoiceDesc}>
-                        إدخال ملاحظات إضافية لتحسين دقة التحليل.
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {hasAddition === "yes" && (
-                  <div style={styles.additionInputCard}>
-                    <div style={styles.qTitle}>المعلومة الإضافية</div>
-                    <div style={styles.qHint}>
-                      أضف النقاط التي تغيّر القرار مثل الميزانية، الموقع، المدة أو القيود.
-                    </div>
-                    <textarea
-                      value={userAddition}
-                      onChange={(e) => setUserAddition(e.target.value)}
-                      disabled={!canEditAnswers}
-                      style={{ ...styles.textarea, ...styles.additionTextarea }}
-                      placeholder="اكتب الإضافة (ميزانية/موقع/مدة/بوثات/تسعير/راعي محتمل...)"
-                    />
-                  </div>
-                )}
-
-                <div style={styles.qualityCard}>
-                  <div style={styles.qualityHeaderRow}>
-                    <div style={{ fontWeight: 900 }}>مؤشر جودة الإجابات قبل التحليل</div>
-                    <div style={styles.qualityBadge(answerQuality.level)}>
-                      {answerQuality.level}
-                    </div>
-                  </div>
-
-                  <div style={styles.qualitySummaryText}>
-                    جودة تقديرية: %{toArabicDigits(answerQuality.score)}
-                    {" • "}
-                    إجابات قوية: {toArabicDigits(answerQuality.strongCount)}
-                    {" • "}
-                    إجابات تحتاج تفصيل: {toArabicDigits(answerQuality.weakCount)}
-                  </div>
-
-                  <div style={styles.qualityMeterTrack}>
-                    <div
-                      style={styles.qualityMeterFill(
-                        answerQuality.level,
-                        answerQuality.score
-                      )}
-                    />
-                  </div>
-
-                  {answerQuality.weakCount > 0 ? (
-                    <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
-                      <strong>ملاحظة مهمة:</strong> بعض الإجابات قصيرة أو عامة جدًا، وهذا
-                      يضعف دقة التحليل النهائي.
-                      {answerQuality.weakExamples.length > 0 ? (
-                        <div style={styles.blockTop8}>
-                          {answerQuality.weakExamples.map((x, i) => (
-                            <div key={i} style={styles.listItemGap4}>
-                              • {x.question}
-                            </div>
-                          ))}
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>
+                          {isFinalConsultationStage ? "هرمية الاستشارة الختامية" : "هرمية المراجعة قبل التحليل"}
                         </div>
-                      ) : null}
+                        <div style={styles.upgradeSectionHint}>
+                          افتح فقط القسم المطلوب الآن لتقليل طول الشاشة.
+                        </div>
+                      </div>
+                      <div style={styles.additionStateBadge(additionOpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(additionOpenSectionsCount)} /{" "}
+                        {toArabicDigits(additionSectionsTotalCount)}
+                      </div>
                     </div>
-                  ) : (
-                    <div style={styles.qualityPositiveText}>
-                      ممتاز، مستوى الإجابات الحالي مناسب لإنتاج تحليل أقوى.
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen({
+                            progress: true,
+                            decision: true,
+                            note: hasAddition === "yes",
+                            quality: true,
+                          })
+                        }
+                      >
+                        فتح تفاصيل الخطوة
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen({
+                            progress: false,
+                            decision: false,
+                            note: false,
+                            quality: false,
+                          })
+                        }
+                      >
+                        إغلاق كل التفاصيل
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen(
+                            additionSectionDefaultsByStage(stage, hasAddition)
+                          )
+                        }
+                      >
+                        الوضع الافتراضي
+                      </button>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>تتبع التقدم</div>
+                        <div style={styles.upgradeSectionHint}>
+                          راقب جاهزية الإضافة قبل تشغيل التحليل.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen((prev) => ({
+                            ...prev,
+                            progress: !prev.progress,
+                          }))
+                        }
+                      >
+                        {additionSectionsOpen.progress ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {additionSectionsOpen.progress ? (
+                      <div style={styles.questionStepperShell}>
+                        <div style={styles.questionStepperHead}>
+                          <div style={styles.questionStepperTitle}>
+                            {hasAddition === "yes" ? "وضع الإضافة: معلومات إضافية" : "وضع الإضافة: بدون إضافة"}
+                          </div>
+                          <div style={styles.questionStepperBadge}>%{toArabicDigits(additionProgressPercent)}</div>
+                        </div>
+                        <div style={styles.progressBar}>
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${additionProgressPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <div style={styles.questionStepperMeta}>
+                          {additionStatusText}
+                          {hasAddition === "yes"
+                            ? ` عدد الأحرف الحالية: ${toArabicDigits(additionNoteLength)}.`
+                            : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء تتبع التقدم مؤقتًا.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>
+                          {isFinalConsultationStage
+                            ? "قرار الإضافة الختامية"
+                            : "قرار الإضافة قبل التحليل"}
+                        </div>
+                        <div style={styles.upgradeSectionHint}>
+                          حدّد ما إذا كانت هناك معلومات إضافية مؤثرة.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen((prev) => ({
+                            ...prev,
+                            decision: !prev.decision,
+                          }))
+                        }
+                      >
+                        {additionSectionsOpen.decision ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {additionSectionsOpen.decision ? (
+                      <div style={styles.additionDecisionCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div style={styles.qTitle}>
+                            {isFinalConsultationStage
+                              ? "هل لديك إضافات ختامية قبل القرار النهائي؟"
+                              : "هل تحتاج إضافة قبل التحليل؟"}
+                          </div>
+                          <div style={styles.additionStateBadge(hasAddition === "yes")}>
+                            {hasAddition === "yes" ? "يوجد إضافة" : "بدون إضافة"}
+                          </div>
+                        </div>
+                        <div style={styles.qHint}>
+                          {isFinalConsultationStage
+                            ? "راجع الإضافات النهائية قبل اعتماد القرار النهائي."
+                            : "اختر وضع المراجعة المناسب قبل تشغيل التحليل التمهيدي."}
+                        </div>
+
+                        <div style={styles.additionChoiceGrid}>
+                          <button
+                            type="button"
+                            style={styles.additionChoiceCard(hasAddition === "no")}
+                            disabled={!canEditAnswers}
+                            onClick={() => setHasAddition("no")}
+                            aria-pressed={hasAddition === "no"}
+                          >
+                            <div style={styles.additionChoiceTitle}>بدون إضافة</div>
+                            <div style={styles.additionChoiceDesc}>
+                              تشغيل التحليل اعتمادًا على الإجابات الحالية فقط.
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            style={styles.additionChoiceCard(hasAddition === "yes")}
+                            disabled={!canEditAnswers}
+                            onClick={() => setHasAddition("yes")}
+                            aria-pressed={hasAddition === "yes"}
+                          >
+                            <div style={styles.additionChoiceTitle}>إضافة معلومات</div>
+                            <div style={styles.additionChoiceDesc}>
+                              إدخال ملاحظات إضافية لتحسين دقة التحليل.
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء قرار الإضافة مؤقتًا.</div>
+                    )}
+                  </div>
+                </div>
+
+                {hasAddition === "yes" ? (
+                  <div style={styles.blockTop12}>
+                    <div style={styles.qCard}>
+                      <div style={styles.sectionHeaderRow}>
+                        <div>
+                          <div style={styles.qTitle}>المعلومة الإضافية</div>
+                          <div style={styles.upgradeSectionHint}>
+                            أضف المستجدات التي تغير القرار أو الأولويات.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            setAdditionSectionsOpen((prev) => ({
+                              ...prev,
+                              note: !prev.note,
+                            }))
+                          }
+                        >
+                          {additionSectionsOpen.note ? "إخفاء" : "عرض"}
+                        </button>
+                      </div>
+                      {additionSectionsOpen.note ? (
+                        <div style={styles.additionInputCard}>
+                          <div style={styles.qTitle}>المعلومة الإضافية</div>
+                          <div style={styles.qHint}>
+                            أضف النقاط التي تغيّر القرار مثل الميزانية، الموقع، المدة أو القيود.
+                          </div>
+                          <textarea
+                            value={userAddition}
+                            onChange={(e) => setUserAddition(e.target.value)}
+                            disabled={!canEditAnswers}
+                            style={{ ...styles.textarea, ...styles.additionTextarea }}
+                            placeholder={
+                              isFinalConsultationStage
+                                ? "اكتب المستجدات النهائية (بنود، تسعير، مخاطر، ملاحظات تنفيذية...)"
+                                : "اكتب الإضافة (ميزانية/موقع/مدة/بوثات/تسعير/راعي محتمل...)"
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div style={styles.emptyHintText}>تم إخفاء المعلومة الإضافية مؤقتًا.</div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>جودة الإجابات قبل التحليل</div>
+                        <div style={styles.upgradeSectionHint}>
+                          راجع جودة المدخلات لضمان تقرير أدق.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdditionSectionsOpen((prev) => ({
+                            ...prev,
+                            quality: !prev.quality,
+                          }))
+                        }
+                      >
+                        {additionSectionsOpen.quality ? "إخفاء" : "عرض"}
+                      </button>
+                    </div>
+                    {additionSectionsOpen.quality ? (
+                      <div style={styles.qualityCard}>
+                        <div style={styles.qualityHeaderRow}>
+                          <div style={{ fontWeight: 900 }}>مؤشر جودة الإجابات قبل التحليل</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <div style={styles.qualityBadge(answerQuality.level)}>
+                              {answerQuality.level}
+                            </div>
+                            <button
+                              type="button"
+                              style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                              disabled={isProcessing()}
+                              onClick={() => setShowQualityDetails((prev) => !prev)}
+                            >
+                              {showQualityDetails ? "إخفاء التفاصيل" : "عرض التفاصيل"}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={styles.qualitySummaryText}>
+                          جودة تقديرية: %{toArabicDigits(answerQuality.score)}
+                          {" • "}
+                          إجابات قوية: {toArabicDigits(answerQuality.strongCount)}
+                          {" • "}
+                          إجابات تحتاج تفصيل: {toArabicDigits(answerQuality.weakCount)}
+                        </div>
+
+                        {answerQuality.weakCount > 0 ? (
+                          <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
+                            <strong>تنبيه مختصر:</strong> توجد إجابات عامة قد تقلل دقة القرار.
+                          </div>
+                        ) : null}
+
+                        {showQualityDetails ? (
+                          <>
+                            <div style={styles.qualityMeterTrack}>
+                              <div
+                                style={styles.qualityMeterFill(
+                                  answerQuality.level,
+                                  answerQuality.score
+                                )}
+                              />
+                            </div>
+
+                            {answerQuality.weakCount > 0 ? (
+                              <div style={{ ...styles.inlineWarnBox, ...styles.inlineWarnBoxTop10 }}>
+                                <strong>ملاحظة مهمة:</strong> بعض الإجابات قصيرة أو عامة جدًا، وهذا
+                                يضعف دقة التحليل النهائي.
+                                {visibleWeakExamples.length > 0 ? (
+                                  <div style={styles.blockTop8}>
+                                    {visibleWeakExamples.map((x, i) => (
+                                      <div key={`${x.question}-${i}`} style={styles.listItemGap4}>
+                                        • {x.question}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {answerQuality.weakExamples.length > 2 ? (
+                                  <div style={styles.blockTop8}>
+                                    <button
+                                      type="button"
+                                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                                      disabled={isProcessing()}
+                                      onClick={() => setShowAllWeakExamples((prev) => !prev)}
+                                    >
+                                      {showAllWeakExamples
+                                        ? "عرض أقل"
+                                        : `عرض الكل (${toArabicDigits(answerQuality.weakExamples.length)})`}
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div style={styles.qualityPositiveText}>
+                                ممتاز، مستوى الإجابات الحالي مناسب لإنتاج تحليل أقوى.
+                              </div>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div style={styles.emptyHintText}>تم إخفاء جودة الإجابات مؤقتًا.</div>
+                    )}
+                  </div>
                 </div>
 
                 {needsReanalysisHint ? (
@@ -12641,8 +16606,19 @@ export default function Home() {
                     }
                     onClick={runAnalysis}
                   >
-                    {actionLabel("ابدأ التحليل + القرار + التوصيات", "run_analysis")}
+                    {actionLabel(
+                      isFinalConsultationStage
+                        ? "ابدأ التحليل النهائي + القرار النهائي"
+                        : "ابدأ التحليل التمهيدي + التوصيات",
+                      "run_analysis"
+                    )}
                   </button>
+                  {isProcessing("run_analysis") ? (
+                    <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                      <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                      {inlineLoadingHint("run_analysis")}
+                    </div>
+                  ) : null}
 
                   {analysis ? (
                     <button
@@ -12651,7 +16627,7 @@ export default function Home() {
                       onClick={() => {
                         showSuccess(UX_MESSAGES.openedCurrentResults);
                         setNeedsReanalysisHint(false);
-                        setStage("done");
+                        setStage(isFinalConsultationStage ? "final_done" : "done");
                       }}
                     >
                       الانتقال إلى النتائج الحالية
@@ -12661,206 +16637,679 @@ export default function Home() {
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing()}
-                    onClick={() => setStage("dialogue")}
+                    onClick={() => setStage(isFinalConsultationStage ? "advanced_plan" : "dialogue")}
                   >
-                    رجوع: حوار المستشارين
+                    {isFinalConsultationStage ? "رجوع: خطة التنفيذ المتقدمة" : "رجوع: حوار المستشارين"}
                   </button>
                 </div>
               </>
             )}
 
             {/* DONE */}
-            {stage === "done" && analysis && (
+            {(stage === "done" || stage === "final_done") && analysis && (
               <>
                 <h3
                   ref={doneStageHeadingRef}
                   style={{ ...styles.sectionHeading, ...styles.stageScrollAnchor }}
                 >
-                  المرحلة 5: المخرجات النهائية
+                  {isFinalDecisionStage
+                    ? "المرحلة 10: القرار التنفيذي النهائي"
+                    : "المرحلة 5: النتيجة التمهيدية"}
                 </h3>
                 <div style={styles.stageFlowLead}>
-                  راجع القرار والتوصيات ثم ثبّت خيارك قبل الانتقال للمسار التشغيلي المتقدم.
+                  {isFinalDecisionStage
+                    ? "راجع القرار النهائي والتوصيات المعتمدة بعد اكتمال جميع المراحل."
+                    : "هذه نتيجة تمهيدية قبل الدخول للمسار المتقدم واستكمال بيانات المشروع."}
                 </div>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
-                    <div style={styles.finalHeroHead}>
-                      <div style={styles.qTitle}>القرار التنفيذي</div>
-                      <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            background:
-                              readinessAccent(analysis?.strategic_analysis?.readiness_level),
-                            display: "inline-block",
-                          }}
-                        />
-                        {analysis?.strategic_analysis?.readiness_level
-                          ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
-                          : "الجاهزية: —"}
-                      </div>
-                    </div>
+	                {isFinalDecisionStage ? (
+	                  <div
+	                    id={FINAL_DECISION_SECTION_ANCHORS.summary}
+	                    ref={(node) => {
+	                      finalDecisionSectionRefs.current.summary = node;
+	                    }}
+	                    tabIndex={-1}
+	                    style={finalDecisionBlockStyle("summary")}
+	                  >
+	                    <div style={styles.qCard}>
+	                      <div style={styles.sectionHeaderRow}>
+	                        <div>
+	                          <div style={styles.qTitle}>ملخص القرار النهائي</div>
+	                          <div style={styles.upgradeSectionHint}>
+	                            نظرة تنفيذية سريعة على حالة القرار والجاهزية.
+	                          </div>
+	                        </div>
+	                        <button
+	                          type="button"
+	                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                          disabled={isProcessing()}
+	                          onClick={() =>
+	                            finalDecisionSectionsOpen.summary
+	                              ? toggleFinalDecisionSection("summary")
+	                              : openFinalDecisionSection("summary")
+	                          }
+	                        >
+	                          {finalDecisionSectionsOpen.summary ? "إخفاء" : "عرض"}
+	                        </button>
+	                      </div>
+	                      {finalDecisionSectionsOpen.summary ? (
+	                        <>
+	                          <div style={styles.blockTop12}>
+	                            <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
+	                              <div style={styles.finalHeroHead}>
+	                                <div style={styles.qTitle}>القرار التنفيذي النهائي</div>
+	                                <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
+	                                  <span
+	                                    style={{
+	                                      width: 8,
+	                                      height: 8,
+	                                      borderRadius: 999,
+	                                      background:
+	                                        readinessAccent(
+	                                          analysis?.strategic_analysis?.readiness_level
+	                                        ),
+	                                      display: "inline-block",
+	                                    }}
+	                                  />
+	                                  {analysis?.strategic_analysis?.readiness_level
+	                                    ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
+	                                    : "الجاهزية: —"}
+	                                </div>
+	                              </div>
 
-                    <div style={styles.decisionStateCard(analysis?.executive_decision?.decision)}>
-                      <div style={styles.decisionStateLabel}>حالة القرار</div>
-                      <div style={styles.decisionStateValue(analysis?.executive_decision?.decision)}>
-                        {analysis?.executive_decision?.decision ?? "—"}
-                      </div>
-                    </div>
+	                              <div
+	                                style={styles.decisionStateCard(
+	                                  analysis?.executive_decision?.decision
+	                                )}
+	                              >
+	                                <div style={styles.decisionStateLabel}>حالة القرار</div>
+	                                <div
+	                                  style={styles.decisionStateValue(
+	                                    analysis?.executive_decision?.decision
+	                                  )}
+	                                >
+	                                  {analysis?.executive_decision?.decision ?? "—"}
+	                                </div>
+	                              </div>
 
-                    <div style={styles.decisionReasons}>
-                      <div style={styles.decisionReasonItem}>
-                        • {analysis?.executive_decision?.reason_1 ?? "—"}
-                      </div>
-                      <div style={styles.decisionReasonItem}>
-                        • {analysis?.executive_decision?.reason_2 ?? "—"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+	                              <div style={styles.decisionReasons}>
+	                                <div style={styles.decisionReasonItem}>
+	                                  • {analysis?.executive_decision?.reason_1 ?? "—"}
+	                                </div>
+	                                <div style={styles.decisionReasonItem}>
+	                                  • {analysis?.executive_decision?.reason_2 ?? "—"}
+	                                </div>
+	                              </div>
+	                            </div>
+	                          </div>
 
-                <div style={styles.quickStatsGrid}>
-                  <div style={styles.statTile}>
-                    <div style={styles.statLabel}>مستوى الجاهزية</div>
-                    <div
-                      style={{
-                        ...styles.statValue,
-                        color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
-                      }}
-                    >
-                      {analysis?.strategic_analysis?.readiness_level ?? "—"}
-                    </div>
-                  </div>
-                  <div style={styles.statTile}>
-                    <div style={styles.statLabel}>نقاط القوة</div>
-                    <div style={styles.statValue}>
-                      {(analysis?.strategic_analysis?.strengths || []).length}
-                    </div>
-                  </div>
-                  <div style={styles.statTile}>
-                    <div style={styles.statLabel}>الفجوات</div>
-                    <div style={styles.statValue}>
-                      {(analysis?.strategic_analysis?.gaps || []).length}
-                    </div>
-                  </div>
-                  <div style={styles.statTile}>
-                    <div style={styles.statLabel}>المخاطر</div>
-                    <div style={styles.statValue}>
-                      {(analysis?.strategic_analysis?.risks || []).length}
-                    </div>
-                  </div>
-                </div>
+	                          <div style={styles.quickStatsGrid}>
+	                            <div style={styles.statTile}>
+	                              <div style={styles.statLabel}>مستوى الجاهزية</div>
+	                              <div
+	                                style={{
+	                                  ...styles.statValue,
+	                                  color: readinessAccent(
+	                                    analysis?.strategic_analysis?.readiness_level
+	                                  ),
+	                                }}
+	                              >
+	                                {analysis?.strategic_analysis?.readiness_level ?? "—"}
+	                              </div>
+	                            </div>
+	                            <div style={styles.statTile}>
+	                              <div style={styles.statLabel}>نقاط القوة</div>
+	                              <div style={styles.statValue}>
+	                                {(analysis?.strategic_analysis?.strengths || []).length}
+	                              </div>
+	                            </div>
+	                            <div style={styles.statTile}>
+	                              <div style={styles.statLabel}>الفجوات</div>
+	                              <div style={styles.statValue}>
+	                                {(analysis?.strategic_analysis?.gaps || []).length}
+	                              </div>
+	                            </div>
+	                            <div style={styles.statTile}>
+	                              <div style={styles.statLabel}>المخاطر</div>
+	                              <div style={styles.statValue}>
+	                                {(analysis?.strategic_analysis?.risks || []).length}
+	                              </div>
+	                            </div>
+	                          </div>
+	                        </>
+	                      ) : (
+	                        <div style={styles.emptyHintText}>
+	                          هذا القسم مخفي حاليًا لتقليل طول الصفحة.
+	                        </div>
+	                      )}
+	                    </div>
+	                  </div>
+	                ) : (
+	                  <>
+	                    <div style={styles.blockTop12}>
+	                      <div style={styles.finalHeroCard(analysis?.executive_decision?.decision)}>
+	                        <div style={styles.finalHeroHead}>
+	                          <div style={styles.qTitle}>القرار التمهيدي</div>
+	                          <div style={styles.decisionBadge(analysis?.executive_decision?.decision)}>
+	                            <span
+	                              style={{
+	                                width: 8,
+	                                height: 8,
+	                                borderRadius: 999,
+	                                background:
+	                                  readinessAccent(analysis?.strategic_analysis?.readiness_level),
+	                                display: "inline-block",
+	                              }}
+	                            />
+	                            {analysis?.strategic_analysis?.readiness_level
+	                              ? `الجاهزية: ${analysis.strategic_analysis.readiness_level}`
+	                              : "الجاهزية: —"}
+	                          </div>
+	                        </div>
 
-                <div style={styles.row2}>
-                  <div style={styles.analysisCard("strength")}>
-                    <div style={styles.analysisCardHead("strength")}>
-                      <span style={styles.analysisAccentDot("strength")} />
-                      نقاط القوة
-                    </div>
-                    <div style={styles.analysisList}>
-                      {(analysis?.strategic_analysis?.strengths || []).map(
-                        (x: string, i: number) => (
-                          <div key={i} style={styles.analysisListItem}>
-                            • {x}
+	                        <div style={styles.decisionStateCard(analysis?.executive_decision?.decision)}>
+	                          <div style={styles.decisionStateLabel}>حالة القرار</div>
+	                          <div style={styles.decisionStateValue(analysis?.executive_decision?.decision)}>
+	                            {analysis?.executive_decision?.decision ?? "—"}
+	                          </div>
+	                        </div>
+
+	                        <div style={styles.decisionReasons}>
+	                          <div style={styles.decisionReasonItem}>
+	                            • {analysis?.executive_decision?.reason_1 ?? "—"}
+	                          </div>
+	                          <div style={styles.decisionReasonItem}>
+	                            • {analysis?.executive_decision?.reason_2 ?? "—"}
+	                          </div>
+	                        </div>
+	                      </div>
+	                    </div>
+
+	                    <div style={styles.quickStatsGrid}>
+	                      <div style={styles.statTile}>
+	                        <div style={styles.statLabel}>مستوى الجاهزية</div>
+	                        <div
+	                          style={{
+	                            ...styles.statValue,
+	                            color: readinessAccent(analysis?.strategic_analysis?.readiness_level),
+	                          }}
+	                        >
+	                          {analysis?.strategic_analysis?.readiness_level ?? "—"}
+	                        </div>
+	                      </div>
+	                      <div style={styles.statTile}>
+	                        <div style={styles.statLabel}>نقاط القوة</div>
+	                        <div style={styles.statValue}>
+	                          {(analysis?.strategic_analysis?.strengths || []).length}
+	                        </div>
+	                      </div>
+	                      <div style={styles.statTile}>
+	                        <div style={styles.statLabel}>الفجوات</div>
+	                        <div style={styles.statValue}>
+	                          {(analysis?.strategic_analysis?.gaps || []).length}
+	                        </div>
+	                      </div>
+	                      <div style={styles.statTile}>
+	                        <div style={styles.statLabel}>المخاطر</div>
+	                        <div style={styles.statValue}>
+	                          {(analysis?.strategic_analysis?.risks || []).length}
+	                        </div>
+	                      </div>
+	                    </div>
+	                  </>
+	                )}
+
+                {isFinalDecisionStage ? (
+                  <>
+	                    <div
+	                      id={FINAL_DECISION_SECTION_ANCHORS.analysis}
+	                      ref={(node) => {
+	                        finalDecisionSectionRefs.current.analysis = node;
+	                      }}
+	                      tabIndex={-1}
+	                      style={finalDecisionBlockStyle("analysis")}
+	                    >
+	                      <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div>
+                            <div style={styles.qTitle}>تفاصيل القرار النهائي</div>
+                            <div style={styles.upgradeSectionHint}>
+                              افتح فقط القسم المطلوب للمراجعة السريعة بدون إطالة الشاشة.
+                            </div>
+                            {finalDecisionFocusMode ? (
+                              <div style={{ ...styles.smallMuted, ...styles.smallMutedTop4 }}>
+                                وضع التركيز مفعّل: فتح قسم جديد يغلق الأقسام الأخرى تلقائيًا.
+                              </div>
+                            ) : null}
                           </div>
-                        )
-                      )}
-                    </div>
-                  </div>
+	                          <div style={styles.additionStateBadge(finalDecisionOpenSectionsCount > 0)}>
+	                            مفتوح {toArabicDigits(finalDecisionOpenSectionsCount)} /{" "}
+	                            {toArabicDigits(finalDecisionSectionsTotalCount)}
+	                          </div>
+	                        </div>
+	                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+                            onClick={() => setFinalDecisionFocusMode((prev) => !prev)}
+                          >
+                            {finalDecisionFocusMode ? "وضع التركيز: مفعّل" : "وضع التركيز: معطّل"}
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+	                            onClick={() => {
+	                              setFinalDecisionFocusMode(false);
+	                              setFinalDecisionSectionsOpen({
+	                                summary: true,
+	                                analysis: true,
+	                                upgrades: true,
+	                                advisors: true,
+	                                report: true,
+	                              });
+	                            }}
+	                          >
+	                            فتح كل التفاصيل
+	                          </button>
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() => {
+	                              setFinalDecisionFocusMode(false);
+	                              setFinalDecisionSectionsOpen({
+	                                summary: false,
+	                                analysis: false,
+	                                upgrades: false,
+	                                advisors: false,
+	                                report: false,
+	                              });
+	                            }}
+	                          >
+	                            إغلاق كل التفاصيل
+	                          </button>
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() => {
+	                              setFinalDecisionFocusMode(true);
+	                              setFinalDecisionSectionsOpen(FINAL_DECISION_SECTION_DEFAULTS);
+	                            }}
+	                          >
+	                            الوضع الافتراضي
+	                          </button>
+	                        </div>
+	                        <div style={styles.finalDecisionQuickNav}>
+	                          {(Object.keys(FINAL_DECISION_SECTION_LABELS) as FinalDecisionSectionKey[]).map(
+	                            (sectionKey) => (
+	                              <button
+	                                key={sectionKey}
+	                                type="button"
+	                                style={styles.finalDecisionQuickBtn(
+	                                  finalDecisionSectionsOpen[sectionKey]
+	                                )}
+	                                disabled={isProcessing()}
+	                                onClick={() => openFinalDecisionSection(sectionKey)}
+	                              >
+	                                {FINAL_DECISION_SECTION_LABELS[sectionKey]}
+	                              </button>
+	                            )
+	                          )}
+	                        </div>
+	                        <div style={styles.finalDecisionQuickHint}>
+	                          {finalDecisionFocusMode
+	                            ? `القسم النشط الآن: ${
+	                                activeFinalDecisionSection
+	                                  ? FINAL_DECISION_SECTION_LABELS[activeFinalDecisionSection]
+	                                  : "لا يوجد قسم مفتوح"
+	                              }`
+	                            : "وضع التركيز معطل: يمكن فتح أكثر من قسم في نفس الوقت."}
+	                        </div>
+	                        {stage === "final_done" ? (
+	                          <div style={styles.blockTop8}>
+	                            <button
+	                              type="button"
+	                              style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                              disabled={isProcessing()}
+	                              onClick={jumpToPostDecisionCenter}
+	                            >
+	                              الانتقال إلى مركز إدارة ما بعد القرار
+	                            </button>
+	                          </div>
+	                        ) : null}
+	                      </div>
+	                    </div>
 
-                  <div style={styles.analysisCard("opportunity")}>
-                    <div style={styles.analysisCardHead("opportunity")}>
-                      <span style={styles.analysisAccentDot("opportunity")} />
-                      فرص التعظيم
-                    </div>
-                    <div style={styles.analysisList}>
-                      {(analysis?.strategic_analysis?.amplification_opportunities || []).map(
-                        (x: string, i: number) => (
-                          <div key={i} style={styles.analysisListItem}>
-                            • {x}
+	                <div
+	                  id={FINAL_DECISION_SECTION_ANCHORS.advisors}
+	                  ref={(node) => {
+	                    finalDecisionSectionRefs.current.advisors = node;
+	                  }}
+	                  tabIndex={-1}
+	                  style={finalDecisionBlockStyle("advisors")}
+	                >
+	                  <div style={styles.qCard}>
+                        <div style={styles.sectionHeaderRow}>
+                          <div>
+                            <div style={styles.qTitle}>التحليل الاستراتيجي التفصيلي</div>
+                            <div style={styles.upgradeSectionHint}>
+                              نقاط القوة، الفرص، الفجوات، والمخاطر.
+                            </div>
                           </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={styles.analysisCard("gap")}>
-                    <div style={styles.analysisCardHead("gap")}>
-                      <span style={styles.analysisAccentDot("gap")} />
-                      فجوات تحتاج معالجة
-                    </div>
-                    <div style={styles.analysisList}>
-                      {(analysis?.strategic_analysis?.gaps || []).map(
-                        (x: string, i: number) => (
-                          <div key={i} style={styles.analysisListItem}>
-                            • {x}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={styles.analysisCard("risk")}>
-                    <div style={styles.analysisCardHead("risk")}>
-                      <span style={styles.analysisAccentDot("risk")} />
-                      مخاطر محتملة
-                    </div>
-                    <div style={styles.analysisList}>
-                      {(analysis?.strategic_analysis?.risks || []).map(
-                        (x: string, i: number) => (
-                          <div key={i} style={styles.analysisListItem}>
-                            • {x}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.finalSectionBlock}>
-                  <div style={styles.qCard}>
-                    <div style={styles.sectionHeaderRow}>
-                      <div>
-                        <div style={styles.qTitle}>الترقيات التنفيذية المقترحة</div>
-                        <div style={styles.upgradeSectionHint}>
-                          مرتبة حسب الأولوية للتنفيذ ضمن خطة التحسين.
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() =>
+	                              finalDecisionSectionsOpen.analysis
+	                                ? toggleFinalDecisionSection("analysis")
+	                                : openFinalDecisionSection("analysis")
+	                            }
+	                          >
+                            {finalDecisionSectionsOpen.analysis ? "إخفاء" : "عرض"}
+                          </button>
                         </div>
+                        {finalDecisionSectionsOpen.analysis ? (
+                          <div style={styles.row2}>
+                            <div style={styles.analysisCard("strength")}>
+                              <div style={styles.analysisCardHead("strength")}>
+                                <span style={styles.analysisAccentDot("strength")} />
+                                نقاط القوة
+                              </div>
+                              <div style={styles.analysisList}>
+                                {(analysis?.strategic_analysis?.strengths || []).map(
+                                  (x: string, i: number) => (
+                                    <div key={i} style={styles.analysisListItem}>
+                                      • {x}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={styles.analysisCard("opportunity")}>
+                              <div style={styles.analysisCardHead("opportunity")}>
+                                <span style={styles.analysisAccentDot("opportunity")} />
+                                فرص التعظيم
+                              </div>
+                              <div style={styles.analysisList}>
+                                {(analysis?.strategic_analysis?.amplification_opportunities || []).map(
+                                  (x: string, i: number) => (
+                                    <div key={i} style={styles.analysisListItem}>
+                                      • {x}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={styles.analysisCard("gap")}>
+                              <div style={styles.analysisCardHead("gap")}>
+                                <span style={styles.analysisAccentDot("gap")} />
+                                فجوات تحتاج معالجة
+                              </div>
+                              <div style={styles.analysisList}>
+                                {(analysis?.strategic_analysis?.gaps || []).map(
+                                  (x: string, i: number) => (
+                                    <div key={i} style={styles.analysisListItem}>
+                                      • {x}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={styles.analysisCard("risk")}>
+                              <div style={styles.analysisCardHead("risk")}>
+                                <span style={styles.analysisAccentDot("risk")} />
+                                مخاطر محتملة
+                              </div>
+                              <div style={styles.analysisList}>
+                                {(analysis?.strategic_analysis?.risks || []).map(
+                                  (x: string, i: number) => (
+                                    <div key={i} style={styles.analysisListItem}>
+                                      • {x}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={styles.emptyHintText}>
+                            هذا القسم مخفي حاليًا لتقليل طول الصفحة.
+                          </div>
+                        )}
                       </div>
-                      {(analysis?.strategic_analysis?.top_3_upgrades || []).length > 0 ? (
-                        <button
-                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
-                          onClick={copyTopUpgrades}
-                        >
-                          نسخ الترقيات الثلاث
+                    </div>
+                  </>
+                ) : (
+                  <div style={styles.row2}>
+                    <div style={styles.analysisCard("strength")}>
+                      <div style={styles.analysisCardHead("strength")}>
+                        <span style={styles.analysisAccentDot("strength")} />
+                        نقاط القوة
+                      </div>
+                      <div style={styles.analysisList}>
+                        {(analysis?.strategic_analysis?.strengths || []).map(
+                          (x: string, i: number) => (
+                            <div key={i} style={styles.analysisListItem}>
+                              • {x}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.analysisCard("opportunity")}>
+                      <div style={styles.analysisCardHead("opportunity")}>
+                        <span style={styles.analysisAccentDot("opportunity")} />
+                        فرص التعظيم
+                      </div>
+                      <div style={styles.analysisList}>
+                        {(analysis?.strategic_analysis?.amplification_opportunities || []).map(
+                          (x: string, i: number) => (
+                            <div key={i} style={styles.analysisListItem}>
+                              • {x}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.analysisCard("gap")}>
+                      <div style={styles.analysisCardHead("gap")}>
+                        <span style={styles.analysisAccentDot("gap")} />
+                        فجوات تحتاج معالجة
+                      </div>
+                      <div style={styles.analysisList}>
+                        {(analysis?.strategic_analysis?.gaps || []).map(
+                          (x: string, i: number) => (
+                            <div key={i} style={styles.analysisListItem}>
+                              • {x}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={styles.analysisCard("risk")}>
+                      <div style={styles.analysisCardHead("risk")}>
+                        <span style={styles.analysisAccentDot("risk")} />
+                        مخاطر محتملة
+                      </div>
+                      <div style={styles.analysisList}>
+                        {(analysis?.strategic_analysis?.risks || []).map(
+                          (x: string, i: number) => (
+                            <div key={i} style={styles.analysisListItem}>
+                              • {x}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+	                <div
+	                  id={FINAL_DECISION_SECTION_ANCHORS.upgrades}
+	                  ref={(node) => {
+	                    finalDecisionSectionRefs.current.upgrades = node;
+	                  }}
+	                  tabIndex={-1}
+	                  style={finalDecisionBlockStyle("upgrades")}
+	                >
+	                  <div style={styles.qCard}>
+	                    <div style={styles.sectionHeaderRow}>
+	                      <div>
+	                        <div style={styles.qTitle}>الترقيات التنفيذية المقترحة</div>
+	                        <div style={styles.upgradeSectionHint}>
+	                          مرتبة حسب الأولوية للتنفيذ ضمن خطة التحسين.
+	                        </div>
+	                      </div>
+	                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	                        {(!isFinalDecisionStage || finalDecisionSectionsOpen.upgrades) &&
+	                        (analysis?.strategic_analysis?.top_3_upgrades || []).length > 0 ? (
+	                          <button
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            onClick={copyTopUpgrades}
+	                          >
+	                            نسخ الترقيات الثلاث
+	                          </button>
+	                        ) : null}
+	                        {isFinalDecisionStage ? (
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() =>
+	                              finalDecisionSectionsOpen.upgrades
+	                                ? toggleFinalDecisionSection("upgrades")
+	                                : openFinalDecisionSection("upgrades")
+	                            }
+	                          >
+	                            {finalDecisionSectionsOpen.upgrades ? "إخفاء" : "عرض"}
+	                          </button>
+	                        ) : null}
+	                      </div>
+	                    </div>
+	                    {!isFinalDecisionStage || finalDecisionSectionsOpen.upgrades ? (
+	                      (analysis?.strategic_analysis?.top_3_upgrades || []).length ? (
+	                        <div style={styles.upgradeGrid}>
+	                          {(analysis?.strategic_analysis?.top_3_upgrades || []).map(
+	                            (x: string, i: number) => {
+	                              const parsed = splitUpgradeText(x);
+	                              return (
+	                                <div key={i} style={styles.upgradeCard(i)}>
+	                                  <div style={styles.upgradeCardHead}>
+	                                    <div style={styles.upgradePriorityBadge(i)}>
+	                                      الأولوية {toArabicDigits(i + 1)}
+	                                    </div>
+	                                  </div>
+	                                  <div style={styles.upgradeTitle}>{parsed.title}</div>
+	                                  {parsed.detail ? (
+	                                    <div style={styles.upgradeDetail}>{parsed.detail}</div>
+	                                  ) : null}
+	                                </div>
+	                              );
+	                            }
+	                          )}
+	                        </div>
+	                      ) : (
+	                        <div style={styles.emptyHintText}>
+	                          لا توجد ترقيات محددة في النتيجة الحالية.
+	                        </div>
+	                      )
+	                    ) : (
+	                      <div style={styles.emptyHintText}>
+	                        هذا القسم مخفي حاليًا لتقليل طول الصفحة.
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
+
+	                <div
+	                  id={FINAL_DECISION_SECTION_ANCHORS.report}
+	                  ref={(node) => {
+	                    finalDecisionSectionRefs.current.report = node;
+	                  }}
+	                  tabIndex={-1}
+	                  style={finalDecisionBlockStyle("report")}
+	                >
+	                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div style={styles.qTitle}>توصيات المستشارين</div>
+	                      {isFinalDecisionStage ? (
+	                        <button
+	                          type="button"
+	                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                          disabled={isProcessing()}
+	                          onClick={() =>
+	                            finalDecisionSectionsOpen.advisors
+	                              ? toggleFinalDecisionSection("advisors")
+	                              : openFinalDecisionSection("advisors")
+	                          }
+	                        >
+                          {finalDecisionSectionsOpen.advisors ? "إخفاء" : "عرض"}
                         </button>
                       ) : null}
                     </div>
-                    {(analysis?.strategic_analysis?.top_3_upgrades || []).length ? (
-                      <div style={styles.upgradeGrid}>
-                        {(analysis?.strategic_analysis?.top_3_upgrades || []).map(
-                          (x: string, i: number) => {
-                            const parsed = splitUpgradeText(x);
-                            return (
-                              <div key={i} style={styles.upgradeCard(i)}>
-                                <div style={styles.upgradeCardHead}>
-                                  <div style={styles.upgradePriorityBadge(i)}>
-                                    الأولوية {toArabicDigits(i + 1)}
-                                  </div>
-                                </div>
-                                <div style={styles.upgradeTitle}>{parsed.title}</div>
-                                {parsed.detail ? (
-                                  <div style={styles.upgradeDetail}>{parsed.detail}</div>
-                                ) : null}
+
+                    {!isFinalDecisionStage || finalDecisionSectionsOpen.advisors ? (
+                      <div style={styles.advisorRecoGrid}>
+                        {Object.entries(analysis?.advisor_recommendations || {}).map(
+                          ([k, v]) => (
+                            <div key={k} style={styles.advisorRecoCard(k)}>
+                              <div style={styles.advisorQuestionHeader(k)}>
+                                <span style={styles.advisorQuestionAccentBar(k)} />
+                                <span style={styles.advisorQuestionIcon(k)}>
+                                  {advisorIconSrc(k) ? (
+                                    <Image
+                                      src={advisorIconSrc(k)}
+                                      alt=""
+                                      aria-hidden="true"
+                                      width={16}
+                                      height={16}
+                                      style={styles.advisorQuestionIconImage}
+                                    />
+                                  ) : (
+                                    advisorIconFallback(k)
+                                  )}
+                                </span>
+                                <span style={styles.advisorQuestionText}>
+                                  {advisorTitle(k)}
+                                </span>
                               </div>
-                            );
-                          }
+
+                              {(v?.recommendations || []).length ? (
+                                <div style={styles.advisorRecoList}>
+                                  {(v?.recommendations || []).map((r: string, i: number) => (
+                                    <div key={i} style={styles.advisorRecoItem(k)}>
+                                      • {r}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={styles.advisorRecoEmptyText}>
+                                  لا توجد توصيات مفصلة من هذا المستشار في هذه النتيجة.
+                                </div>
+                              )}
+
+                              {v?.strategic_warning ? (
+                                <div style={styles.inlineWarnBox}>
+                                  <strong>تنبيه استراتيجي:</strong> {v.strategic_warning}
+                                </div>
+                              ) : null}
+                            </div>
+                          )
                         )}
                       </div>
                     ) : (
                       <div style={styles.emptyHintText}>
-                        لا توجد ترقيات محددة في النتيجة الحالية.
+                        هذا القسم مخفي حاليًا لتقليل طول الصفحة.
                       </div>
                     )}
                   </div>
@@ -12868,120 +17317,191 @@ export default function Home() {
 
                 <div style={styles.finalSectionBlock}>
                   <div style={styles.qCard}>
-                    <div style={styles.sectionHeaderRow}>
-                      <div style={styles.qTitle}>توصيات المستشارين</div>
-                    </div>
-
-                    <div style={styles.advisorRecoGrid}>
-                      {Object.entries(analysis?.advisor_recommendations || {}).map(
-                        ([k, v]) => (
-                          <div key={k} style={styles.advisorRecoCard(k)}>
-                            <div style={styles.advisorQuestionHeader(k)}>
-                              <span style={styles.advisorQuestionAccentBar(k)} />
-                              <span style={styles.advisorQuestionIcon(k)}>
-                                {advisorIconSrc(k) ? (
-                                  <Image
-                                    src={advisorIconSrc(k)}
-                                    alt=""
-                                    aria-hidden="true"
-                                    width={16}
-                                    height={16}
-                                    style={styles.advisorQuestionIconImage}
-                                  />
-                                ) : (
-                                  advisorIconFallback(k)
-                                )}
-                              </span>
-                              <span style={styles.advisorQuestionText}>
-                                {advisorTitle(k)}
-                              </span>
-                            </div>
-
-                            {(v?.recommendations || []).length ? (
-                              <div style={styles.advisorRecoList}>
-                                {(v?.recommendations || []).map((r: string, i: number) => (
-                                  <div key={i} style={styles.advisorRecoItem(k)}>
-                                    • {r}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={styles.advisorRecoEmptyText}>
-                                لا توجد توصيات مفصلة من هذا المستشار في هذه النتيجة.
-                              </div>
-                            )}
-
-                            {v?.strategic_warning ? (
-                              <div style={styles.inlineWarnBox}>
-                                <strong>تنبيه استراتيجي:</strong> {v.strategic_warning}
-                              </div>
-                            ) : null}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.finalSectionBlock}>
-                  <div style={styles.qCard}>
                     <div style={styles.finalReportHeaderRow}>
                       <div style={styles.qTitle}>التقرير النهائي (قابل للنسخ لوورد)</div>
-                      <button
-                        style={{ ...styles.ghostBtn, ...styles.finalReportCopyBtn }}
-                        onClick={copyReport}
-                      >
-                        نسخ
-                      </button>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}>
+                        {(!isFinalDecisionStage || finalDecisionSectionsOpen.report) ? (
+                          <button
+                            style={{ ...styles.ghostBtn, ...styles.finalReportCopyBtn }}
+                            onClick={copyReport}
+                          >
+                            نسخ
+                          </button>
+                        ) : null}
+	                        {isFinalDecisionStage ? (
+	                          <button
+	                            type="button"
+	                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                            disabled={isProcessing()}
+	                            onClick={() =>
+	                              finalDecisionSectionsOpen.report
+	                                ? toggleFinalDecisionSection("report")
+	                                : openFinalDecisionSection("report")
+	                            }
+	                          >
+                            {finalDecisionSectionsOpen.report ? "إخفاء" : "عرض"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
 
-                    <div style={styles.reportHintText}>
-                      صياغة جاهزة للنسخ المباشر إلى Word مع الحفاظ على العناوين والفقرات.
-                    </div>
+                    {!isFinalDecisionStage || finalDecisionSectionsOpen.report ? (
+                      <>
+                        <div style={styles.reportHintText}>
+                          صياغة جاهزة للنسخ المباشر إلى Word مع الحفاظ على العناوين والفقرات.
+                        </div>
 
-                    <textarea
-                      readOnly
-                      value={reportText}
-                      style={{ ...styles.textarea, ...styles.reportTextarea }}
-                      placeholder="سيظهر هنا التقرير النهائي..."
-                    />
+                        <textarea
+                          readOnly
+                          value={reportText}
+                          style={{ ...styles.textarea, ...styles.reportTextarea }}
+                          placeholder="سيظهر هنا التقرير النهائي..."
+                        />
+                      </>
+                    ) : (
+                      <div style={styles.emptyHintText}>
+                        هذا القسم مخفي حاليًا لتقليل طول الصفحة.
+                      </div>
+                    )}
                   </div>
                 </div>
 
+	                {stage === "final_done" ? (
+	                  <div
+	                    id={FINAL_DECISION_POST_CENTER_ANCHOR}
+	                    ref={(node) => {
+	                      finalDecisionSectionRefs.current.post_center = node;
+	                    }}
+	                    tabIndex={-1}
+	                    style={finalDecisionBlockStyle("post_center")}
+	                  >
+	                    <div style={styles.qCard}>
+                      <div style={styles.sectionHeaderRow}>
+                        <div>
+                          <div style={styles.qTitle}>مركز إدارة ما بعد القرار</div>
+                          <div style={styles.upgradeSectionHint}>
+                            بعد اعتماد القرار، انتقل إلى المسار المالي أو التنفيذي أو الإغلاق بحسب الصلاحية.
+                          </div>
+                        </div>
+                        <div style={styles.additionStateBadge(true)}>تشغيل مستمر حتى الإغلاق</div>
+                      </div>
+
+                      <div style={styles.quickStatsGrid}>
+                        <div style={styles.statTile}>
+                          <div style={styles.statLabel}>الإدارة المالية</div>
+                          <div style={styles.statValue}>
+                            {boqFinancialSummary.budgetValue > 0
+                              ? renderMoneyValue(boqFinancialSummary.budgetValue)
+                              : "ميزانية غير محددة"}
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>
+                            متاح لـ مدير المشروع أو المدير المالي.
+                          </div>
+                          <button
+                            type="button"
+                            style={styles.primaryBtn(isProcessing() || !canManageFinancialPostDecision)}
+                            disabled={isProcessing() || !canManageFinancialPostDecision}
+                            title={
+                              !canManageFinancialPostDecision
+                                ? permissionHintText(
+                                    "فتح الخطة المالية",
+                                    ["project_manager", "finance_manager"],
+                                    userRole
+                                  )
+                                : undefined
+                            }
+                            onClick={() => openPostDecisionRoute("budget")}
+                          >
+                            فتح الخطة المالية
+                          </button>
+                        </div>
+
+                        <div style={styles.statTile}>
+                          <div style={styles.statLabel}>الإدارة التنفيذية</div>
+                          <div style={styles.statValue}>%{toArabicDigits(actionTrackerProgress)}</div>
+                          <div style={styles.textMutedSmallTop8}>
+                            متاح لـ مدير المشروع أو مدير التشغيل.
+                          </div>
+                          <button
+                            type="button"
+                            style={styles.primaryBtn(isProcessing() || !canManageExecutionPostDecision)}
+                            disabled={isProcessing() || !canManageExecutionPostDecision}
+                            title={
+                              !canManageExecutionPostDecision
+                                ? permissionHintText(
+                                    "فتح الخطة التنفيذية",
+                                    ["project_manager", "operations_manager"],
+                                    userRole
+                                  )
+                                : undefined
+                            }
+                            onClick={() => openPostDecisionRoute("plan")}
+                          >
+                            فتح الخطة التنفيذية
+                          </button>
+                        </div>
+
+                        <div style={styles.statTile}>
+                          <div style={styles.statLabel}>الإغلاق والمراجعة</div>
+                          <div style={styles.statValue}>
+                            {hasFrozenBaseline ? "جاهز للمراجعة" : "يحتاج تثبيت خط أساس"}
+                          </div>
+                          <div style={styles.textMutedSmallTop8}>متاح لمدير المشروع لإغلاق المسار.</div>
+                          <button
+                            type="button"
+                            style={styles.secondaryBtn(isProcessing() || !canManageClosurePostDecision)}
+                            disabled={isProcessing() || !canManageClosurePostDecision}
+                            title={
+                              !canManageClosurePostDecision
+                                ? permissionHintText("فتح المراجعة النهائية", ["project_manager"], userRole)
+                                : undefined
+                            }
+                            onClick={() => openPostDecisionRoute("review")}
+                          >
+                            فتح المراجعة النهائية
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div style={styles.stackAfterSection}>
-		                  <button
-		                    style={styles.primaryBtn(
-		                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
-		                    )}
-		                    disabled={
-		                      isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
-		                    }
-                        title={
-                          !canEditAdvancedExecution && !canEditGovernance
-                            ? permissionHintText(
-                                "فتح المسار المتقدم",
-                                ["project_manager", "operations_manager", "finance_manager"],
-                                userRole
-                              )
-                            : undefined
-                        }
-		                    onClick={openAdvancedTrack}
-		                  >
-                    {deliveryTrack === "advanced"
-                      ? "التالي: استكمال المسار المتقدم"
-                      : "ترقية إلى المسار المتقدم"}
-                  </button>
+                  {stage === "done" ? (
+                    <button
+                      style={styles.primaryBtn(
+                        isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)
+                      )}
+                      disabled={isProcessing() || (!canEditAdvancedExecution && !canEditGovernance)}
+                      title={
+                        !canEditAdvancedExecution && !canEditGovernance
+                          ? permissionHintText(
+                              "فتح المسار المتقدم",
+                              ["project_manager", "operations_manager", "finance_manager"],
+                              userRole
+                            )
+                          : undefined
+                      }
+                      onClick={openAdvancedTrack}
+                    >
+                      {deliveryTrack === "advanced"
+                        ? "التالي: استكمال المسار المتقدم"
+                        : "ترقية إلى المسار المتقدم"}
+                    </button>
+                  ) : null}
 
                   <button
                     style={styles.secondaryBtn(isProcessing())}
                     disabled={isProcessing() || !canRunAnalysisFlow}
                     onClick={() => {
-                      setStage("addition");
+                      setStage(stage === "final_done" ? "final_addition" : "addition");
                       setNeedsReanalysisHint(true);
                       showError(UX_MESSAGES.reanalysisRequired);
                     }}
                   >
-                    رجوع: تعديل قبل التحليل
+                    {stage === "final_done"
+                      ? "رجوع: تعديل الاستشارة الختامية"
+                      : "رجوع: تعديل قبل التحليل"}
                   </button>
                 </div>
               </>
@@ -13080,9 +17600,100 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>
+                          {advancedScopeStep === "scope"
+                            ? "هرمية عرض النطاق والاستراتيجية"
+                            : "هرمية عرض الهيكل التشغيلي"}
+                        </div>
+                        <div style={styles.upgradeSectionHint}>
+                          تحكم سريع لتقليل طول الشاشة والتركيز على القسم المطلوب فقط.
+                        </div>
+                      </div>
+                      <div style={styles.additionStateBadge(advancedScopeOpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(advancedScopeOpenSectionsCount)} /{" "}
+                        {toArabicDigits(advancedScopeSectionsTotalCount)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          if (advancedScopeStep === "scope") {
+	                            setAdvancedScopeSectionsOpen((prev) => ({
+	                              ...prev,
+	                              timeline: true,
+	                              scope: true,
+	                              strategy: true,
+	                            }));
+	                            return;
+	                          }
+	                          setAdvancedScopeSectionsOpen((prev) => ({ ...prev, org: true }));
+	                        }}
+	                      >
+	                        فتح تفاصيل الخطوة
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+	                          if (advancedScopeStep === "scope") {
+	                            setAdvancedScopeSectionsOpen((prev) => ({
+	                              ...prev,
+	                              timeline: false,
+	                              scope: false,
+	                              strategy: false,
+	                            }));
+	                            return;
+	                          }
+	                          setAdvancedScopeSectionsOpen((prev) => ({ ...prev, org: false }));
+	                        }}
+	                      >
+	                        إغلاق كل التفاصيل
+	                      </button>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+	                        disabled={isProcessing()}
+	                        onClick={() => {
+                          if (advancedScopeStep === "scope") {
+                            setAdvancedScopeSectionsOpen((prev) => ({
+                              ...prev,
+                              timeline: true,
+                              scope: false,
+                              strategy: false,
+                            }));
+                            return;
+                          }
+                          setAdvancedScopeSectionsOpen((prev) => ({ ...prev, org: true }));
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {advancedScopeStep === "scope" ? (
                   <>
-                    <div style={styles.blockTop12}>
+                    <div
+                      id={ADVANCED_SCOPE_SECTION_ANCHORS.timeline}
+                      ref={(node) => {
+                        advancedScopeSectionRefs.current.timeline = node;
+                      }}
+                      tabIndex={-1}
+                      style={advancedSectionBlockStyle(
+                        styles.blockTop12,
+                        highlightedAdvancedScopeSection,
+                        "timeline"
+                      )}
+                    >
                       <div style={styles.advancedScopeCard}>
                         <div style={styles.advancedSectionHeader}>
                           <div style={styles.advancedSectionTitleWrap}>
@@ -13096,122 +17707,154 @@ export default function Home() {
                         <p style={styles.advancedSectionHint}>
                           راجع تواريخ المشروع والفعالية للتأكد من صحة مدة التجهيز والتنفيذ.
                         </p>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            advancedScopeSectionsOpen.timeline
+                              ? setAdvancedScopeSectionsOpen((prev) => ({
+                                  ...prev,
+                                  timeline: false,
+                                }))
+                              : openAdvancedScopeSection("timeline")
+                          }
+                        >
+                          {advancedScopeSectionsOpen.timeline ? "إخفاء تفاصيل 6.1" : "عرض تفاصيل 6.1"}
+                        </button>
 
-                        <div style={{ ...styles.timelineGrid, ...styles.advancedSectionContent }}>
-                          <div style={styles.timelineFieldCard}>
-                            <div style={styles.timelineFieldHead}>
-                              <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
-                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.commissioning.tone)}>
-                                {advancedTimelineInfo.dateStatus.commissioning.label}
-                              </div>
-                            </div>
-                            <input
-                              type="date"
-                              value={commissioningDate}
-                              onChange={(e) => setCommissioningDate(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
-                            />
-                            <div style={styles.timelineFieldHint}>
-                              نقطة بداية التجهيز الرسمية للمشروع.
-                            </div>
-                          </div>
-
-                          <div style={styles.timelineFieldCard}>
-                            <div style={styles.timelineFieldHead}>
-                              <div style={styles.timelineFieldLabel}>تاريخ بداية المشروع</div>
-                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.projectStart.tone)}>
-                                {advancedTimelineInfo.dateStatus.projectStart.label}
-                              </div>
-                            </div>
-                            <input
-                              type="date"
-                              value={projectStartDate}
-                              onChange={(e) => setProjectStartDate(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
-                            />
-                            <div style={styles.timelineFieldHint}>
-                              اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
-                            </div>
-                          </div>
-
-                          <div style={styles.timelineFieldCard}>
-                            <div style={styles.timelineFieldHead}>
-                              <div style={styles.timelineFieldLabel}>بداية الفعالية</div>
-                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventStart.tone)}>
-                                {advancedTimelineInfo.dateStatus.eventStart.label}
-                              </div>
-                            </div>
-                            <input
-                              type="datetime-local"
-                              value={startAt}
-                              onChange={(e) => setStartAt(e.target.value)}
-                              disabled={!canEditProjectCore}
-                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
-                            />
-                            <div style={styles.timelineFieldHint}>
-                              يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
-                            </div>
-                          </div>
-
-                          <div style={styles.timelineFieldCard}>
-                            <div style={styles.timelineFieldHead}>
-                              <div style={styles.timelineFieldLabel}>نهاية الفعالية</div>
-                              <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventEnd.tone)}>
-                                {advancedTimelineInfo.dateStatus.eventEnd.label}
-                              </div>
-                            </div>
-                            <input
-                              type="datetime-local"
-                              value={endAt}
-                              onChange={(e) => setEndAt(e.target.value)}
-                              disabled={!canEditProjectCore}
-                              style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
-                            />
-                            <div style={styles.timelineFieldHint}>
-                              يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={styles.timelineSummaryGrid}>
-                          <div style={styles.timelineSummaryItem}>
-                            <div style={styles.timelineSummaryLabel}>مدة التجهيز (تعميد ← بداية فعالية)</div>
-                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromCommissioning.tone)}>
-                              {advancedTimelineInfo.prepFromCommissioning.label}
-                            </div>
-                          </div>
-                          <div style={styles.timelineSummaryItem}>
-                            <div style={styles.timelineSummaryLabel}>مدة التجهيز (بداية مشروع ← بداية فعالية)</div>
-                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromProjectStart.tone)}>
-                              {advancedTimelineInfo.prepFromProjectStart.label}
-                            </div>
-                          </div>
-                          <div style={styles.timelineSummaryItem}>
-                            <div style={styles.timelineSummaryLabel}>مدة التنفيذ التشغيلي</div>
-                            <div style={styles.timelineSummaryValue(advancedTimelineInfo.executionDuration.tone)}>
-                              {advancedTimelineInfo.executionDuration.label}
-                            </div>
-                          </div>
-                        </div>
-
-                        {advancedTimelineInfo.issues.length > 0 ? (
-                          <div style={styles.warnBox}>
-                            <strong>تنبيه زمني:</strong>
-                            <div style={styles.blockTop8}>
-                              {advancedTimelineInfo.issues.map((issue, idx) => (
-                                <div key={idx} style={styles.listItemGap4}>
-                                  • {issue}
+                        {advancedScopeSectionsOpen.timeline ? (
+                          <>
+                            <div style={{ ...styles.timelineGrid, ...styles.advancedSectionContent }}>
+                              <div style={styles.timelineFieldCard}>
+                                <div style={styles.timelineFieldHead}>
+                                  <div style={styles.timelineFieldLabel}>تاريخ التعميد</div>
+                                  <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.commissioning.tone)}>
+                                    {advancedTimelineInfo.dateStatus.commissioning.label}
+                                  </div>
                                 </div>
-                              ))}
+                                <input
+                                  type="date"
+                                  value={commissioningDate}
+                                  onChange={(e) => setCommissioningDate(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
+                                />
+                                <div style={styles.timelineFieldHint}>
+                                  نقطة بداية التجهيز الرسمية للمشروع.
+                                </div>
+                              </div>
+
+                              <div style={styles.timelineFieldCard}>
+                                <div style={styles.timelineFieldHead}>
+                                  <div style={styles.timelineFieldLabel}>تاريخ بداية المشروع</div>
+                                  <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.projectStart.tone)}>
+                                    {advancedTimelineInfo.dateStatus.projectStart.label}
+                                  </div>
+                                </div>
+                                <input
+                                  type="date"
+                                  value={projectStartDate}
+                                  onChange={(e) => setProjectStartDate(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
+                                />
+                                <div style={styles.timelineFieldHint}>
+                                  اختياري. إذا تُرك فارغًا يعتمد تاريخ التعميد كبداية للمشروع.
+                                </div>
+                              </div>
+
+                              <div style={styles.timelineFieldCard}>
+                                <div style={styles.timelineFieldHead}>
+                                  <div style={styles.timelineFieldLabel}>بداية الفعالية</div>
+                                  <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventStart.tone)}>
+                                    {advancedTimelineInfo.dateStatus.eventStart.label}
+                                  </div>
+                                </div>
+                                <input
+                                  type="datetime-local"
+                                  value={startAt}
+                                  onChange={(e) => setStartAt(e.target.value)}
+                                  disabled={!canEditProjectCore}
+                                  style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
+                                />
+                                <div style={styles.timelineFieldHint}>
+                                  يمكنك تعديلها من هنا لتحديث مدة التجهيز والتنفيذ.
+                                </div>
+                              </div>
+
+                              <div style={styles.timelineFieldCard}>
+                                <div style={styles.timelineFieldHead}>
+                                  <div style={styles.timelineFieldLabel}>نهاية الفعالية</div>
+                                  <div style={styles.timelineStatusChip(advancedTimelineInfo.dateStatus.eventEnd.tone)}>
+                                    {advancedTimelineInfo.dateStatus.eventEnd.label}
+                                  </div>
+                                </div>
+                                <input
+                                  type="datetime-local"
+                                  value={endAt}
+                                  onChange={(e) => setEndAt(e.target.value)}
+                                  disabled={!canEditProjectCore}
+                                  style={isMobile ? { ...styles.input, ...styles.timelineDateInput } : styles.input}
+                                />
+                                <div style={styles.timelineFieldHint}>
+                                  يجب أن تكون بعد وقت البداية لضمان صحة الجدول.
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ) : null}
+
+                            <div style={styles.timelineSummaryGrid}>
+                              <div style={styles.timelineSummaryItem}>
+                                <div style={styles.timelineSummaryLabel}>مدة التجهيز (تعميد ← بداية فعالية)</div>
+                                <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromCommissioning.tone)}>
+                                  {advancedTimelineInfo.prepFromCommissioning.label}
+                                </div>
+                              </div>
+                              <div style={styles.timelineSummaryItem}>
+                                <div style={styles.timelineSummaryLabel}>مدة التجهيز (بداية مشروع ← بداية فعالية)</div>
+                                <div style={styles.timelineSummaryValue(advancedTimelineInfo.prepFromProjectStart.tone)}>
+                                  {advancedTimelineInfo.prepFromProjectStart.label}
+                                </div>
+                              </div>
+                              <div style={styles.timelineSummaryItem}>
+                                <div style={styles.timelineSummaryLabel}>مدة التنفيذ التشغيلي</div>
+                                <div style={styles.timelineSummaryValue(advancedTimelineInfo.executionDuration.tone)}>
+                                  {advancedTimelineInfo.executionDuration.label}
+                                </div>
+                              </div>
+                            </div>
+
+                            {advancedTimelineInfo.issues.length > 0 ? (
+                              <div style={styles.warnBox}>
+                                <strong>تنبيه زمني:</strong>
+                                <div style={styles.blockTop8}>
+                                  {advancedTimelineInfo.issues.map((issue, idx) => (
+                                    <div key={idx} style={styles.listItemGap4}>
+                                      • {issue}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء تفاصيل الإطار الزمني مؤقتًا.</div>
+                        )}
                       </div>
                     </div>
 
-                    <div style={styles.blockTop12}>
+                    <div
+                      id={ADVANCED_SCOPE_SECTION_ANCHORS.scope}
+                      ref={(node) => {
+                        advancedScopeSectionRefs.current.scope = node;
+                      }}
+                      tabIndex={-1}
+                      style={advancedSectionBlockStyle(
+                        styles.blockTop12,
+                        highlightedAdvancedScopeSection,
+                        "scope"
+                      )}
+                    >
                       <div style={styles.advancedScopeCard}>
                         <div style={styles.advancedSectionHeader}>
                           <div style={styles.advancedSectionTitleWrap}>
@@ -13222,199 +17865,231 @@ export default function Home() {
                         <div style={styles.advancedSectionHint}>
                           هيكل النطاق هنا إطار توجيهي مرن. التفاصيل التنفيذية تنتقل لاحقًا إلى جدول الكميات.
                         </div>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            advancedScopeSectionsOpen.scope
+                              ? setAdvancedScopeSectionsOpen((prev) => ({
+                                  ...prev,
+                                  scope: false,
+                                }))
+                              : openAdvancedScopeSection("scope")
+                          }
+                        >
+                          {advancedScopeSectionsOpen.scope ? "إخفاء تفاصيل 2.1" : "عرض تفاصيل 2.1"}
+                        </button>
 
-                        <div style={{ ...styles.advancedSectionContent, display: "grid", gap: 10 }}>
-                          <div style={styles.scopeSectionHint}>
-                            فعّل المحاور المناسبة لنوع المشروع، ثم حدّد داخل/خارج النطاق والافتراضات والقيود.
-                          </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                            <button
-                              type="button"
-                              style={styles.compactGhostBtn}
-                              disabled={!canEditAdvancedExecution}
-                              onClick={applySuggestedScopeFramework}
-                            >
-                              توليد إطار نطاق مقترح
-                            </button>
-                            <div style={styles.scopeSectionHint}>
-                              البروفايل المقترح حاليًا: {inferredScopeProfileLabel}
-                            </div>
-                          </div>
-                          <div style={{ display: "grid", gap: 10 }}>
-                            {SCOPE_AXIS_DEFINITIONS.map((axis) => {
-                              const axisState =
-                                scopeFramework.find((item) => item.axisId === axis.id) ?? {
-                                  axisId: axis.id,
-                                  enabled: axis.defaultEnabled,
-                                  inScope: "",
-                                  outOfScope: "",
-                                  assumptions: "",
-                                  constraints: "",
-                                };
-                              const toneColor = axisState.enabled
-                                ? "rgba(160, 236, 214, 0.42)"
-                                : "rgba(138, 160, 255, 0.18)";
-                              return (
-                                <div
-                                  key={axis.id}
-                                  style={{
-                                    borderRadius: 14,
-                                    border: `1px solid ${toneColor}`,
-                                    background: axisState.enabled
-                                      ? "linear-gradient(180deg, rgba(14,23,42,0.78), rgba(8,14,24,0.74))"
-                                      : "rgba(10,14,25,0.66)",
-                                    padding: 10,
-                                    display: "grid",
-                                    gap: 8,
-                                  }}
+                        {advancedScopeSectionsOpen.scope ? (
+                          <>
+                            <div style={{ ...styles.advancedSectionContent, display: "grid", gap: 10 }}>
+                              <div style={styles.scopeSectionHint}>
+                                فعّل المحاور المناسبة لنوع المشروع، ثم حدّد داخل/خارج النطاق والافتراضات والقيود.
+                              </div>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <button
+                                  type="button"
+                                  style={styles.compactGhostBtn}
+                                  disabled={!canEditAdvancedExecution}
+                                  onClick={applySuggestedScopeFramework}
                                 >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "space-between",
-                                      gap: 8,
-                                      flexWrap: "wrap",
-                                    }}
-                                  >
-                                    <div>
-                                      <div style={styles.scopeFieldTitle}>{axis.title}</div>
-                                      <div style={styles.scopeSectionHint}>{axis.summary}</div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      style={styles.orgRoleToggle(axisState.enabled)}
-                                      disabled={!canEditAdvancedExecution}
-                                      onClick={() =>
-                                        updateScopeFrameworkItem(axis.id, { enabled: !axisState.enabled })
-                                      }
-                                    >
-                                      {axisState.enabled ? "داخل النطاق" : "خارج النطاق"}
-                                    </button>
-                                  </div>
-
-                                  <div style={styles.scopeFieldsGrid}>
-                                    <div style={styles.scopeFieldCard}>
-                                      <div style={styles.scopeFieldTitle}>داخل النطاق</div>
-                                      <textarea
-                                        value={axisState.inScope}
-                                        onChange={(e) =>
-                                          updateScopeFrameworkItem(axis.id, { inScope: e.target.value })
-                                        }
-                                        disabled={!canEditAdvancedExecution || !axisState.enabled}
-                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                                        placeholder="ما الذي سيتم تنفيذه ضمن هذا المحور؟"
-                                      />
-                                    </div>
-
-                                    <div style={styles.scopeFieldCard}>
-                                      <div style={styles.scopeFieldTitle}>خارج النطاق</div>
-                                      <textarea
-                                        value={axisState.outOfScope}
-                                        onChange={(e) =>
-                                          updateScopeFrameworkItem(axis.id, { outOfScope: e.target.value })
-                                        }
-                                        disabled={!canEditAdvancedExecution}
-                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                                        placeholder="ما الذي لن يتم تضمينه في هذا المحور؟"
-                                      />
-                                    </div>
-
-                                    <div style={styles.scopeFieldCard}>
-                                      <div style={styles.scopeFieldTitle}>افتراضات التنفيذ</div>
-                                      <textarea
-                                        value={axisState.assumptions}
-                                        onChange={(e) =>
-                                          updateScopeFrameworkItem(axis.id, { assumptions: e.target.value })
-                                        }
-                                        disabled={!canEditAdvancedExecution}
-                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                                        placeholder="الافتراضات التي بُني عليها هذا المحور."
-                                      />
-                                    </div>
-
-                                    <div style={styles.scopeFieldCard}>
-                                      <div style={styles.scopeFieldTitle}>قيود التنفيذ</div>
-                                      <textarea
-                                        value={axisState.constraints}
-                                        onChange={(e) =>
-                                          updateScopeFrameworkItem(axis.id, { constraints: e.target.value })
-                                        }
-                                        disabled={!canEditAdvancedExecution}
-                                        style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                                        placeholder="قيود زمنية/مالية/تشغيلية مرتبطة بالمحور."
-                                      />
-                                    </div>
-                                  </div>
+                                  توليد إطار نطاق مقترح
+                                </button>
+                                <div style={styles.scopeSectionHint}>
+                                  البروفايل المقترح حاليًا: {inferredScopeProfileLabel}
                                 </div>
-                              );
-                            })}
-                          </div>
+                              </div>
+                              <div style={{ display: "grid", gap: 10 }}>
+                                {SCOPE_AXIS_DEFINITIONS.map((axis) => {
+                                  const axisState =
+                                    scopeFramework.find((item) => item.axisId === axis.id) ?? {
+                                      axisId: axis.id,
+                                      enabled: axis.defaultEnabled,
+                                      inScope: "",
+                                      outOfScope: "",
+                                      assumptions: "",
+                                      constraints: "",
+                                    };
+                                  const toneColor = axisState.enabled
+                                    ? "rgba(160, 236, 214, 0.42)"
+                                    : "rgba(138, 160, 255, 0.18)";
+                                  return (
+                                    <div
+                                      key={axis.id}
+                                      style={{
+                                        borderRadius: 14,
+                                        border: `1px solid ${toneColor}`,
+                                        background: axisState.enabled
+                                          ? "linear-gradient(180deg, rgba(14,23,42,0.78), rgba(8,14,24,0.74))"
+                                          : "rgba(10,14,25,0.66)",
+                                        padding: 10,
+                                        display: "grid",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "space-between",
+                                          gap: 8,
+                                          flexWrap: "wrap",
+                                        }}
+                                      >
+                                        <div>
+                                          <div style={styles.scopeFieldTitle}>{axis.title}</div>
+                                          <div style={styles.scopeSectionHint}>{axis.summary}</div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          style={styles.orgRoleToggle(axisState.enabled)}
+                                          disabled={!canEditAdvancedExecution}
+                                          onClick={() =>
+                                            updateScopeFrameworkItem(axis.id, { enabled: !axisState.enabled })
+                                          }
+                                        >
+                                          {axisState.enabled ? "داخل النطاق" : "خارج النطاق"}
+                                        </button>
+                                      </div>
 
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button
-                              type="button"
-                              style={styles.compactGhostBtn}
-                              disabled={!canEditAdvancedExecution}
-                              onClick={applyScopeFrameworkToLegacySummaries}
-                            >
-                              مواءمة ملخص النطاق الأساسي
-                            </button>
-                            <div style={styles.scopeSectionHint}>
-                              يتم استخدام الملخص الأساسي للحفاظ على التوافق مع المراحل الحالية والتقارير.
+                                      <div style={styles.scopeFieldsGrid}>
+                                        <div style={styles.scopeFieldCard}>
+                                          <div style={styles.scopeFieldTitle}>داخل النطاق</div>
+                                          <textarea
+                                            value={axisState.inScope}
+                                            onChange={(e) =>
+                                              updateScopeFrameworkItem(axis.id, { inScope: e.target.value })
+                                            }
+                                            disabled={!canEditAdvancedExecution || !axisState.enabled}
+                                            style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                            placeholder="ما الذي سيتم تنفيذه ضمن هذا المحور؟"
+                                          />
+                                        </div>
+
+                                        <div style={styles.scopeFieldCard}>
+                                          <div style={styles.scopeFieldTitle}>خارج النطاق</div>
+                                          <textarea
+                                            value={axisState.outOfScope}
+                                            onChange={(e) =>
+                                              updateScopeFrameworkItem(axis.id, { outOfScope: e.target.value })
+                                            }
+                                            disabled={!canEditAdvancedExecution}
+                                            style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                            placeholder="ما الذي لن يتم تضمينه في هذا المحور؟"
+                                          />
+                                        </div>
+
+                                        <div style={styles.scopeFieldCard}>
+                                          <div style={styles.scopeFieldTitle}>افتراضات التنفيذ</div>
+                                          <textarea
+                                            value={axisState.assumptions}
+                                            onChange={(e) =>
+                                              updateScopeFrameworkItem(axis.id, { assumptions: e.target.value })
+                                            }
+                                            disabled={!canEditAdvancedExecution}
+                                            style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                            placeholder="الافتراضات التي بُني عليها هذا المحور."
+                                          />
+                                        </div>
+
+                                        <div style={styles.scopeFieldCard}>
+                                          <div style={styles.scopeFieldTitle}>قيود التنفيذ</div>
+                                          <textarea
+                                            value={axisState.constraints}
+                                            onChange={(e) =>
+                                              updateScopeFrameworkItem(axis.id, { constraints: e.target.value })
+                                            }
+                                            disabled={!canEditAdvancedExecution}
+                                            style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                            placeholder="قيود زمنية/مالية/تشغيلية مرتبطة بالمحور."
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <button
+                                  type="button"
+                                  style={styles.compactGhostBtn}
+                                  disabled={!canEditAdvancedExecution}
+                                  onClick={applyScopeFrameworkToLegacySummaries}
+                                >
+                                  مواءمة ملخص النطاق الأساسي
+                                </button>
+                                <div style={styles.scopeSectionHint}>
+                                  يتم استخدام الملخص الأساسي للحفاظ على التوافق مع المراحل الحالية والتقارير.
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
 
-                        <div style={{ ...styles.scopeFieldsGrid, ...styles.advancedSectionContent }}>
-                          <div style={styles.scopeFieldCard}>
-                            <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
-                            <textarea
-                              value={scopeSite}
-                              onChange={(e) => setScopeSite(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                              placeholder="اكتب نطاق الموقع والتجهيزات..."
-                            />
-                          </div>
+                            <div style={{ ...styles.scopeFieldsGrid, ...styles.advancedSectionContent }}>
+                              <div style={styles.scopeFieldCard}>
+                                <div style={styles.scopeFieldTitle}>الموقع والتجهيزات</div>
+                                <textarea
+                                  value={scopeSite}
+                                  onChange={(e) => setScopeSite(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                  placeholder="اكتب نطاق الموقع والتجهيزات..."
+                                />
+                              </div>
 
-                          <div style={styles.scopeFieldCard}>
-                            <div style={styles.scopeFieldTitle}>التجهيزات الفنية</div>
-                            <textarea
-                              value={scopeTechnical}
-                              onChange={(e) => setScopeTechnical(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                              placeholder="اكتب نطاق التجهيزات الفنية..."
-                            />
-                          </div>
+                              <div style={styles.scopeFieldCard}>
+                                <div style={styles.scopeFieldTitle}>التجهيزات الفنية</div>
+                                <textarea
+                                  value={scopeTechnical}
+                                  onChange={(e) => setScopeTechnical(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                  placeholder="اكتب نطاق التجهيزات الفنية..."
+                                />
+                              </div>
 
-                          <div style={styles.scopeFieldCard}>
-                            <div style={styles.scopeFieldTitle}>البرنامج التنفيذي</div>
-                            <textarea
-                              value={scopeProgram}
-                              onChange={(e) => setScopeProgram(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                              placeholder="اكتب نطاق البرنامج التنفيذي..."
-                            />
-                          </div>
+                              <div style={styles.scopeFieldCard}>
+                                <div style={styles.scopeFieldTitle}>البرنامج التنفيذي</div>
+                                <textarea
+                                  value={scopeProgram}
+                                  onChange={(e) => setScopeProgram(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                  placeholder="اكتب نطاق البرنامج التنفيذي..."
+                                />
+                              </div>
 
-                          <div style={styles.scopeFieldCard}>
-                            <div style={styles.scopeFieldTitle}>المراسم والتوثيق</div>
-                            <textarea
-                              value={scopeCeremony}
-                              onChange={(e) => setScopeCeremony(e.target.value)}
-                              disabled={!canEditAdvancedExecution}
-                              style={{ ...styles.textarea, ...styles.scopeTextarea }}
-                              placeholder="اكتب نطاق المراسم والتوثيق..."
-                            />
-                          </div>
-                        </div>
+                              <div style={styles.scopeFieldCard}>
+                                <div style={styles.scopeFieldTitle}>المراسم والتوثيق</div>
+                                <textarea
+                                  value={scopeCeremony}
+                                  onChange={(e) => setScopeCeremony(e.target.value)}
+                                  disabled={!canEditAdvancedExecution}
+                                  style={{ ...styles.textarea, ...styles.scopeTextarea }}
+                                  placeholder="اكتب نطاق المراسم والتوثيق..."
+                                />
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء تفاصيل نطاق العمل مؤقتًا.</div>
+                        )}
                       </div>
                     </div>
 
-                    <div style={styles.blockTop12}>
+                    <div
+                      id={ADVANCED_SCOPE_SECTION_ANCHORS.strategy}
+                      ref={(node) => {
+                        advancedScopeSectionRefs.current.strategy = node;
+                      }}
+                      tabIndex={-1}
+                      style={advancedSectionBlockStyle(
+                        styles.blockTop12,
+                        highlightedAdvancedScopeSection,
+                        "strategy"
+                      )}
+                    >
                       <div style={styles.advancedScopeCard}>
                         <div style={styles.advancedSectionHeader}>
                           <div style={styles.advancedSectionTitleWrap}>
@@ -13425,22 +18100,52 @@ export default function Home() {
                         <div style={styles.advancedSectionHint}>
                           اكتب منهجية التنفيذ والتنسيق والتشغيل الميداني بشكل مباشر.
                         </div>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            advancedScopeSectionsOpen.strategy
+                              ? setAdvancedScopeSectionsOpen((prev) => ({
+                                  ...prev,
+                                  strategy: false,
+                                }))
+                              : openAdvancedScopeSection("strategy")
+                          }
+                        >
+                          {advancedScopeSectionsOpen.strategy ? "إخفاء تفاصيل 2.2" : "عرض تفاصيل 2.2"}
+                        </button>
 
-                        <div style={{ ...styles.scopeStrategyCard, ...styles.advancedSectionContent }}>
-                          <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
-                          <textarea
-                            value={executionStrategy}
-                            onChange={(e) => setExecutionStrategy(e.target.value)}
-                            disabled={!canEditAdvancedExecution}
-                            style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                            placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
-                          />
-                        </div>
+                        {advancedScopeSectionsOpen.strategy ? (
+                          <div style={{ ...styles.scopeStrategyCard, ...styles.advancedSectionContent }}>
+                            <div style={styles.scopeStrategyTitle}>الخطة التشغيلية والتنفيذية</div>
+                            <textarea
+                              value={executionStrategy}
+                              onChange={(e) => setExecutionStrategy(e.target.value)}
+                              disabled={!canEditAdvancedExecution}
+                              style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+                              placeholder="اكتب الاستراتيجية التشغيلية والتنفيذية..."
+                            />
+                          </div>
+                        ) : (
+                          <div style={styles.emptyHintText}>تم إخفاء تفاصيل استراتيجية التنفيذ مؤقتًا.</div>
+                        )}
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div style={styles.blockTop12}>
+                  <div
+                    id={ADVANCED_SCOPE_SECTION_ANCHORS.org}
+                    ref={(node) => {
+                      advancedScopeSectionRefs.current.org = node;
+                    }}
+                    tabIndex={-1}
+                    style={advancedSectionBlockStyle(
+                      styles.blockTop12,
+                      highlightedAdvancedScopeSection,
+                      "org"
+                    )}
+                  >
                     <div style={styles.advancedScopeCard}>
                       <div style={styles.advancedSectionHeader}>
                         <div style={styles.advancedSectionTitleWrap}>
@@ -13451,99 +18156,133 @@ export default function Home() {
                       <div style={styles.advancedSectionHint}>
                         فعّل الأدوار المطلوبة للمشروع وحدد اسم المسؤول لكل دور (اختياري).
                       </div>
-                      <div style={{ ...styles.orgRolesGrid, ...styles.advancedSectionContent }}>
-                        {orgRoles.map((role) => (
-                          <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
-                            <div style={styles.orgRoleHead}>
-                              <div style={styles.orgRoleIdentity}>
-                                <div style={styles.orgRoleTitle}>{role.title}</div>
-                                <div style={styles.orgRoleSummary}>{role.summary}</div>
-                              </div>
-                              <button
-                                type="button"
-                                style={styles.orgRoleToggle(role.enabled)}
-                                disabled={!canEditAdvancedExecution}
-                                onClick={() =>
-                                  updateOrgRole(role.id, { enabled: !role.enabled })
-                                }
-                              >
-                                {role.enabled ? "فعال" : "غير فعال"}
-                              </button>
-                            </div>
-
-                            <div style={styles.blockTop8}>
-                              <input
-                                value={role.assignee}
-                                onChange={(e) =>
-                                  updateOrgRole(role.id, { assignee: e.target.value })
-                                }
-                                style={{ ...styles.input, ...styles.orgRoleAssigneeInput(role.enabled) }}
-                                disabled={!canEditAdvancedExecution || !role.enabled}
-                                placeholder="اسم المسؤول (اختياري)"
-                              />
-                            </div>
-
-                            <div style={styles.orgRoleMetaRow}>
-                              <div style={styles.orgRoleMetaBox}>
-                                <div style={styles.orgRoleMetaHead}>
-                                  <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
-                                  <button
-                                    type="button"
-                                    style={styles.orgRoleInfoBtn}
-                                    disabled={!canEditAdvancedExecution}
-                                    onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
-                                    aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
-                                  >
-                                    ؟
-                                  </button>
-                                </div>
-                                <div style={styles.orgRoleMetaValue}>
-                                  {toArabicDigits(role.responsibilities.length)}
-                                </div>
-                              </div>
-                              <div style={styles.orgRoleMetaBox}>
-                                <div style={styles.orgRoleMetaHead}>
-                                  <div style={styles.orgRoleMetaLabel}>عدد مؤشرات الأداء</div>
-                                  <button
-                                    type="button"
-                                    style={styles.orgRoleInfoBtn}
-                                    disabled={!canEditAdvancedExecution}
-                                    onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
-                                    aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
-                                  >
-                                    ؟
-                                  </button>
-                                </div>
-                                <div style={styles.orgRoleMetaValue}>
-                                  {toArabicDigits(role.kpis.length)}
-                                </div>
-                              </div>
-                            </div>
-
-                            {orgRoleDetailsOpen[role.id] ? (
-                              <div style={styles.orgRoleDetailsPanel}>
-                                <div style={styles.orgRoleDetailsTitle}>
-                                  {orgRoleDetailsOpen[role.id] === "tasks"
-                                    ? "المهام الكاملة"
-                                    : "مؤشرات الأداء الكاملة"}
-                                </div>
-                                {(orgRoleDetailsOpen[role.id] === "tasks"
-                                  ? role.responsibilities
-                                  : role.kpis
-                                ).map((item, idx) => (
-                                  <div key={idx} style={styles.orgRoleDetailsItem}>
-                                    • {item}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={styles.orgRoleMetaText}>
-                                اضغط (؟) لعرض التفاصيل الكاملة.
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        <button
+                          type="button"
+                          style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                          disabled={isProcessing()}
+                          onClick={() =>
+                            advancedScopeSectionsOpen.org
+                              ? setAdvancedScopeSectionsOpen((prev) => ({
+                                  ...prev,
+                                  org: false,
+                                }))
+                              : openAdvancedScopeSection("org")
+                          }
+                        >
+                          {advancedScopeSectionsOpen.org ? "إخفاء تفاصيل 2.8" : "عرض تفاصيل 2.8"}
+                        </button>
+                        {advancedScopeSectionsOpen.org ? (
+                          <button
+                            type="button"
+                            style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                            disabled={isProcessing()}
+                            onClick={() => setShowEnabledOrgRolesOnly((prev) => !prev)}
+                          >
+                            {showEnabledOrgRolesOnly ? "عرض كل الأدوار" : "عرض الأدوار المفعلة فقط"}
+                          </button>
+                        ) : null}
                       </div>
+                      {advancedScopeSectionsOpen.org ? (
+                        <div style={{ ...styles.orgRolesGrid, ...styles.advancedSectionContent }}>
+                          {visibleOrgRoles.length === 0 ? (
+                            <div style={styles.emptyHintText}>لا توجد أدوار مفعلة حاليًا للعرض.</div>
+                          ) : null}
+                          {visibleOrgRoles.map((role) => (
+                            <div key={role.id} style={styles.orgRoleCard(role.enabled)}>
+                              <div style={styles.orgRoleHead}>
+                                <div style={styles.orgRoleIdentity}>
+                                  <div style={styles.orgRoleTitle}>{role.title}</div>
+                                  <div style={styles.orgRoleSummary}>{role.summary}</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  style={styles.orgRoleToggle(role.enabled)}
+                                  disabled={!canEditAdvancedExecution}
+                                  onClick={() =>
+                                    updateOrgRole(role.id, { enabled: !role.enabled })
+                                  }
+                                >
+                                  {role.enabled ? "فعال" : "غير فعال"}
+                                </button>
+                              </div>
+
+                              <div style={styles.blockTop8}>
+                                <input
+                                  value={role.assignee}
+                                  onChange={(e) =>
+                                    updateOrgRole(role.id, { assignee: e.target.value })
+                                  }
+                                  style={{ ...styles.input, ...styles.orgRoleAssigneeInput(role.enabled) }}
+                                  disabled={!canEditAdvancedExecution || !role.enabled}
+                                  placeholder="اسم المسؤول (اختياري)"
+                                />
+                              </div>
+
+                              <div style={styles.orgRoleMetaRow}>
+                                <div style={styles.orgRoleMetaBox}>
+                                  <div style={styles.orgRoleMetaHead}>
+                                    <div style={styles.orgRoleMetaLabel}>عدد المهام</div>
+                                    <button
+                                      type="button"
+                                      style={styles.orgRoleInfoBtn}
+                                      disabled={!canEditAdvancedExecution}
+                                      onClick={() => toggleOrgRoleDetail(role.id, "tasks")}
+                                      aria-expanded={orgRoleDetailsOpen[role.id] === "tasks"}
+                                    >
+                                      ؟
+                                    </button>
+                                  </div>
+                                  <div style={styles.orgRoleMetaValue}>
+                                    {toArabicDigits(role.responsibilities.length)}
+                                  </div>
+                                </div>
+                                <div style={styles.orgRoleMetaBox}>
+                                  <div style={styles.orgRoleMetaHead}>
+                                    <div style={styles.orgRoleMetaLabel}>عدد مؤشرات الأداء</div>
+                                    <button
+                                      type="button"
+                                      style={styles.orgRoleInfoBtn}
+                                      disabled={!canEditAdvancedExecution}
+                                      onClick={() => toggleOrgRoleDetail(role.id, "kpis")}
+                                      aria-expanded={orgRoleDetailsOpen[role.id] === "kpis"}
+                                    >
+                                      ؟
+                                    </button>
+                                  </div>
+                                  <div style={styles.orgRoleMetaValue}>
+                                    {toArabicDigits(role.kpis.length)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {orgRoleDetailsOpen[role.id] ? (
+                                <div style={styles.orgRoleDetailsPanel}>
+                                  <div style={styles.orgRoleDetailsTitle}>
+                                    {orgRoleDetailsOpen[role.id] === "tasks"
+                                      ? "المهام الكاملة"
+                                      : "مؤشرات الأداء الكاملة"}
+                                  </div>
+                                  {(orgRoleDetailsOpen[role.id] === "tasks"
+                                    ? role.responsibilities
+                                    : role.kpis
+                                  ).map((item, idx) => (
+                                    <div key={idx} style={styles.orgRoleDetailsItem}>
+                                      • {item}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={styles.orgRoleMetaText}>
+                                  اضغط (؟) لعرض التفاصيل الكاملة.
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={styles.emptyHintText}>تم إخفاء تفاصيل الهيكل التشغيلي مؤقتًا.</div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -13715,8 +18454,94 @@ export default function Home() {
                   </div>
                 </div>
 
-                {advancedBoqStep === "boq" ? (
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>هرمية عرض المرحلة 7</div>
+                        <div style={styles.upgradeSectionHint}>
+                          تحكم سريع لتقليل طول الشاشة والتركيز على عناصر الخطوة الحالية.
+                        </div>
+                      </div>
+                      <div style={styles.additionStateBadge(advancedBoqOpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(advancedBoqOpenSectionsCount)} / {toArabicDigits(advancedBoqSectionsTotalCount)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          if (advancedBoqStep === "boq") {
+                            setAdvancedBoqSectionsOpen((prev) => ({ ...prev, boq_items: true }));
+                            return;
+                          }
+                          if (advancedBoqStep === "quality_risk") {
+                            setAdvancedBoqSectionsOpen((prev) => ({ ...prev, quality_risk: true }));
+                            return;
+                          }
+                          setAdvancedBoqSectionsOpen((prev) => ({
+                            ...prev,
+                            ops_risk_board: true,
+                            ops_meta: true,
+                          }));
+                        }}
+                      >
+                        فتح تفاصيل الخطوة
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          if (advancedBoqStep === "boq") {
+                            setAdvancedBoqSectionsOpen((prev) => ({ ...prev, boq_items: false }));
+                            return;
+                          }
+                          if (advancedBoqStep === "quality_risk") {
+                            setAdvancedBoqSectionsOpen((prev) => ({ ...prev, quality_risk: false }));
+                            return;
+                          }
+                          setAdvancedBoqSectionsOpen((prev) => ({
+                            ...prev,
+                            ops_risk_board: false,
+                            ops_meta: false,
+                          }));
+                        }}
+                      >
+                        إغلاق تفاصيل الخطوة
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          setAdvancedBoqSectionsOpen(ADVANCED_BOQ_SECTION_DEFAULTS);
+                          if (advancedBoqStep === "boq") {
+                            setBoqRowExpanded({});
+                          }
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {advancedBoqStep === "boq" ? (
+                <div
+                  id={ADVANCED_BOQ_SECTION_ANCHORS.boq_items}
+                  ref={(node) => {
+                    advancedBoqSectionRefs.current.boq_items = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedBoqSection,
+                    "boq_items"
+                  )}
+                >
                   <div style={styles.qCard}>
                     <div style={styles.scopeSectionTitle}>
                       2.3 جدول الكميات والمواصفات (نسخة مختصرة)
@@ -13724,6 +18549,23 @@ export default function Home() {
                     <div style={styles.scopeSectionHint}>
                       خصص مسؤول لكل بند من الهيكل التشغيلي المفعّل لضبط الملكية التنفيذية.
                     </div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedBoqSectionsOpen.boq_items
+                          ? setAdvancedBoqSectionsOpen((prev) => ({
+                              ...prev,
+                              boq_items: false,
+                            }))
+                          : openAdvancedBoqSection("boq_items")
+                      }
+                    >
+                      {advancedBoqSectionsOpen.boq_items ? "إخفاء تفاصيل 2.3" : "عرض تفاصيل 2.3"}
+                    </button>
+                    {advancedBoqSectionsOpen.boq_items ? (
+                      <>
                     {activeOrgRoles.length === 0 ? (
                       <div style={styles.warnBox}>
                         <strong>تنبيه:</strong> لا توجد أدوار مفعّلة حاليًا في الهيكل التشغيلي.
@@ -13790,7 +18632,7 @@ export default function Home() {
                           : boqStateTone === "working"
                             ? "مكتمل جزئيًا"
                             : "غير مكتمل";
-                      const isBoqExpanded = !isMobile || (boqRowExpanded[row.id] ?? true);
+                      const isBoqExpanded = !isMobile || (boqRowExpanded[row.id] ?? false);
                       return (
                       <div key={row.id} style={styles.blockTop12}>
                         <div style={styles.boqItemCard}>
@@ -13812,7 +18654,7 @@ export default function Home() {
                                   onClick={() =>
                                     setBoqRowExpanded((prev) => ({
                                       ...prev,
-                                      [row.id]: !(prev[row.id] ?? true),
+                                      [row.id]: !(prev[row.id] ?? false),
                                     }))
                                   }
                                   aria-expanded={isBoqExpanded}
@@ -14292,68 +19134,145 @@ export default function Home() {
                       ) : null}
                     </div>
 
-                    <div style={styles.blockTop12}>
-                      <button
-                        style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
-                        disabled={isProcessing() || !canEditAdvancedExecution}
-                        onClick={addBoqRow}
-                      >
-                        إضافة بند في جدول الكميات
-                      </button>
-                    </div>
-                  </div>
-                </div>
+	                    <div style={styles.blockTop12}>
+	                      <button
+	                        style={styles.secondaryBtn(isProcessing() || !canEditAdvancedExecution)}
+	                        disabled={isProcessing() || !canEditAdvancedExecution}
+	                        onClick={addBoqRow}
+	                      >
+	                        إضافة بند في جدول الكميات
+	                      </button>
+	                    </div>
+	                      </>
+	                    ) : (
+	                      <div style={styles.textMutedSmallTop8}>
+	                        تم إخفاء تفاصيل 2.3 ويمكن فتحها عند الحاجة.
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
 
                 ) : null}
 
-                {advancedBoqStep === "quality_risk" ? (
-                  <div style={styles.advancedOpsMetaGrid}>
-                    <div style={{ ...styles.qCard, marginTop: 0 }}>
-                      <div style={styles.scopeSectionTitle}>2.5 معايير الجودة</div>
-                      <div style={styles.scopeSectionHint}>
-                        اكتب معايير الجودة وآلية التحقق الميداني والاعتماد قبل التنفيذ.
-                      </div>
-                      <textarea
-                        value={qualityStandards}
-                        onChange={(e) => setQualityStandards(e.target.value)}
-                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                        disabled={!canEditAdvancedExecution}
-                        placeholder="اكتب معايير الجودة وآلية التحقق..."
-                      />
-                    </div>
+	                {advancedBoqStep === "quality_risk" ? (
+	                  <div
+	                    id={ADVANCED_BOQ_SECTION_ANCHORS.quality_risk}
+	                    ref={(node) => {
+	                      advancedBoqSectionRefs.current.quality_risk = node;
+	                    }}
+	                    tabIndex={-1}
+	                    style={advancedSectionBlockStyle(
+	                      styles.blockTop12,
+	                      highlightedAdvancedBoqSection,
+	                      "quality_risk"
+	                    )}
+	                  >
+	                    <div style={styles.qCard}>
+	                      <div style={styles.scopeSectionTitle}>2.5 و 2.6 الجودة والمخاطر</div>
+	                      <div style={styles.scopeSectionHint}>
+	                        قسّم المعايير وسجل المخاطر بشكل مختصر ثم افتح التفاصيل عند الحاجة.
+	                      </div>
+	                      <button
+	                        type="button"
+	                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+	                        disabled={isProcessing()}
+	                        onClick={() =>
+	                          advancedBoqSectionsOpen.quality_risk
+	                            ? setAdvancedBoqSectionsOpen((prev) => ({
+	                                ...prev,
+	                                quality_risk: false,
+	                              }))
+	                            : openAdvancedBoqSection("quality_risk")
+	                        }
+	                      >
+	                        {advancedBoqSectionsOpen.quality_risk
+	                          ? "إخفاء تفاصيل الجودة والمخاطر"
+	                          : "عرض تفاصيل الجودة والمخاطر"}
+	                      </button>
+	                      {advancedBoqSectionsOpen.quality_risk ? (
+	                        <div style={styles.advancedOpsMetaGrid}>
+	                          <div style={{ ...styles.qCard, marginTop: 12 }}>
+	                            <div style={styles.scopeSectionTitle}>2.5 معايير الجودة</div>
+	                            <div style={styles.scopeSectionHint}>
+	                              اكتب معايير الجودة وآلية التحقق الميداني والاعتماد قبل التنفيذ.
+	                            </div>
+	                            <textarea
+	                              value={qualityStandards}
+	                              onChange={(e) => setQualityStandards(e.target.value)}
+	                              style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+	                              disabled={!canEditAdvancedExecution}
+	                              placeholder="اكتب معايير الجودة وآلية التحقق..."
+	                            />
+	                          </div>
 
-                    <div style={{ ...styles.qCard, marginTop: 0 }}>
-                      <div style={styles.scopeSectionTitle}>2.6 إدارة المخاطر</div>
-                      <div style={styles.scopeSectionHint}>
-                        وثّق المخاطر الرئيسية وخطط الاستجابة قبل بناء لوحة المخاطر الحية.
-                      </div>
-                      <textarea
-                        value={riskManagement}
-                        onChange={(e) => setRiskManagement(e.target.value)}
-                        style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
-                        disabled={!canEditAdvancedExecution}
-                        placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
-                      />
-                    </div>
-                  </div>
-                ) : null}
+	                          <div style={{ ...styles.qCard, marginTop: 12 }}>
+	                            <div style={styles.scopeSectionTitle}>2.6 إدارة المخاطر</div>
+	                            <div style={styles.scopeSectionHint}>
+	                              وثّق المخاطر الرئيسية وخطط الاستجابة قبل بناء لوحة المخاطر الحية.
+	                            </div>
+	                            <textarea
+	                              value={riskManagement}
+	                              onChange={(e) => setRiskManagement(e.target.value)}
+	                              style={{ ...styles.textarea, ...styles.scopeStrategyTextarea }}
+	                              disabled={!canEditAdvancedExecution}
+	                              placeholder="اكتب سجل المخاطر المختصر وخطط المعالجة..."
+	                            />
+	                          </div>
+	                        </div>
+	                      ) : (
+	                        <div style={styles.textMutedSmallTop8}>
+	                          تم إخفاء تفاصيل الجودة والمخاطر لتقليل الزحام البصري.
+	                        </div>
+	                      )}
+	                    </div>
+	                  </div>
+	                ) : null}
 
-                {advancedBoqStep === "operations" ? (
-                  <>
+	                {advancedBoqStep === "operations" ? (
+	                  <>
+		                <div
+		                  id={ADVANCED_BOQ_SECTION_ANCHORS.ops_risk_board}
+		                  ref={(node) => {
+		                    advancedBoqSectionRefs.current.ops_risk_board = node;
+		                  }}
+		                  tabIndex={-1}
+		                  style={advancedSectionBlockStyle(
+		                    styles.blockTop12,
+		                    highlightedAdvancedBoqSection,
+		                    "ops_risk_board"
+		                  )}
+		                >
+		                  <div style={styles.qCard}>
+	                    <div style={styles.riskBoardHead}>
+	                      <div style={styles.qTitle}>لوحة المخاطر الحية</div>
+	                      <div style={styles.riskBoardBadge}>
+	                        مخاطر حرجة: {toArabicDigits(liveRiskStats.critical)}
+	                      </div>
+	                    </div>
+		                    <button
+		                      type="button"
+		                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+		                      disabled={isProcessing()}
+		                      onClick={() =>
+		                        advancedBoqSectionsOpen.ops_risk_board
+		                          ? setAdvancedBoqSectionsOpen((prev) => ({
+		                              ...prev,
+		                              ops_risk_board: false,
+		                            }))
+		                          : openAdvancedBoqSection("ops_risk_board")
+		                      }
+		                    >
+	                      {advancedBoqSectionsOpen.ops_risk_board
+	                        ? "إخفاء لوحة المخاطر"
+	                        : "عرض لوحة المخاطر"}
+	                    </button>
+	                    {advancedBoqSectionsOpen.ops_risk_board ? (
+	                      <>
 
-                <div style={styles.blockTop12}>
-                  <div style={styles.qCard}>
-                    <div style={styles.riskBoardHead}>
-                      <div style={styles.qTitle}>لوحة المخاطر الحية</div>
-                      <div style={styles.riskBoardBadge}>
-                        مخاطر حرجة: {toArabicDigits(liveRiskStats.critical)}
-                      </div>
-                    </div>
-
-                    <div style={styles.riskBoardStatsGrid}>
-                      <div style={styles.riskBoardStat}>
-                        <div style={styles.riskBoardStatLabel}>إجمالي</div>
-                        <div style={styles.riskBoardStatValue}>
+	                    <div style={styles.riskBoardStatsGrid}>
+	                      <div style={styles.riskBoardStat}>
+	                        <div style={styles.riskBoardStatLabel}>إجمالي</div>
+	                        <div style={styles.riskBoardStatValue}>
                           {toArabicDigits(liveRiskStats.total)}
                         </div>
                       </div>
@@ -14601,40 +19520,90 @@ export default function Home() {
                               </div>
                             )}
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
+	                        );
+	                      })
+	                    )}
+	                      </>
+	                    ) : (
+	                      <div style={styles.textMutedSmallTop8}>
+	                        تم إخفاء لوحة المخاطر ويمكن إظهارها عند الحاجة.
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
 
-                <div style={styles.advancedOpsMetaGrid}>
-                  <div style={{ ...styles.qCard, marginTop: 0 }}>
-                    <div style={styles.scopeSectionTitle}>2.7 سرعة الاستجابة (اتفاقية مستوى الخدمة)</div>
-                    <div style={styles.scopeSectionHint}>
-                      حدد زمن الاستجابة التشغيلية والفنية للبلاغات والمستجدات.
-                    </div>
-                    <textarea
-                      value={responseSla}
-                      onChange={(e) => setResponseSla(e.target.value)}
-                      style={styles.textarea}
-                      disabled={!canEditAdvancedExecution}
-                      placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
-                    />
-                  </div>
-                  <div style={{ ...styles.qCard, marginTop: 0 }}>
-                    <div style={styles.scopeSectionTitle}>مدة الإزالة/الإقفال (بالساعات)</div>
-                    <div style={styles.scopeSectionHint}>
-                      أدخل الزمن المتوقع للإزالة والإقفال بعد نهاية التشغيل.
-                    </div>
-                    <input
-                      value={closureRemovalHours}
-                      onChange={(e) => setClosureRemovalHours(normalizeDigitsToEnglish(e.target.value))}
-                      style={styles.input}
-                      disabled={!canEditAdvancedExecution}
-                      placeholder="مثال: 6"
-                    />
-                  </div>
-                </div>
+		                <div
+		                  id={ADVANCED_BOQ_SECTION_ANCHORS.ops_meta}
+		                  ref={(node) => {
+		                    advancedBoqSectionRefs.current.ops_meta = node;
+		                  }}
+		                  tabIndex={-1}
+		                  style={advancedSectionBlockStyle(
+		                    styles.blockTop12,
+		                    highlightedAdvancedBoqSection,
+		                    "ops_meta"
+		                  )}
+		                >
+		                  <div style={styles.qCard}>
+	                    <div style={styles.scopeSectionTitle}>2.7 و 2.8 بيانات التشغيل</div>
+	                    <div style={styles.scopeSectionHint}>
+	                      بيانات سرعة الاستجابة والإقفال التشغيلي لمرحلة التنفيذ المتقدمة.
+	                    </div>
+		                    <button
+		                      type="button"
+		                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+		                      disabled={isProcessing()}
+		                      onClick={() =>
+		                        advancedBoqSectionsOpen.ops_meta
+		                          ? setAdvancedBoqSectionsOpen((prev) => ({
+		                              ...prev,
+		                              ops_meta: false,
+		                            }))
+		                          : openAdvancedBoqSection("ops_meta")
+		                      }
+		                    >
+	                      {advancedBoqSectionsOpen.ops_meta ? "إخفاء تفاصيل التشغيل" : "عرض تفاصيل التشغيل"}
+	                    </button>
+	                    {advancedBoqSectionsOpen.ops_meta ? (
+	                      <div style={styles.advancedOpsMetaGrid}>
+	                        <div style={{ ...styles.qCard, marginTop: 12 }}>
+	                          <div style={styles.scopeSectionTitle}>
+	                            2.7 سرعة الاستجابة (اتفاقية مستوى الخدمة)
+	                          </div>
+	                          <div style={styles.scopeSectionHint}>
+	                            حدد زمن الاستجابة التشغيلية والفنية للبلاغات والمستجدات.
+	                          </div>
+	                          <textarea
+	                            value={responseSla}
+	                            onChange={(e) => setResponseSla(e.target.value)}
+	                            style={styles.textarea}
+	                            disabled={!canEditAdvancedExecution}
+	                            placeholder="اكتب أزمنة الاستجابة التشغيلية والفنية..."
+	                          />
+	                        </div>
+	                        <div style={{ ...styles.qCard, marginTop: 12 }}>
+	                          <div style={styles.scopeSectionTitle}>مدة الإزالة/الإقفال (بالساعات)</div>
+	                          <div style={styles.scopeSectionHint}>
+	                            أدخل الزمن المتوقع للإزالة والإقفال بعد نهاية التشغيل.
+	                          </div>
+	                          <input
+	                            value={closureRemovalHours}
+	                            onChange={(e) =>
+	                              setClosureRemovalHours(normalizeDigitsToEnglish(e.target.value))
+	                            }
+	                            style={styles.input}
+	                            disabled={!canEditAdvancedExecution}
+	                            placeholder="مثال: 6"
+	                          />
+	                        </div>
+	                      </div>
+	                    ) : (
+	                      <div style={styles.textMutedSmallTop8}>
+	                        تم إخفاء تفاصيل بيانات التشغيل لتسريع مراجعة المرحلة.
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
 
                 {!canBuildAdvancedPlan ? (
                   <div style={styles.warnBox}>
@@ -14756,17 +19725,113 @@ export default function Home() {
 
                 <div style={styles.blockTop12}>
                   <div style={styles.qCard}>
-                    <div style={styles.qTitle}>خطة العمل المتكاملة</div>
-                    <textarea
-                      readOnly
-                      value={advancedPlanText}
-                      style={{ ...styles.textarea, ...styles.reportTextarea }}
-                      placeholder="سيظهر هنا ملخص الخطة المتقدمة..."
-                    />
+                    <div style={styles.sectionHeaderRow}>
+                      <div>
+                        <div style={styles.qTitle}>هرمية عرض المرحلة 8</div>
+                        <div style={styles.upgradeSectionHint}>
+                          تحكم سريع لتقليل طول الشاشة والتركيز على القسم المطلوب فقط.
+                        </div>
+                      </div>
+                      <div style={styles.additionStateBadge(advancedPlanOpenSectionsCount > 0)}>
+                        مفتوح {toArabicDigits(advancedPlanOpenSectionsCount)} /{" "}
+                        {toArabicDigits(advancedPlanSectionsTotalCount)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdvancedPlanSectionsOpen({
+                            plan_text: true,
+                            tracker: true,
+                            governance: true,
+                            outputs: true,
+                            approval: true,
+                          })
+                        }
+                      >
+                        فتح كل التفاصيل
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() =>
+                          setAdvancedPlanSectionsOpen({
+                            plan_text: false,
+                            tracker: false,
+                            governance: false,
+                            outputs: false,
+                            approval: false,
+                          })
+                        }
+                      >
+                        إغلاق كل التفاصيل
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.ghostBtn, ...styles.compactGhostBtn }}
+                        disabled={isProcessing()}
+                        onClick={() => {
+                          setAdvancedPlanSectionsOpen(ADVANCED_PLAN_SECTION_DEFAULTS);
+                          setActionTaskExpanded({});
+                        }}
+                      >
+                        الوضع الافتراضي
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div style={styles.blockTop12}>
+                  <div style={styles.qCard}>
+                    <div style={styles.qTitle}>خطة العمل المتكاملة</div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedPlanSectionsOpen.plan_text
+                          ? setAdvancedPlanSectionsOpen((prev) => ({
+                              ...prev,
+                              plan_text: false,
+                            }))
+                          : openAdvancedPlanSection("plan_text")
+                      }
+                    >
+                      {advancedPlanSectionsOpen.plan_text
+                        ? "إخفاء خطة العمل"
+                        : "عرض خطة العمل"}
+                    </button>
+                    {advancedPlanSectionsOpen.plan_text ? (
+                      <textarea
+                        readOnly
+                        value={advancedPlanText}
+                        style={{ ...styles.textarea, ...styles.reportTextarea }}
+                        placeholder="سيظهر هنا ملخص الخطة المتقدمة..."
+                      />
+                    ) : (
+                      <div style={styles.textMutedSmallTop8}>
+                        تم إخفاء نص الخطة لتخفيف الطول البصري ويمكن فتحه عند الحاجة.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  id={ADVANCED_PLAN_SECTION_ANCHORS.tracker}
+                  ref={(node) => {
+                    advancedPlanSectionRefs.current.tracker = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedPlanSection,
+                    "tracker"
+                  )}
+                >
                   <div style={styles.qCard}>
                     <div style={styles.actionTrackerHead}>
                       <div style={styles.qTitle}>متابعة التنفيذ (متتبع المهام)</div>
@@ -14774,50 +19839,69 @@ export default function Home() {
                         نسبة الإنجاز: %{toArabicDigits(actionTrackerProgress)}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedPlanSectionsOpen.tracker
+                          ? setAdvancedPlanSectionsOpen((prev) => ({
+                              ...prev,
+                              tracker: false,
+                            }))
+                          : openAdvancedPlanSection("tracker")
+                      }
+                    >
+                      {advancedPlanSectionsOpen.tracker
+                        ? "إخفاء متابعة التنفيذ"
+                        : "عرض متابعة التنفيذ"}
+                    </button>
 
-                    <div style={styles.actionTrackerStatsGrid}>
-                      <div style={styles.actionTrackerStat("total")}>
-                        <div style={styles.actionTrackerStatLabel("total")}>إجمالي المهام</div>
-                        <div style={styles.actionTrackerStatValue("total")}>
-                          {toArabicDigits(actionTrackerStats.total)}
+                    {advancedPlanSectionsOpen.tracker ? (
+                      <>
+                        <div style={styles.actionTrackerStatsGrid}>
+                          <div style={styles.actionTrackerStat("total")}>
+                            <div style={styles.actionTrackerStatLabel("total")}>إجمالي المهام</div>
+                            <div style={styles.actionTrackerStatValue("total")}>
+                              {toArabicDigits(actionTrackerStats.total)}
+                            </div>
+                          </div>
+                          <div style={styles.actionTrackerStat("not_started")}>
+                            <div style={styles.actionTrackerStatLabel("not_started")}>لم تبدأ</div>
+                            <div style={styles.actionTrackerStatValue("not_started")}>
+                              {toArabicDigits(actionTrackerStats.notStarted)}
+                            </div>
+                          </div>
+                          <div style={styles.actionTrackerStat("in_progress")}>
+                            <div style={styles.actionTrackerStatLabel("in_progress")}>جاري</div>
+                            <div style={styles.actionTrackerStatValue("in_progress")}>
+                              {toArabicDigits(actionTrackerStats.inProgress)}
+                            </div>
+                          </div>
+                          <div style={styles.actionTrackerStat("done")}>
+                            <div style={styles.actionTrackerStatLabel("done")}>مكتمل</div>
+                            <div style={styles.actionTrackerStatValue("done")}>
+                              {toArabicDigits(actionTrackerStats.done)}
+                            </div>
+                          </div>
+                          <div style={styles.actionTrackerStat("blocked")}>
+                            <div style={styles.actionTrackerStatLabel("blocked")}>متعثر</div>
+                            <div style={styles.actionTrackerStatValue("blocked")}>
+                              {toArabicDigits(actionTrackerStats.blocked)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div style={styles.actionTrackerStat("not_started")}>
-                        <div style={styles.actionTrackerStatLabel("not_started")}>لم تبدأ</div>
-                        <div style={styles.actionTrackerStatValue("not_started")}>
-                          {toArabicDigits(actionTrackerStats.notStarted)}
-                        </div>
-                      </div>
-                      <div style={styles.actionTrackerStat("in_progress")}>
-                        <div style={styles.actionTrackerStatLabel("in_progress")}>جاري</div>
-                        <div style={styles.actionTrackerStatValue("in_progress")}>
-                          {toArabicDigits(actionTrackerStats.inProgress)}
-                        </div>
-                      </div>
-                      <div style={styles.actionTrackerStat("done")}>
-                        <div style={styles.actionTrackerStatLabel("done")}>مكتمل</div>
-                        <div style={styles.actionTrackerStatValue("done")}>
-                          {toArabicDigits(actionTrackerStats.done)}
-                        </div>
-                      </div>
-                      <div style={styles.actionTrackerStat("blocked")}>
-                        <div style={styles.actionTrackerStatLabel("blocked")}>متعثر</div>
-                        <div style={styles.actionTrackerStatValue("blocked")}>
-                          {toArabicDigits(actionTrackerStats.blocked)}
-                        </div>
-                      </div>
-                    </div>
 
-                    {actionTrackerItems.length === 0 ? (
-                      <div style={styles.textMutedSmall}>
-                        لا توجد مهام متابعة حتى الآن. اضغط «توليد خطة التنفيذ المتقدمة» من
-                        المرحلة السابقة لإنشاء قائمة التنفيذ.
-                      </div>
-                    ) : (
-                      actionTrackerItems.map((item, idx) => {
-                        const isTaskExpanded = !isMobile || (actionTaskExpanded[item.id] ?? true);
-                        return (
-                        <div key={item.id} style={styles.actionTaskCard(item.status)}>
+                        {actionTrackerItems.length === 0 ? (
+                          <div style={styles.textMutedSmall}>
+                            لا توجد مهام متابعة حتى الآن. اضغط «توليد خطة التنفيذ المتقدمة» من
+                            المرحلة السابقة لإنشاء قائمة التنفيذ.
+                          </div>
+                        ) : (
+                          actionTrackerItems.map((item, idx) => {
+                            const isTaskExpanded = !isMobile || (actionTaskExpanded[item.id] ?? false);
+                            return (
+                            <div key={item.id} style={styles.actionTaskCard(item.status)}>
                           <div style={styles.actionTaskTopRow}>
                             <div style={styles.actionTaskHead}>
                               <div style={styles.actionTaskTitle}>
@@ -14836,7 +19920,7 @@ export default function Home() {
                                   onClick={() =>
                                     setActionTaskExpanded((prev) => ({
                                       ...prev,
-                                      [item.id]: !(prev[item.id] ?? true),
+                                      [item.id]: !(prev[item.id] ?? false),
                                     }))
                                   }
                                   aria-expanded={isTaskExpanded}
@@ -14929,14 +20013,31 @@ export default function Home() {
                               افتح تفاصيل المهمة لتعديل الحالة والمسؤول والملاحظات التنفيذية.
                             </div>
                           )}
-                        </div>
-                        );
-                      })
+                            </div>
+                            );
+                          })
+                        )}
+                      </>
+                    ) : (
+                      <div style={styles.textMutedSmallTop8}>
+                        تم إخفاء تفاصيل المتتبع ويمكن فتحها عند مراجعة التنفيذ.
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div style={styles.blockTop12}>
+                <div
+                  id={ADVANCED_PLAN_SECTION_ANCHORS.governance}
+                  ref={(node) => {
+                    advancedPlanSectionRefs.current.governance = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedPlanSection,
+                    "governance"
+                  )}
+                >
                   <div style={styles.qCard}>
                     <div style={styles.actionTrackerHead}>
                       <div style={styles.qTitle}>حوكمة النسخة (تجميد + طلبات التغيير)</div>
@@ -14956,6 +20057,26 @@ export default function Home() {
                             : "مجمّدة بدون تعديلات"}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedPlanSectionsOpen.governance
+                          ? setAdvancedPlanSectionsOpen((prev) => ({
+                              ...prev,
+                              governance: false,
+                            }))
+                          : openAdvancedPlanSection("governance")
+                      }
+                    >
+                      {advancedPlanSectionsOpen.governance
+                        ? "إخفاء الحوكمة والتغيير"
+                        : "عرض الحوكمة والتغيير"}
+                    </button>
+
+                    {advancedPlanSectionsOpen.governance ? (
+                      <>
 
                     <div style={styles.textMutedSmallTop8}>
                       {hasFrozenBaseline
@@ -15144,10 +20265,27 @@ export default function Home() {
                         ) : null}
                       </>
                     ) : null}
+                      </>
+                    ) : (
+                      <div style={styles.textMutedSmallTop8}>
+                        تم إخفاء قسم الحوكمة لتخفيف التزاحم، ويمكن فتحه عند اعتماد النسخة.
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={styles.blockTop12}>
+                <div
+                  id={ADVANCED_PLAN_SECTION_ANCHORS.outputs}
+                  ref={(node) => {
+                    advancedPlanSectionRefs.current.outputs = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedPlanSection,
+                    "outputs"
+                  )}
+                >
                   <div style={styles.qCard}>
                     <div style={styles.actionTrackerHead}>
                       <div style={styles.qTitle}>حزمة مخرجات التنفيذ الجاهزة للطباعة</div>
@@ -15164,6 +20302,23 @@ export default function Home() {
                         تحديث حزمة المخرجات
                       </button>
                     </div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedPlanSectionsOpen.outputs
+                          ? setAdvancedPlanSectionsOpen((prev) => ({
+                              ...prev,
+                              outputs: false,
+                            }))
+                          : openAdvancedPlanSection("outputs")
+                      }
+                    >
+                      {advancedPlanSectionsOpen.outputs ? "إخفاء مخرجات الطباعة" : "عرض مخرجات الطباعة"}
+                    </button>
+                    {advancedPlanSectionsOpen.outputs ? (
+                      <>
                     <div style={styles.textMutedSmallTop8}>
                       يمكنك نسخ المخرجات مباشرة أو فتح نافذة الطباعة وتحويلها إلى PDF.
                     </div>
@@ -15231,50 +20386,111 @@ export default function Home() {
                         />
                       </div>
                     </div>
+                      </>
+                    ) : (
+                      <div style={styles.textMutedSmallTop8}>
+                        تم إخفاء مخرجات الطباعة مؤقتًا، افتحها عند المراجعة النهائية.
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div style={styles.blockTop12}>
-                  <label style={styles.radioLabel}>
-                    <input
-                      type="checkbox"
-                      checked={advancedApproved}
-                      onChange={(e) => setAdvancedApproved(e.target.checked)}
-                      disabled={!canApproveAdvancedPlan}
-                    />
-                    اعتماد نهائي للخطة (V1)
-                  </label>
-                </div>
+                <div
+                  id={ADVANCED_PLAN_SECTION_ANCHORS.approval}
+                  ref={(node) => {
+                    advancedPlanSectionRefs.current.approval = node;
+                  }}
+                  tabIndex={-1}
+                  style={advancedSectionBlockStyle(
+                    styles.blockTop12,
+                    highlightedAdvancedPlanSection,
+                    "approval"
+                  )}
+                >
+                  <div style={styles.qCard}>
+                    <div style={styles.qTitle}>الاعتماد والانتقال</div>
+                    <button
+                      type="button"
+                      style={{ ...styles.ghostBtn, ...styles.compactGhostBtn, marginTop: 8 }}
+                      disabled={isProcessing()}
+                      onClick={() =>
+                        advancedPlanSectionsOpen.approval
+                          ? setAdvancedPlanSectionsOpen((prev) => ({
+                              ...prev,
+                              approval: false,
+                            }))
+                          : openAdvancedPlanSection("approval")
+                      }
+                    >
+                      {advancedPlanSectionsOpen.approval ? "إخفاء إجراءات الاعتماد" : "عرض إجراءات الاعتماد"}
+                    </button>
+                    {advancedPlanSectionsOpen.approval ? (
+                      <>
+                        <div style={styles.blockTop12}>
+                          <label style={styles.radioLabel}>
+                            <input
+                              type="checkbox"
+                              checked={advancedApproved}
+                              onChange={(e) => setAdvancedApproved(e.target.checked)}
+                              disabled={!canApproveAdvancedPlan}
+                            />
+                            اعتماد نهائي للخطة (V1)
+                          </label>
+                        </div>
 
-                <div style={styles.stackAfterSection}>
-                  <button
-                    style={styles.primaryBtn(isProcessing() || !canApproveAdvancedPlan)}
-                    disabled={isProcessing() || !canApproveAdvancedPlan}
-                    title={
-                      !canApproveAdvancedPlan
-                        ? permissionHintText("اعتماد الخطة", ["project_manager"], userRole)
-                        : undefined
-                    }
-                    onClick={() =>
-                      showSuccess(
-                        advancedApproved
-                          ? "تم اعتماد الخطة المتقدمة بنجاح."
-                          : "يمكنك اعتماد الخطة عند الجاهزية."
-                      )
-                    }
-                  >
-                    حفظ واعتماد
-                  </button>
-                  <button
-                    style={styles.secondaryBtn(isProcessing())}
-                    disabled={isProcessing()}
-                    onClick={() => {
-                      setAdvancedBoqStep("operations");
-                      setStage("advanced_boq");
-                    }}
-                  >
-                    رجوع: جدول الكميات والجودة والمخاطر
-                  </button>
+                        <div style={styles.stackAfterSection}>
+                          <button
+                            style={styles.secondaryBtn(isProcessing() || !canApproveAdvancedPlan)}
+                            disabled={isProcessing() || !canApproveAdvancedPlan}
+                            title={
+                              !canApproveAdvancedPlan
+                                ? permissionHintText("اعتماد الخطة", ["project_manager"], userRole)
+                                : undefined
+                            }
+                            onClick={() =>
+                              showSuccess(
+                                advancedApproved
+                                  ? "تم اعتماد الخطة المتقدمة بنجاح."
+                                  : "يمكنك اعتماد الخطة عند الجاهزية."
+                              )
+                            }
+                          >
+                            حفظ واعتماد
+                          </button>
+                          <button
+                            style={styles.primaryBtn(isProcessing() || !canRunAnalysisFlow)}
+                            disabled={isProcessing() || !canRunAnalysisFlow}
+                            title={
+                              !canRunAnalysisFlow
+                                ? permissionHintText(
+                                    "فتح الاستشارة الختامية",
+                                    ["project_manager", "operations_manager"],
+                                    userRole
+                                  )
+                                : undefined
+                            }
+                            onClick={openFinalConsultation}
+                          >
+                            التالي: الاستشارة الختامية
+                          </button>
+                          <button
+                            style={styles.secondaryBtn(isProcessing())}
+                            disabled={isProcessing()}
+                            onClick={() => {
+                              setAdvancedBoqStep("operations");
+                              setStage("advanced_boq");
+                            }}
+                          >
+                            رجوع: جدول الكميات والجودة والمخاطر
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={styles.textMutedSmallTop8}>
+                        تم إخفاء إجراءات الاعتماد والتنقل، ويمكن إظهارها عند الجاهزية للانتقال.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -15342,10 +20558,48 @@ export default function Home() {
                 </div>
               </>
             ) : (
-	              <>
-	                <h3 style={styles.cardTitle}>ملخص الجلسة</h3>
-	                <p style={styles.muted}>لوحة حالة مختصرة تتغير حسب المرحلة الحالية.</p>
+              <>
+                <h3 style={styles.cardTitle}>ملخص الجلسة التنفيذي</h3>
+                <p style={styles.muted}>
+                  عرض ذكي مختصر حسب المرحلة والدور لتقليل التزاحم ورفع سرعة القرار.
+                </p>
 
+                <div style={styles.summaryExecutiveShell}>
+                  <div style={styles.summaryHeadline}>{sessionExecutiveSummary.headline}</div>
+                  <div style={styles.summaryDominantGap(sessionExecutiveSummary.tone)}>
+                    {sessionExecutiveSummary.dominantGap}
+                  </div>
+
+                  <div style={styles.summaryMetricsGrid}>
+                    {sessionExecutiveSummary.metrics.map((metric) => (
+                      <div key={metric.id} style={styles.summaryMetricCard(metric.tone)}>
+                        <div style={styles.summaryMetricLabel}>{metric.label}</div>
+                        <div style={styles.summaryMetricValue}>{metric.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={styles.summaryTopList}>
+                    {sessionExecutiveSummary.items.map((item) => (
+                      <div key={item.id} style={styles.summaryTopItem(item.tone)}>
+                        • {item.text}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={styles.summaryActionsRow}>
+                    <button
+                      type="button"
+                      style={styles.secondaryBtn(false)}
+                      onClick={() => setShowSummaryDetails((prev) => !prev)}
+                    >
+                      {showSummaryDetails ? "إخفاء التفاصيل" : "عرض التفاصيل"}
+                    </button>
+                  </div>
+                </div>
+
+                {showSummaryDetails ? (
+                  <>
                 {renderSummarySection(
                   "permissions",
                   "التحكم والصلاحيات",
@@ -15636,7 +20890,10 @@ export default function Home() {
                     )
                   : null}
 
-                {stage === "addition" || stage === "done"
+                {stage === "addition" ||
+                stage === "done" ||
+                stage === "final_addition" ||
+                stage === "final_done"
                   ? renderSummarySection(
                       "decision_quality",
                       "جودة القرار",
@@ -15656,7 +20913,7 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {stage === "done" && analysis ? (
+                        {(stage === "done" || stage === "final_done") && analysis ? (
                           <div style={styles.sideBlock}>
                             <div style={styles.sideBlockTitle}>ملخص القرار</div>
                             <div style={{ ...styles.qTitle, ...styles.qTitleGap4 }}>
@@ -15772,7 +21029,7 @@ export default function Home() {
                   <>
                     <div style={styles.sideBlock}>
                       <div style={styles.sideBlockTitle}>تنبيهات سريعة</div>
-                      {sessionAlerts().map((alert, idx) => (
+                      {summaryAlertsSnapshot.map((alert, idx) => (
                         <div key={idx} style={styles.sideAlertItem(alert.tone)}>
                           {alert.text}
                         </div>
@@ -15793,6 +21050,8 @@ export default function Home() {
                     </div>
                   </>
                 )}
+                  </>
+                ) : null}
               </>
             )}
             </div>
@@ -15822,7 +21081,10 @@ export default function Home() {
                 <div style={styles.label}>المشروع الحالي</div>
                 <select
                   value={activeProjectId}
-                  onChange={(e) => switchProject(e.target.value)}
+                  onChange={(e) => {
+                    void switchProject(e.target.value);
+                  }}
+                  disabled={isProjectHubTransitionBusy}
                   style={styles.input}
                 >
                   {activeProjects.map((entry) => (
@@ -15853,33 +21115,85 @@ export default function Home() {
                   placeholder="اكتب اسم المشروع"
                 />
               </div>
+
+              <div>
+                <div style={styles.label}>اسم المشروع الجديد</div>
+                <input
+                  value={newProjectDraftName}
+                  onChange={(e) => {
+                    setNewProjectDraftName(e.target.value);
+                    if (
+                      newProjectDraftTouched &&
+                      Array.from(e.target.value.trim()).length >= MIN_PROJECT_NAME_LENGTH
+                    ) {
+                      setNewProjectDraftTouched(false);
+                    }
+                  }}
+                  onBlur={() => setNewProjectDraftTouched(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void submitNewProjectFromHub();
+                    }
+                  }}
+                  disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                  style={styles.input}
+                  placeholder={`مثال: ${nextProjectDefaultName}`}
+                  aria-invalid={showNewProjectDraftError}
+                />
+                {showNewProjectDraftError ? (
+                  <div style={styles.fieldInlineError}>
+                    اسم المشروع يجب ألا يقل عن {toArabicDigits(MIN_PROJECT_NAME_LENGTH)} أحرف.
+                  </div>
+                ) : (
+                  <div style={styles.fieldInlineHint}>اكتب الاسم ثم اضغط «مشروع جديد».</div>
+                )}
+                <div style={styles.fieldInlineMeta}>
+                  <span style={styles.fieldInlineHint}>الحد الأدنى المطلوب للاسم.</span>
+                  <span style={styles.fieldInlineCounter(isNewProjectDraftValid)}>
+                    {toArabicDigits(newProjectDraftLength)}/{toArabicDigits(MIN_PROJECT_NAME_LENGTH)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div style={styles.projectManagerActionGrid}>
               <button
                 type="button"
-                style={styles.secondaryBtn(!canEditSessionSetup)}
-                onClick={createNewProject}
-                disabled={!canEditSessionSetup}
+                style={styles.primaryBtn(
+                  !canEditSessionSetup || !isNewProjectDraftValid || isProjectHubTransitionBusy
+                )}
+                onClick={() => {
+                  void submitNewProjectFromHub();
+                }}
+                disabled={!canEditSessionSetup || !isNewProjectDraftValid || isProjectHubTransitionBusy}
                 title={
-                  canEditSessionSetup
-                    ? undefined
-                    : permissionHintText(
+                  isProjectHubTransitionBusy
+                    ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                    : !canEditSessionSetup
+                    ? permissionHintText(
                         "إنشاء مشروع جديد",
                         ["project_manager", "operations_manager"],
                         userRole
                       )
+                    : !isNewProjectDraftValid
+                    ? `اسم المشروع يجب ألا يقل عن ${toArabicDigits(MIN_PROJECT_NAME_LENGTH)} أحرف.`
+                    : undefined
                 }
               >
                 مشروع جديد
               </button>
               <button
                 type="button"
-                style={styles.secondaryBtn(!canEditSessionSetup)}
-                onClick={duplicateCurrentProject}
-                disabled={!canEditSessionSetup}
+                style={styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy)}
+                onClick={() => {
+                  void duplicateCurrentProject();
+                }}
+                disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
                 title={
-                  canEditSessionSetup
+                  isProjectHubTransitionBusy
+                    ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                    : canEditSessionSetup
                     ? undefined
                     : permissionHintText(
                         "نسخ المشروع الحالي",
@@ -15891,16 +21205,26 @@ export default function Home() {
                 نسخ المشروع
               </button>
             </div>
+            {isProjectHubTransitionBusy ? (
+              <div style={styles.sessionStartInlineHint} role="status" aria-live="polite">
+                <span style={styles.sessionStartInlineSpinner} aria-hidden="true" />
+                {inlineLoadingHint(projectHubLoadingContext ?? "")}
+              </div>
+            ) : null}
 
             <div style={styles.blockTop12}>
               <button
                 type="button"
-                style={styles.dangerGhostBtn(!canEditSessionSetup || activeProjects.length <= 1)}
+                style={styles.dangerGhostBtn(
+                  !canEditSessionSetup || activeProjects.length <= 1 || isProjectHubTransitionBusy
+                )}
                 onClick={requestArchiveActiveProject}
-                disabled={!canEditSessionSetup || activeProjects.length <= 1}
+                disabled={!canEditSessionSetup || activeProjects.length <= 1 || isProjectHubTransitionBusy}
                 title={
                   activeProjects.length <= 1
                     ? "لا يمكن أرشفة آخر مشروع نشط."
+                    : isProjectHubTransitionBusy
+                      ? inlineLoadingHint(projectHubLoadingContext ?? "")
                     : canEditSessionSetup
                       ? undefined
                       : permissionHintText(
@@ -15931,13 +21255,17 @@ export default function Home() {
                       <button
                         type="button"
                         style={{
-                          ...styles.secondaryBtn(!canEditSessionSetup),
+                          ...styles.secondaryBtn(!canEditSessionSetup || isProjectHubTransitionBusy),
                           width: isMobile ? "100%" : "auto",
                         }}
-                        disabled={!canEditSessionSetup}
-                        onClick={() => restoreArchivedProject(entry.id)}
+                        disabled={!canEditSessionSetup || isProjectHubTransitionBusy}
+                        onClick={() => {
+                          void restoreArchivedProject(entry.id);
+                        }}
                         title={
-                          canEditSessionSetup
+                          isProjectHubTransitionBusy
+                            ? inlineLoadingHint(projectHubLoadingContext ?? "")
+                            : canEditSessionSetup
                             ? undefined
                             : permissionHintText(
                                 "استعادة المشروع",
@@ -16044,13 +21372,13 @@ export default function Home() {
         >
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <h3 id="clear-session-title" style={styles.confirmTitle}>
-              تأكيد مسح الجلسة
+              تأكيد إعادة تهيئة الجلسة
             </h3>
             <div style={styles.confirmDesc}>
-              سيتم حذف جميع مدخلات المشروع الحالي ({activeProjectName || "بدون اسم"}) في كل المراحل، ولن يمكنك التراجع بعد المسح.
+              سيتم حذف جميع مدخلات الجلسة الحالية للمشروع ({activeProjectName || "بدون اسم"}) والعودة إلى بداية المشروع.
             </div>
             <div style={styles.confirmWarn}>
-              إذا كنت تحتاج البيانات لاحقًا، استخدم زر «نسخ المشروع» قبل المتابعة.
+              تحذير: لا يمكن التراجع بعد التنفيذ. إذا احتجت البيانات لاحقًا استخدم زر «نسخ المشروع» قبل المتابعة.
             </div>
             <div style={styles.confirmActions}>
               <button
@@ -16065,7 +21393,7 @@ export default function Home() {
                 style={styles.dangerGhostBtn(false)}
                 onClick={clearSession}
               >
-                نعم، مسح الجلسة
+                نعم، إعادة التهيئة
               </button>
             </div>
           </div>
@@ -16093,15 +21421,19 @@ export default function Home() {
             <div style={styles.confirmActions}>
               <button
                 type="button"
-                style={styles.secondaryBtn(false)}
+                style={styles.secondaryBtn(isProjectHubTransitionBusy)}
+                disabled={isProjectHubTransitionBusy}
                 onClick={() => setShowArchiveProjectConfirm(false)}
               >
                 إلغاء
               </button>
               <button
                 type="button"
-                style={styles.dangerGhostBtn(false)}
-                onClick={archiveActiveProject}
+                style={styles.dangerGhostBtn(isProjectHubTransitionBusy)}
+                disabled={isProjectHubTransitionBusy}
+                onClick={() => {
+                  void archiveActiveProject();
+                }}
               >
                 نعم، أرشفة المشروع
               </button>
@@ -16161,6 +21493,15 @@ export default function Home() {
                 تنفيذ الاستبدال الكامل
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div style={styles.loadingBannerWrap}>
+          <div style={styles.loadingBannerBox} role="status" aria-live="polite" aria-atomic="true">
+            <span style={styles.loadingBannerSpinner} aria-hidden="true" />
+            <span>{loadingLabel(loadingContext)}</span>
           </div>
         </div>
       ) : null}

@@ -28,7 +28,9 @@ export type StrategyWorkspaceStage =
   | "done"
   | "advanced_scope"
   | "advanced_boq"
-  | "advanced_plan";
+  | "advanced_plan"
+  | "final_addition"
+  | "final_done";
 
 export type ActiveStrategyProject = {
   id: string;
@@ -60,6 +62,8 @@ const WORKSPACE_STAGE_ORDER: StrategyWorkspaceStage[] = [
   "advanced_scope",
   "advanced_boq",
   "advanced_plan",
+  "final_addition",
+  "final_done",
 ];
 
 const WORKSPACE_STAGE_LABEL: Record<StrategyWorkspaceStage, string> = {
@@ -70,10 +74,12 @@ const WORKSPACE_STAGE_LABEL: Record<StrategyWorkspaceStage, string> = {
   round2: "جولة المتابعة",
   dialogue: "جلسة الحوار",
   addition: "الإضافة قبل التحليل",
-  done: "التحليل النهائي",
+  done: "النتيجة التمهيدية",
   advanced_scope: "النطاق المتقدم",
   advanced_boq: "جدول الكميات",
   advanced_plan: "الخطة المتقدمة",
+  final_addition: "الاستشارة الختامية",
+  final_done: "القرار النهائي",
 };
 
 export function readActiveStrategyProject(): ActiveStrategyProject {
@@ -95,7 +101,7 @@ export function readActiveStrategyProject(): ActiveStrategyProject {
 
   const activeCandidates = projects.filter((item) => !item.isArchived);
   const activeFromRegistry = activeCandidates.find((item) => item.id === registry.activeProjectId);
-  const candidate = activeFromRegistry ?? activeCandidates[0];
+  const candidate = activeFromRegistry;
   if (!candidate) {
     return { id: "global", name: "مشروع غير محدد", snapshot: {} };
   }

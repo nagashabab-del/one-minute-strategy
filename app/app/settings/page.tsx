@@ -3,42 +3,21 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { readReports } from "../reports/report-store";
-
-type ApprovalPolicy = "single" | "dual" | "committee";
-type LayoutDensity = "comfortable" | "compact";
-
-type ExecSettings = {
-  approvalPolicy: ApprovalPolicy;
-  requireFinanceSignoff: boolean;
-  requireRiskSignoff: boolean;
-  allowManagerOverride: boolean;
-  budgetAlertThreshold: number;
-  delayAlertDays: number;
-  notifyInApp: boolean;
-  notifyDailySummary: boolean;
-  notifyEscalation: boolean;
-  layoutDensity: LayoutDensity;
-};
-
-const SETTINGS_STORAGE_KEY = "oms_exec_settings_v1";
-
-const DEFAULT_SETTINGS: ExecSettings = {
-  approvalPolicy: "dual",
-  requireFinanceSignoff: true,
-  requireRiskSignoff: true,
-  allowManagerOverride: false,
-  budgetAlertThreshold: 10,
-  delayAlertDays: 2,
-  notifyInApp: true,
-  notifyDailySummary: true,
-  notifyEscalation: true,
-  layoutDensity: "comfortable",
-};
+import {
+  DEFAULT_EXEC_SETTINGS,
+  EXEC_SETTINGS_STORAGE_KEY,
+  normalizeExecSettings,
+  READINESS_AXIS_LABELS,
+  READINESS_AXIS_ORDER,
+  READINESS_PROFILE_ORDER,
+} from "../_lib/exec-settings";
+import type { ApprovalPolicy, ExecSettings, ReadinessAxisId, ReadinessProfileId } from "../_lib/exec-settings";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<ExecSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<ExecSettings>(DEFAULT_EXEC_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [activeReadinessProfile, setActiveReadinessProfile] = useState<ReadinessProfileId>("conference");
 
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
@@ -46,15 +25,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const raw = localStorage.getItem(EXEC_SETTINGS_STORAGE_KEY);
       if (!raw) {
         setIsLoaded(true);
         return;
       }
       const parsed = JSON.parse(raw) as Partial<ExecSettings>;
-      setSettings(normalizeSettings(parsed));
+      setSettings(normalizeExecSettings(parsed));
     } catch {
-      setSettings(DEFAULT_SETTINGS);
+      setSettings(DEFAULT_EXEC_SETTINGS);
     } finally {
       setIsLoaded(true);
     }
@@ -62,7 +41,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(EXEC_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     setLastSavedAt(
       new Date().toLocaleTimeString("ar-SA", {
         hour: "2-digit",
@@ -77,6 +56,40 @@ export default function SettingsPage() {
     if (settings.budgetAlertThreshold <= 10 || settings.delayAlertDays <= 2) return "متوسطة";
     return "منخفضة";
   }, [settings.budgetAlertThreshold, settings.delayAlertDays]);
+  const profileConfig = settings.readinessProfiles[activeReadinessProfile];
+  const profileWeightSum = READINESS_AXIS_ORDER.reduce(
+    (sum, axis) => sum + (profileConfig.weights[axis] ?? 0),
+    0
+  );
+
+  const setProfileThreshold = (profileId: ReadinessProfileId, value: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      readinessProfiles: {
+        ...prev.readinessProfiles,
+        [profileId]: {
+          ...prev.readinessProfiles[profileId],
+          conditionalThresholdPct: Math.max(60, Math.min(95, Math.round(value))),
+        },
+      },
+    }));
+  };
+
+  const setProfileWeight = (profileId: ReadinessProfileId, axis: ReadinessAxisId, value: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      readinessProfiles: {
+        ...prev.readinessProfiles,
+        [profileId]: {
+          ...prev.readinessProfiles[profileId],
+          weights: {
+            ...prev.readinessProfiles[profileId].weights,
+            [axis]: Math.max(0, Math.min(100, Math.round(value))),
+          },
+        },
+      },
+    }));
+  };
 
   return (
     <main>
@@ -245,6 +258,69 @@ export default function SettingsPage() {
       </section>
 
       <section className="oms-panel">
+        <h2 className="oms-section-title">أوزان مصفوفة القرار النهائي</h2>
+        <p className="oms-text">
+          تعديل أوزان محاور القرار حسب نوع المشروع. يتم تطبيق الأوزان مباشرة في التقرير التنفيذي النهائي.
+        </p>
+
+        <div className="readiness-profile-tabs">
+          {READINESS_PROFILE_ORDER.map((profileId) => {
+            const item = settings.readinessProfiles[profileId];
+            return (
+              <button
+                key={profileId}
+                type="button"
+                className={`settings-policy ${activeReadinessProfile === profileId ? "is-active" : ""}`}
+                onClick={() => setActiveReadinessProfile(profileId)}
+              >
+                <div className="settings-policy-title">{item.label}</div>
+                <div className="settings-policy-desc">حد جاهز بشروط: {item.conditionalThresholdPct}%</div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="readiness-profile-editor">
+          <label className="settings-field">
+            <span className="settings-field-label">عتبة جاهز بشروط ({profileConfig.label})</span>
+            <input
+              className="settings-input"
+              type="number"
+              min={60}
+              max={95}
+              value={profileConfig.conditionalThresholdPct}
+              onChange={(event) =>
+                setProfileThreshold(activeReadinessProfile, clampNumber(event.target.value, 60, 95, 70))
+              }
+            />
+          </label>
+
+          <div className="readiness-weights-grid">
+            {READINESS_AXIS_ORDER.map((axis) => (
+              <label key={axis} className="settings-field">
+                <span className="settings-field-label">{READINESS_AXIS_LABELS[axis]} (%)</span>
+                <input
+                  className="settings-input"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={profileConfig.weights[axis]}
+                  onChange={(event) =>
+                    setProfileWeight(activeReadinessProfile, axis, clampNumber(event.target.value, 0, 100, 0))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="settings-save-note">
+            مجموع الأوزان الحالي: {profileWeightSum}%
+            (يتم ضبطه تلقائيًا إلى 100% عند قراءة التقرير).
+          </div>
+        </div>
+      </section>
+
+      <section className="oms-panel">
         <h2 className="oms-section-title">حالة المسار الحالي</h2>
         <div className="settings-status-grid">
           <div className="settings-status-card">
@@ -265,7 +341,7 @@ export default function SettingsPage() {
       <section className="oms-panel">
         <h2 className="oms-section-title">إدارة الإعدادات</h2>
         <div className="settings-actions">
-          <button className="oms-btn oms-btn-ghost" type="button" onClick={() => setSettings(DEFAULT_SETTINGS)}>
+          <button className="oms-btn oms-btn-ghost" type="button" onClick={() => setSettings(DEFAULT_EXEC_SETTINGS)}>
             استعادة الإعدادات الافتراضية
           </button>
           <Link href="/app/workflows" className="oms-btn oms-btn-ghost">
@@ -320,6 +396,29 @@ export default function SettingsPage() {
         .settings-options {
           margin-top: 10px;
           display: grid;
+          gap: 8px;
+        }
+
+        .readiness-profile-tabs {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .readiness-profile-editor {
+          margin-top: 10px;
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: var(--oms-bg-card);
+          padding: 10px;
+          display: grid;
+          gap: 10px;
+        }
+
+        .readiness-weights-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
         }
 
@@ -467,8 +566,10 @@ export default function SettingsPage() {
         @media (max-width: 1080px) {
           .settings-summary-grid,
           .settings-grid,
+          .readiness-profile-tabs,
           .settings-field-grid,
-          .settings-status-grid {
+          .settings-status-grid,
+          .readiness-weights-grid {
             grid-template-columns: 1fr;
           }
         }
@@ -537,34 +638,6 @@ function ToggleRow({
       </button>
     </div>
   );
-}
-
-function normalizeSettings(input: Partial<ExecSettings>): ExecSettings {
-  return {
-    approvalPolicy:
-      input.approvalPolicy === "single" || input.approvalPolicy === "committee"
-        ? input.approvalPolicy
-        : DEFAULT_SETTINGS.approvalPolicy,
-    requireFinanceSignoff: asBoolean(input.requireFinanceSignoff, DEFAULT_SETTINGS.requireFinanceSignoff),
-    requireRiskSignoff: asBoolean(input.requireRiskSignoff, DEFAULT_SETTINGS.requireRiskSignoff),
-    allowManagerOverride: asBoolean(input.allowManagerOverride, DEFAULT_SETTINGS.allowManagerOverride),
-    budgetAlertThreshold: asNumber(input.budgetAlertThreshold, DEFAULT_SETTINGS.budgetAlertThreshold),
-    delayAlertDays: asNumber(input.delayAlertDays, DEFAULT_SETTINGS.delayAlertDays),
-    notifyInApp: asBoolean(input.notifyInApp, DEFAULT_SETTINGS.notifyInApp),
-    notifyDailySummary: asBoolean(input.notifyDailySummary, DEFAULT_SETTINGS.notifyDailySummary),
-    notifyEscalation: asBoolean(input.notifyEscalation, DEFAULT_SETTINGS.notifyEscalation),
-    layoutDensity: input.layoutDensity === "compact" ? "compact" : "comfortable",
-  };
-}
-
-function asBoolean(value: unknown, fallback: boolean) {
-  if (typeof value !== "boolean") return fallback;
-  return value;
-}
-
-function asNumber(value: unknown, fallback: number) {
-  if (typeof value !== "number" || Number.isNaN(value)) return fallback;
-  return value;
 }
 
 function clampNumber(rawValue: string, min: number, max: number, fallback: number) {

@@ -23,6 +23,8 @@ export default function StrategyAdvisorsPage() {
         ]}
         primaryActionHref="/app/strategy/dialogue"
         primaryActionLabel="بدء جلسة التحليل"
+        secondaryActionHref="/app/strategy/brief"
+        secondaryActionLabel="العودة إلى موجز المشروع"
       />
     </StrategyReadinessGuard>
   );

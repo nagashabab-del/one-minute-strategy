@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BUNDLE_EXPORT_ACTIONS,
   BundleExportAction,
@@ -38,6 +38,48 @@ type ExportFeedback = {
 type ExportRetryTarget = { action: ReportExportAction; bundleFailedActions?: BundleExportAction[] };
 type ExportActionOptions = { silent?: boolean; skipBusy?: boolean };
 type ExportActionResult = { ok: true } | { ok: false; error: unknown };
+type ReportDetailsSectionKey =
+  | "overview"
+  | "decision"
+  | "financial_board"
+  | "financial_comparison"
+  | "compliance"
+  | "readiness"
+  | "advisors"
+  | "risks";
+
+const DETAILS_SECTION_DEFAULTS: Record<ReportDetailsSectionKey, boolean> = {
+  overview: true,
+  decision: true,
+  financial_board: true,
+  financial_comparison: false,
+  compliance: true,
+  readiness: false,
+  advisors: true,
+  risks: true,
+};
+
+const DETAILS_SECTION_LABELS: Record<ReportDetailsSectionKey, string> = {
+  overview: "نظرة عامة",
+  decision: "القرار التنفيذي",
+  financial_board: "لوحة المال",
+  financial_comparison: "التحليل المالي",
+  compliance: "الامتثال",
+  readiness: "جاهزية القرار",
+  advisors: "المستشارون",
+  risks: "المخاطر",
+};
+
+const DETAILS_SECTION_ANCHORS: Record<ReportDetailsSectionKey, string> = {
+  overview: "report-overview",
+  decision: "report-decision",
+  financial_board: "report-financial-board",
+  financial_comparison: "report-financial-comparison",
+  compliance: "report-compliance",
+  readiness: "report-readiness",
+  advisors: "report-advisors",
+  risks: "report-risks",
+};
 
 export default function ReportDetailsPage() {
   const params = useParams<{ id: string | string[] }>();
@@ -62,7 +104,36 @@ export default function ReportDetailsPage() {
   const [retryTarget, setRetryTarget] = useState<ExportRetryTarget | null>(null);
   const [isBundleExporting, setIsBundleExporting] = useState(false);
   const [busyAction, setBusyAction] = useState<ReportExportAction | null>(null);
+  const [sectionsOpen, setSectionsOpen] = useState<Record<ReportDetailsSectionKey, boolean>>(DETAILS_SECTION_DEFAULTS);
+  const [highlightedSection, setHighlightedSection] = useState<ReportDetailsSectionKey | null>(null);
+  const sectionRefs = useRef<Record<ReportDetailsSectionKey, HTMLElement | null>>({
+    overview: null,
+    decision: null,
+    financial_board: null,
+    financial_comparison: null,
+    compliance: null,
+    readiness: null,
+    advisors: null,
+    risks: null,
+  });
+  const sectionFocusRefs = useRef<Record<ReportDetailsSectionKey, HTMLElement | null>>({
+    overview: null,
+    decision: null,
+    financial_board: null,
+    financial_comparison: null,
+    compliance: null,
+    readiness: null,
+    advisors: null,
+    risks: null,
+  });
   const hasBusyAction = busyAction !== null;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !report) return;
+    const section = resolveDetailsSectionFromHash(window.location.hash);
+    if (!section) return;
+    navigateToSection(section);
+  }, [report]);
 
   if (reportsSignature === "server") {
     return (
@@ -136,8 +207,118 @@ export default function ReportDetailsPage() {
   const riskCount = report.risks.filter((line) => !line.startsWith("لا توجد")).length;
   const recommendationCount = report.recommendations.filter((line) => !line.startsWith("لا توجد")).length;
   const highlightsCount = report.advisorsHighlights.filter((line) => !line.startsWith("لا توجد")).length;
+  const executiveSectionKeys = new Set([
+    "بوابة اعتماد القرار النهائي",
+    "جاهزية القرار النهائي",
+    "مصفوفة القرار التنفيذي",
+    "خطة أول 72 ساعة",
+  ]);
+  const executiveReadinessSections = (report.detailedSections ?? []).filter((section) =>
+    executiveSectionKeys.has(section.title)
+  );
   const isFinancialReport = report.reportType === "financial" && Boolean(report.financial);
   const financial = isFinancialReport ? report.financial : null;
+  const financialComposition = financial
+    ? (() => {
+        const total = Math.max(1, financial.composition.reduce((sum, slice) => sum + Math.max(0, slice.value), 0));
+        return financial.composition.map((slice) => {
+          const safeValue = Math.max(0, slice.value);
+          const pct = total > 0 ? (safeValue / total) * 100 : 0;
+          return { label: slice.label, value: safeValue, pct };
+        });
+      })()
+    : [];
+  const financialTopVariance = financial
+    ? [...financial.lines]
+        .map((line) => ({
+          id: line.id,
+          title: line.title,
+          variancePct: line.variancePct ?? 0,
+          plannedWithVat: line.plannedWithVat,
+          committed: line.committed,
+        }))
+        .sort((a, b) => Math.abs(b.variancePct) - Math.abs(a.variancePct))
+        .slice(0, 5)
+    : [];
+  const financialTopCommitmentShare = financial
+    ? [...financial.lines]
+        .filter((line) => line.committed > 0)
+        .sort((a, b) => b.committed - a.committed)
+        .slice(0, 6)
+        .map((line) => {
+          const share = financial.kpis.committedTotal > 0 ? (line.committed / financial.kpis.committedTotal) * 100 : 0;
+          return {
+            id: line.id,
+            title: line.title,
+            committed: line.committed,
+            share,
+          };
+        })
+    : [];
+  const profitGapAfterVat = financial
+    ? financial.kpis.actualProfitAfterVat - financial.kpis.plannedProfitAfterVat
+    : 0;
+  const profitGapBeforeVat = financial
+    ? financial.kpis.actualProfitBeforeVat - financial.kpis.plannedProfitBeforeVat
+    : 0;
+  const varianceLegendItems = [
+    { key: "good", label: "منخفض", range: "≤ 5%" },
+    { key: "warn", label: "متوسط", range: "> 5% إلى 15%" },
+    { key: "risk", label: "مرتفع", range: "> 15%" },
+  ] as const;
+  const availableSectionKeys = [
+    "overview",
+    "decision",
+    ...(financial ? (["financial_board", "financial_comparison"] as const) : []),
+    ...(report.regulatoryCompliance ? (["compliance"] as const) : []),
+    ...(executiveReadinessSections.length > 0 ? (["readiness"] as const) : []),
+    "advisors",
+    "risks",
+  ] as ReportDetailsSectionKey[];
+  const openSectionsCount = availableSectionKeys.filter((section) => sectionsOpen[section]).length;
+
+  function setSectionRef(section: ReportDetailsSectionKey, node: HTMLElement | null) {
+    sectionRefs.current[section] = node;
+  }
+
+  function setSectionFocusRef(section: ReportDetailsSectionKey, node: HTMLElement | null) {
+    sectionFocusRefs.current[section] = node;
+  }
+
+  function navigateToSection(section: ReportDetailsSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = DETAILS_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
+
+  const toggleSection = (section: ReportDetailsSectionKey) => {
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
   const onExportTxt = ({ silent = false, skipBusy = false }: ExportActionOptions = {}): ExportActionResult => {
     if (!skipBusy && hasBusyAction) {
       return { ok: false, error: new ReportExportError("ACTION_BUSY", "Another export action is already in progress.") };
@@ -392,7 +573,11 @@ export default function ReportDetailsPage() {
 
   return (
     <main>
-      <section className="report-head">
+      <section
+        id={DETAILS_SECTION_ANCHORS.overview}
+        ref={(node) => setSectionRef("overview", node)}
+        className={`report-head ${highlightedSection === "overview" ? "report-panel-highlight" : ""}`}
+      >
         <div className="report-head-actions">
           <Link href="/app/reports" className="oms-btn oms-btn-ghost">
             رجوع إلى قائمة التقارير
@@ -473,180 +658,520 @@ export default function ReportDetailsPage() {
           نوع التقرير: {report.reportType === "financial" ? "مالي" : "استراتيجي"} · تاريخ التحديث: {report.date}
         </p>
 
-        <div className="report-overview">
-          {financial ? (
-            <>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">حالة التقرير</div>
-                <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">إجمالي المخطط</div>
-                <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.plannedTotal)}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">إجمالي الالتزام</div>
-                <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.committedTotal)}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">المتاح</div>
-                <div className="oms-kpi-value report-kpi-value">
-                  {formatSignedCurrency(financial.kpis.remainingAfterCommitment)}
-                </div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">الانحراف</div>
-                <div className="oms-kpi-value report-kpi-value">{formatPercent(financial.kpis.variancePct)}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">العهد المفتوحة</div>
-                <div className="oms-kpi-value report-kpi-value">{financial.kpis.openAdvancesCount}</div>
-              </article>
-            </>
-          ) : (
-            <>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">حالة التقرير</div>
-                <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">ملاحظات المستشارين</div>
-                <div className="oms-kpi-value report-kpi-value">{highlightsCount}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">المخاطر الفعلية</div>
-                <div className="oms-kpi-value report-kpi-value">{riskCount}</div>
-              </article>
-              <article className="oms-kpi-card">
-                <div className="oms-kpi-label">التوصيات</div>
-                <div className="oms-kpi-value report-kpi-value">{recommendationCount}</div>
-              </article>
-            </>
-          )}
+        <section className="report-hierarchy-shell">
+          <div className="report-hierarchy-head">
+            <div>
+              <h2 className="oms-section-title">هرمية عرض تفاصيل التقرير</h2>
+              <div className="report-hierarchy-meta">
+                مفتوح الآن: {openSectionsCount}/{availableSectionKeys.length}
+              </div>
+            </div>
+            <div className="report-hierarchy-actions">
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                onClick={() => {
+                  const next = { ...sectionsOpen };
+                  availableSectionKeys.forEach((key) => {
+                    next[key] = true;
+                  });
+                  setSectionsOpen(next);
+                }}
+              >
+                فتح كل التفاصيل
+              </button>
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                onClick={() => {
+                  const next = { ...sectionsOpen };
+                  availableSectionKeys.forEach((key) => {
+                    next[key] = false;
+                  });
+                  setSectionsOpen(next);
+                }}
+              >
+                إغلاق كل التفاصيل
+              </button>
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                onClick={() => setSectionsOpen(DETAILS_SECTION_DEFAULTS)}
+              >
+                الوضع الافتراضي
+              </button>
+            </div>
+          </div>
+          <div className="report-section-tabs">
+            {availableSectionKeys.map((key) => (
+              <button
+                key={key}
+                className={`report-section-tab ${sectionsOpen[key] ? "is-open" : ""}`}
+                type="button"
+                onClick={() => navigateToSection(key)}
+              >
+                {DETAILS_SECTION_LABELS[key]}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <div className="report-section-head">
+          <h2 className="oms-section-title">نظرة عامة على التقرير</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("overview", node)}
+            onClick={() => (sectionsOpen.overview ? toggleSection("overview") : navigateToSection("overview"))}
+          >
+            {sectionsOpen.overview ? "إخفاء" : "عرض"}
+          </button>
         </div>
+        {sectionsOpen.overview ? (
+          <div className="report-overview">
+            {financial ? (
+              <>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">حالة التقرير</div>
+                  <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">إجمالي المخطط</div>
+                  <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.plannedTotal)}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">إجمالي الالتزام</div>
+                  <div className="oms-kpi-value report-kpi-value">{formatCurrency(financial.kpis.committedTotal)}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">المتاح</div>
+                  <div className="oms-kpi-value report-kpi-value">
+                    {formatSignedCurrency(financial.kpis.remainingAfterCommitment)}
+                  </div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">الانحراف</div>
+                  <div className={`oms-kpi-value report-kpi-value ${varianceToneClass(financial.kpis.variancePct)}`}>
+                    {formatPercent(financial.kpis.variancePct)}
+                  </div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">العهد المفتوحة</div>
+                  <div className="oms-kpi-value report-kpi-value">{financial.kpis.openAdvancesCount}</div>
+                </article>
+              </>
+            ) : (
+              <>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">حالة التقرير</div>
+                  <div className={`report-status ${statusClass(report.status)}`}>{report.status}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">ملاحظات المستشارين</div>
+                  <div className="oms-kpi-value report-kpi-value">{highlightsCount}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">المخاطر الفعلية</div>
+                  <div className="oms-kpi-value report-kpi-value">{riskCount}</div>
+                </article>
+                <article className="oms-kpi-card">
+                  <div className="oms-kpi-label">التوصيات</div>
+                  <div className="oms-kpi-value report-kpi-value">{recommendationCount}</div>
+                </article>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="workflow-empty">تم إخفاء النظرة العامة للتقرير.</div>
+        )}
       </section>
 
-      <section className="oms-panel report-decision">
-        <h2 className="oms-section-title">القرار التنفيذي</h2>
-        <p className="oms-text">{report.executiveDecision}</p>
+      <section
+        id={DETAILS_SECTION_ANCHORS.decision}
+        ref={(node) => setSectionRef("decision", node)}
+        className={`oms-panel report-decision ${highlightedSection === "decision" ? "report-panel-highlight" : ""}`}
+      >
+        <div className="report-section-head">
+          <h2 className="oms-section-title">القرار التنفيذي</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("decision", node)}
+            onClick={() => (sectionsOpen.decision ? toggleSection("decision") : navigateToSection("decision"))}
+          >
+            {sectionsOpen.decision ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.decision ? (
+          <p className="oms-text">{report.executiveDecision}</p>
+        ) : (
+          <div className="workflow-empty">تم إخفاء القرار التنفيذي.</div>
+        )}
       </section>
 
       {financial ? (
-        <section className="oms-panel report-financial-board">
-          <div className="report-risk-head">
+        <section
+          id={DETAILS_SECTION_ANCHORS.financial_board}
+          ref={(node) => setSectionRef("financial_board", node)}
+          className={`oms-panel report-financial-board ${
+            highlightedSection === "financial_board" ? "report-panel-highlight" : ""
+          }`}
+        >
+          <div className="report-section-head">
             <h2 className="oms-section-title">لوحة المؤشرات المالية</h2>
-            <span className="report-risk-badge">بنود فعالة: {financial.lines.length}</span>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("financial_board", node)}
+              onClick={() =>
+                sectionsOpen.financial_board
+                  ? toggleSection("financial_board")
+                  : navigateToSection("financial_board")
+              }
+            >
+              {sectionsOpen.financial_board ? "إخفاء" : "عرض"}
+            </button>
           </div>
-
-          <div className="financial-board-grid">
-            <article className="financial-chart-card span-2">
-              <h3 className="financial-chart-title">اتجاه المخطط مقابل الالتزام</h3>
-              <FinancialTrendChart points={financial.trend} />
-            </article>
-            <article className="financial-chart-card">
-              <h3 className="financial-chart-title">توزيع الالتزامات</h3>
-              <FinancialDonutChart
-                slices={financial.composition}
-                centerLabel={formatCurrency(financial.kpis.committedTotal)}
-              />
-            </article>
-            <article className="financial-chart-card span-2">
-              <h3 className="financial-chart-title">أعلى البنود (مخطط/التزام)</h3>
-              <FinancialBarsChart rows={financial.lines.slice(0, 6)} />
-            </article>
-            <article className="financial-chart-card">
-              <h3 className="financial-chart-title">الربحية بعد الضريبة</h3>
-              <div className="financial-profit-card">
-                <div>
-                  <span>مخطط</span>
-                  <strong>{formatSignedCurrency(financial.kpis.plannedProfitAfterVat)}</strong>
-                </div>
-                <div>
-                  <span>فعلي</span>
-                  <strong>{formatSignedCurrency(financial.kpis.actualProfitAfterVat)}</strong>
-                </div>
+          {sectionsOpen.financial_board ? (
+            <>
+              <div className="report-risk-head">
+                <span className="report-risk-badge">بنود فعالة: {financial.lines.length}</span>
               </div>
-            </article>
-          </div>
 
-          <div className="financial-lines-table-wrap">
-            <table className="financial-lines-table">
-              <thead>
-                <tr>
-                  <th>البند</th>
-                  <th>المخطط</th>
-                  <th>الالتزام</th>
-                  <th>المتاح</th>
-                  <th>الانحراف</th>
-                </tr>
-              </thead>
-              <tbody>
-                {financial.lines.slice(0, 10).map((line) => (
-                  <tr key={line.id}>
-                    <td>{line.title}</td>
-                    <td>{formatCurrency(line.plannedWithVat)}</td>
-                    <td>{formatCurrency(line.committed)}</td>
-                    <td>{formatSignedCurrency(line.available)}</td>
-                    <td>{formatPercent(line.variancePct)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <div className="financial-board-grid">
+                <article className="financial-chart-card span-2">
+                  <h3 className="financial-chart-title">اتجاه المخطط مقابل الالتزام</h3>
+                  <FinancialTrendChart points={financial.trend} />
+                </article>
+                <article className="financial-chart-card">
+                  <h3 className="financial-chart-title">توزيع الالتزامات</h3>
+                  <FinancialDonutChart
+                    slices={financial.composition}
+                    centerLabel={formatCurrency(financial.kpis.committedTotal)}
+                  />
+                </article>
+                <article className="financial-chart-card span-2">
+                  <h3 className="financial-chart-title">أعلى البنود (مخطط/التزام)</h3>
+                  <FinancialBarsChart rows={financial.lines.slice(0, 6)} />
+                </article>
+                <article className="financial-chart-card">
+                  <h3 className="financial-chart-title">الربحية بعد الضريبة</h3>
+                  <div className="financial-profit-card">
+                    <div>
+                      <span>مخطط</span>
+                      <strong>{formatSignedCurrency(financial.kpis.plannedProfitAfterVat)}</strong>
+                    </div>
+                    <div>
+                      <span>فعلي</span>
+                      <strong>{formatSignedCurrency(financial.kpis.actualProfitAfterVat)}</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div className="financial-lines-table-wrap">
+                <table className="financial-lines-table">
+                  <thead>
+                    <tr>
+                      <th>البند</th>
+                      <th>المخطط</th>
+                      <th>الالتزام</th>
+                      <th>المتاح</th>
+                      <th>الانحراف</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {financial.lines.slice(0, 10).map((line) => (
+                      <tr key={line.id}>
+                        <td>{line.title}</td>
+                        <td>{formatCurrency(line.plannedWithVat)}</td>
+                        <td>{formatCurrency(line.committed)}</td>
+                        <td>{formatSignedCurrency(line.available)}</td>
+                        <td className={varianceToneClass(line.variancePct)}>{formatPercent(line.variancePct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="workflow-empty">تم إخفاء لوحة المؤشرات المالية.</div>
+          )}
+        </section>
+      ) : null}
+
+      {financial ? (
+        <section
+          id={DETAILS_SECTION_ANCHORS.financial_comparison}
+          ref={(node) => setSectionRef("financial_comparison", node)}
+          className={`oms-panel report-financial-comparison ${
+            highlightedSection === "financial_comparison" ? "report-panel-highlight" : ""
+          }`}
+        >
+          <div className="report-section-head">
+            <h2 className="oms-section-title">التمثيل المالي المقارن</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("financial_comparison", node)}
+              onClick={() =>
+                sectionsOpen.financial_comparison
+                  ? toggleSection("financial_comparison")
+                  : navigateToSection("financial_comparison")
+              }
+            >
+              {sectionsOpen.financial_comparison ? "إخفاء" : "عرض"}
+            </button>
           </div>
+          {sectionsOpen.financial_comparison ? (
+            <>
+              <div className="report-risk-head">
+                <span className="report-risk-badge">تحليل تفصيلي</span>
+              </div>
+              <div className="financial-variance-legend" role="note" aria-label="دليل ألوان الانحراف">
+                <span className="financial-variance-legend-title">دليل الألوان:</span>
+                {varianceLegendItems.map((item) => (
+                  <span key={item.key} className="financial-variance-legend-item">
+                    <i className={`financial-variance-dot fin-variance-${item.key}`} />
+                    {item.label} ({item.range})
+                  </span>
+                ))}
+              </div>
+
+              <div className="financial-comparison-grid">
+                <article className="financial-comparison-card">
+                  <h3 className="financial-chart-title">توزيع المكونات</h3>
+                  {financialComposition.length > 0 ? (
+                    <table className="financial-mini-table">
+                      <thead>
+                        <tr>
+                          <th>المكوّن</th>
+                          <th>القيمة</th>
+                          <th>النسبة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {financialComposition.map((row) => (
+                          <tr key={row.label}>
+                            <td>{row.label}</td>
+                            <td>{formatCurrency(row.value)}</td>
+                            <td>{row.pct.toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="oms-text">لا يوجد توزيع مالي فعلي حتى الآن.</div>
+                  )}
+                </article>
+
+                <article className="financial-comparison-card">
+                  <h3 className="financial-chart-title">أعلى البنود انحرافًا</h3>
+                  {financialTopVariance.length > 0 ? (
+                    <div className="financial-variance-list">
+                      {financialTopVariance.map((row) => (
+                        <div key={row.id} className={`financial-variance-item ${varianceItemToneClass(row.variancePct)}`}>
+                          <strong>{row.title}</strong>
+                          <span className={varianceToneClass(row.variancePct)}>انحراف: {formatPercent(row.variancePct)}</span>
+                          <span>مخطط: {formatCurrency(row.plannedWithVat)} · التزام: {formatCurrency(row.committed)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="oms-text">لا يوجد انحرافات مسجلة.</div>
+                  )}
+                </article>
+
+                <article className="financial-comparison-card span-2">
+                  <h3 className="financial-chart-title">توزيع الالتزام على البنود الأعلى</h3>
+                  {financialTopCommitmentShare.length > 0 ? (
+                    <div className="financial-share-wrap">
+                      {financialTopCommitmentShare.map((row) => (
+                        <div key={row.id} className="financial-share-row">
+                          <div className="financial-share-label">{row.title}</div>
+                          <div className="financial-share-track">
+                            <div className="financial-share-fill" style={{ width: `${Math.max(2, row.share)}%` }} />
+                          </div>
+                          <div className="financial-share-meta">
+                            {formatCurrency(row.committed)} · {row.share.toFixed(1)}%
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="oms-text">لا يوجد التزام فعلي موزع على البنود بعد.</div>
+                  )}
+                </article>
+
+                <article className="financial-comparison-card span-2">
+                  <h3 className="financial-chart-title">فجوة الربح</h3>
+                  <div className="financial-gap-grid">
+                    <div>
+                      <span>بعد الضريبة</span>
+                      <strong>{formatSignedCurrency(profitGapAfterVat)}</strong>
+                    </div>
+                    <div>
+                      <span>قبل الضريبة</span>
+                      <strong>{formatSignedCurrency(profitGapBeforeVat)}</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </>
+          ) : (
+            <div className="workflow-empty">تم إخفاء التحليل المالي المقارن.</div>
+          )}
         </section>
       ) : null}
 
       {report.regulatoryCompliance ? (
-        <section className="oms-panel">
-          <div className="report-risk-head">
+        <section
+          id={DETAILS_SECTION_ANCHORS.compliance}
+          ref={(node) => setSectionRef("compliance", node)}
+          className={`oms-panel ${highlightedSection === "compliance" ? "report-panel-highlight" : ""}`}
+        >
+          <div className="report-section-head">
             <h2 className="oms-section-title">الالتزام التنظيمي</h2>
-            <span className={`report-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
-              {report.regulatoryCompliance.readiness}
-            </span>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("compliance", node)}
+              onClick={() => (sectionsOpen.compliance ? toggleSection("compliance") : navigateToSection("compliance"))}
+            >
+              {sectionsOpen.compliance ? "إخفاء" : "عرض"}
+            </button>
           </div>
-          <div className="oms-text">
-            مكتمل {report.regulatoryCompliance.completedCount} من {report.regulatoryCompliance.requiredCount} مسار مطلوب.
+          {sectionsOpen.compliance ? (
+            <>
+              <div className="report-risk-head">
+                <span className={`report-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
+                  {report.regulatoryCompliance.readiness}
+                </span>
+              </div>
+              <div className="oms-text">
+                مكتمل {report.regulatoryCompliance.completedCount} من {report.regulatoryCompliance.requiredCount} مسار مطلوب.
+              </div>
+              {report.regulatoryCompliance.pendingPaths.length > 0 ? (
+                <div className="oms-list-line">
+                  • مسارات مفتوحة: {report.regulatoryCompliance.pendingPaths.join("، ")}
+                </div>
+              ) : (
+                <div className="oms-list-line">• لا توجد مسارات تنظيمية مفتوحة حاليًا.</div>
+              )}
+            </>
+          ) : (
+            <div className="workflow-empty">تم إخفاء حالة الامتثال التنظيمي.</div>
+          )}
+        </section>
+      ) : null}
+
+      {executiveReadinessSections.length > 0 ? (
+        <section
+          id={DETAILS_SECTION_ANCHORS.readiness}
+          ref={(node) => setSectionRef("readiness", node)}
+          className={`oms-panel ${highlightedSection === "readiness" ? "report-panel-highlight" : ""}`}
+        >
+          <div className="report-section-head">
+            <h2 className="oms-section-title">جاهزية القرار التنفيذي</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("readiness", node)}
+              onClick={() => (sectionsOpen.readiness ? toggleSection("readiness") : navigateToSection("readiness"))}
+            >
+              {sectionsOpen.readiness ? "إخفاء" : "عرض"}
+            </button>
           </div>
-          {report.regulatoryCompliance.pendingPaths.length > 0 ? (
-            <div className="oms-list-line">
-              • مسارات مفتوحة: {report.regulatoryCompliance.pendingPaths.join("، ")}
+          {sectionsOpen.readiness ? (
+            <div className="report-exec-sections">
+              {executiveReadinessSections.map((section) => (
+                <article key={section.title} className="oms-panel report-exec-card" style={{ marginTop: 0 }}>
+                  <h2 className="oms-section-title">{section.title}</h2>
+                  {section.lines.map((line, idx) => (
+                    <div key={`${section.title}-${idx}`} className="oms-list-line">
+                      • {line}
+                    </div>
+                  ))}
+                </article>
+              ))}
             </div>
           ) : (
-            <div className="oms-list-line">• لا توجد مسارات تنظيمية مفتوحة حاليًا.</div>
+            <div className="workflow-empty">تم إخفاء تفاصيل جاهزية القرار.</div>
           )}
         </section>
       ) : null}
 
       <section className="report-sections">
-        <section className="oms-panel" style={{ marginTop: 0 }}>
-          <h2 className="oms-section-title">أبرز ملاحظات المستشارين</h2>
-          {report.advisorsHighlights.map((line, idx) => (
-            <div key={idx} className="oms-list-line">
-              • {line}
-            </div>
-          ))}
+        <section
+          id={DETAILS_SECTION_ANCHORS.advisors}
+          ref={(node) => setSectionRef("advisors", node)}
+          className={`oms-panel ${highlightedSection === "advisors" ? "report-panel-highlight" : ""}`}
+          style={{ marginTop: 0 }}
+        >
+          <div className="report-section-head">
+            <h2 className="oms-section-title">أبرز ملاحظات المستشارين</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("advisors", node)}
+              onClick={() => (sectionsOpen.advisors ? toggleSection("advisors") : navigateToSection("advisors"))}
+            >
+              {sectionsOpen.advisors ? "إخفاء" : "عرض"}
+            </button>
+          </div>
+          {sectionsOpen.advisors ? (
+            report.advisorsHighlights.map((line, idx) => (
+              <div key={idx} className="oms-list-line">
+                • {line}
+              </div>
+            ))
+          ) : (
+            <div className="workflow-empty">تم إخفاء ملاحظات المستشارين.</div>
+          )}
         </section>
 
-        <section className="oms-panel" style={{ marginTop: 0 }}>
-          <h2 className="oms-section-title">التوصيات التنفيذية</h2>
-          {report.recommendations.map((line, idx) => (
-            <div key={idx} className="oms-list-line">
-              • {line}
-            </div>
-          ))}
-        </section>
+        {sectionsOpen.advisors ? (
+          <section className="oms-panel" style={{ marginTop: 0 }}>
+            <h2 className="oms-section-title">التوصيات التنفيذية</h2>
+            {report.recommendations.map((line, idx) => (
+              <div key={idx} className="oms-list-line">
+                • {line}
+              </div>
+            ))}
+          </section>
+        ) : null}
       </section>
 
-      <section className="oms-panel">
-        <div className="report-risk-head">
+      <section
+        id={DETAILS_SECTION_ANCHORS.risks}
+        ref={(node) => setSectionRef("risks", node)}
+        className={`oms-panel ${highlightedSection === "risks" ? "report-panel-highlight" : ""}`}
+      >
+        <div className="report-section-head">
           <h2 className="oms-section-title">المخاطر</h2>
-          <span className="report-risk-badge">مخاطر مفتوحة: {riskCount}</span>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("risks", node)}
+            onClick={() => (sectionsOpen.risks ? toggleSection("risks") : navigateToSection("risks"))}
+          >
+            {sectionsOpen.risks ? "إخفاء" : "عرض"}
+          </button>
         </div>
-        {report.risks.map((line, idx) => (
-          <div key={idx} className="oms-list-line">
-            • {line}
-          </div>
-        ))}
+        {sectionsOpen.risks ? (
+          <>
+            <div className="report-risk-head">
+              <span className="report-risk-badge">مخاطر مفتوحة: {riskCount}</span>
+            </div>
+            {report.risks.map((line, idx) => (
+              <div key={idx} className="oms-list-line">
+                • {line}
+              </div>
+            ))}
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء قائمة المخاطر.</div>
+        )}
       </section>
 
       <style>{`
@@ -654,6 +1179,84 @@ export default function ReportDetailsPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+
+        .report-hierarchy-shell {
+          margin-top: 12px;
+          border: 1px solid var(--oms-border);
+          border-radius: var(--oms-radius-md);
+          background: rgba(8, 14, 26, 0.56);
+          padding: 10px;
+        }
+
+        .report-hierarchy-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .report-hierarchy-meta {
+          margin-top: 6px;
+          color: var(--oms-text-muted);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+
+        .report-hierarchy-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .report-section-tabs {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .report-section-tab {
+          min-height: 36px;
+          border-radius: var(--oms-radius-sm);
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(8, 14, 26, 0.78);
+          color: var(--oms-text-muted);
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .report-section-tab.is-open {
+          border-color: var(--oms-border-accent);
+          background: linear-gradient(180deg, rgba(127, 90, 240, 0.34), rgba(86, 60, 158, 0.22));
+          color: var(--oms-text);
+        }
+
+        .report-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .report-panel-highlight {
+          border-color: rgba(167, 115, 255, 0.72);
+          box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          animation: report-panel-pulse 1.1s ease;
+        }
+
+        @keyframes report-panel-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(128, 69, 242, 0);
+          }
+          35% {
+            box-shadow: 0 0 0 2px rgba(167, 115, 255, 0.28), 0 0 32px rgba(128, 69, 242, 0.24);
+          }
+          100% {
+            box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          }
         }
 
         .report-action-disabled {
@@ -733,6 +1336,22 @@ export default function ReportDetailsPage() {
           font-size: 24px;
         }
 
+        .fin-variance-good {
+          color: #8bf3ca !important;
+        }
+
+        .fin-variance-warn {
+          color: #ffd996 !important;
+        }
+
+        .fin-variance-risk {
+          color: #ffb9c6 !important;
+        }
+
+        .fin-variance-neutral {
+          color: #bcd1ee !important;
+        }
+
         .report-status {
           margin-top: 8px;
           min-height: 28px;
@@ -770,6 +1389,10 @@ export default function ReportDetailsPage() {
 
         .report-financial-board {
           background: linear-gradient(155deg, rgba(19, 33, 60, 0.92), rgba(9, 16, 30, 0.9));
+        }
+
+        .report-financial-comparison {
+          background: linear-gradient(156deg, rgba(20, 31, 56, 0.92), rgba(11, 18, 35, 0.9));
         }
 
         .financial-board-grid {
@@ -856,6 +1479,26 @@ export default function ReportDetailsPage() {
         .financial-lines-table td {
           color: #e8f1ff;
           font-size: 13px;
+        }
+
+        .financial-lines-table td.fin-variance-good {
+          color: #8bf3ca;
+          font-weight: 800;
+        }
+
+        .financial-lines-table td.fin-variance-warn {
+          color: #ffd996;
+          font-weight: 800;
+        }
+
+        .financial-lines-table td.fin-variance-risk {
+          color: #ffb9c6;
+          font-weight: 800;
+        }
+
+        .financial-lines-table td.fin-variance-neutral {
+          color: #bcd1ee;
+          font-weight: 700;
         }
 
         .financial-svg-wrap svg {
@@ -955,11 +1598,216 @@ export default function ReportDetailsPage() {
           text-align: center;
         }
 
+        .financial-comparison-grid {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .financial-variance-legend {
+          margin-top: 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          border-radius: 10px;
+          border: 1px solid rgba(128, 164, 230, 0.22);
+          background: rgba(8, 18, 35, 0.64);
+          padding: 8px 10px;
+        }
+
+        .financial-variance-legend-title {
+          color: #d6e8ff;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .financial-variance-legend-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #b9d0ec;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .financial-variance-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          display: inline-block;
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+        }
+
+        .financial-comparison-card {
+          border-radius: 12px;
+          border: 1px solid rgba(128, 164, 230, 0.24);
+          background: linear-gradient(170deg, rgba(12, 22, 42, 0.9), rgba(7, 14, 28, 0.82));
+          padding: 10px;
+        }
+
+        .financial-comparison-card.span-2 {
+          grid-column: span 2;
+        }
+
+        .financial-mini-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 8px;
+        }
+
+        .financial-mini-table th,
+        .financial-mini-table td {
+          border-bottom: 1px solid rgba(128, 164, 230, 0.2);
+          padding: 7px 8px;
+          text-align: right;
+          font-size: 12px;
+          white-space: nowrap;
+        }
+
+        .financial-mini-table th {
+          color: #9fb4d5;
+          font-weight: 800;
+        }
+
+        .financial-mini-table td {
+          color: #e8f1ff;
+          font-weight: 700;
+        }
+
+        .financial-variance-list {
+          margin-top: 8px;
+          display: grid;
+          gap: 7px;
+        }
+
+        .financial-variance-item {
+          border-radius: 10px;
+          border: 1px solid rgba(130, 164, 255, 0.25);
+          background: rgba(9, 18, 35, 0.7);
+          padding: 8px 10px;
+          display: grid;
+          gap: 3px;
+        }
+
+        .financial-variance-item.fin-variance-good {
+          border-color: rgba(88, 214, 165, 0.45);
+          background: rgba(16, 56, 43, 0.38);
+        }
+
+        .financial-variance-item.fin-variance-warn {
+          border-color: rgba(232, 182, 102, 0.45);
+          background: rgba(66, 47, 20, 0.38);
+        }
+
+        .financial-variance-item.fin-variance-risk {
+          border-color: rgba(247, 106, 121, 0.48);
+          background: rgba(70, 20, 33, 0.42);
+        }
+
+        .financial-variance-item strong {
+          color: #dff0ff;
+          font-size: 13px;
+        }
+
+        .financial-variance-item span {
+          color: #a8c0e0;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .financial-share-wrap {
+          margin-top: 8px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .financial-share-row {
+          display: grid;
+          grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .financial-share-label {
+          color: #c7dbf6;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .financial-share-track {
+          position: relative;
+          min-height: 14px;
+          border-radius: 999px;
+          background: rgba(26, 44, 72, 0.74);
+          overflow: hidden;
+        }
+
+        .financial-share-fill {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(88, 138, 255, 0.82), rgba(120, 210, 255, 0.86));
+        }
+
+        .financial-share-meta {
+          color: #b9d0ec;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .financial-gap-grid {
+          margin-top: 8px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .financial-gap-grid > div {
+          border-radius: 10px;
+          border: 1px solid rgba(122, 188, 255, 0.26);
+          background: rgba(8, 18, 35, 0.76);
+          padding: 8px 10px;
+          display: grid;
+          gap: 4px;
+        }
+
+        .financial-gap-grid span {
+          color: #8da7c9;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .financial-gap-grid strong {
+          color: #f2f7ff;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
         .report-sections {
           margin-top: 12px;
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 10px;
+        }
+
+        .report-exec-sections {
+          margin-top: 12px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .report-exec-card {
+          margin-top: 0;
+          background: linear-gradient(155deg, rgba(18, 30, 54, 0.92), rgba(10, 17, 33, 0.9));
         }
 
         .report-risk-head {
@@ -1014,11 +1862,19 @@ export default function ReportDetailsPage() {
         }
 
         @media (max-width: 980px) {
+          .report-section-tabs {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .report-overview {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
           .report-sections {
+            grid-template-columns: 1fr;
+          }
+
+          .report-exec-sections {
             grid-template-columns: 1fr;
           }
 
@@ -1029,11 +1885,23 @@ export default function ReportDetailsPage() {
           .financial-chart-card.span-2 {
             grid-column: span 1;
           }
+
+          .financial-comparison-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .financial-comparison-card.span-2 {
+            grid-column: span 1;
+          }
         }
 
         @media (max-width: 640px) {
           .report-head-actions {
             display: grid;
+          }
+
+          .report-section-tabs {
+            grid-template-columns: 1fr;
           }
 
           .report-overview {
@@ -1042,6 +1910,19 @@ export default function ReportDetailsPage() {
 
           .financial-lines-table {
             min-width: 520px;
+          }
+
+          .financial-share-row {
+            grid-template-columns: 1fr;
+          }
+
+          .financial-gap-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .report-hierarchy-actions .oms-btn {
+            width: 100%;
+            justify-content: center;
           }
         }
 
@@ -1239,6 +2120,18 @@ function formatSignedCurrency(value: number) {
   return `${sign}${formatCurrency(Math.abs(safe))}`;
 }
 
+function varianceToneClass(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "fin-variance-neutral";
+  const abs = Math.abs(value);
+  if (abs <= 5) return "fin-variance-good";
+  if (abs <= 15) return "fin-variance-warn";
+  return "fin-variance-risk";
+}
+
+function varianceItemToneClass(value: number | null): string {
+  return varianceToneClass(value);
+}
+
 function formatPercent(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
   return `${value.toFixed(1)}%`;
@@ -1248,6 +2141,14 @@ function complianceClass(readiness: NonNullable<StrategyReport["regulatoryCompli
   if (readiness === "جاهز") return "is-good";
   if (readiness === "جزئي") return "is-warning";
   return "is-risk";
+}
+
+function resolveDetailsSectionFromHash(hash: string): ReportDetailsSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(DETAILS_SECTION_ANCHORS) as Array<[ReportDetailsSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
 }
 
 function wait(ms: number) {

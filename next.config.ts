@@ -6,10 +6,12 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   "object-src 'none'",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https:",
   "style-src 'self' 'unsafe-inline' https:",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+  "worker-src 'self' blob:",
   "connect-src 'self' https: wss:",
 ].join("; ");
 

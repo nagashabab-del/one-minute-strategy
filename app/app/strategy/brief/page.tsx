@@ -22,6 +22,8 @@ export default function StrategyBriefPage() {
         ]}
         primaryActionHref="/app/strategy/advisors"
         primaryActionLabel="اعتماد الموجز والانتقال للمستشارين"
+        secondaryActionHref="/app/strategy"
+        secondaryActionLabel="العودة إلى مركز الاستراتيجية"
       />
     </>
   );

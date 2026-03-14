@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type TaskStatus = "لم تبدأ" | "جارية" | "مكتملة" | "متأخرة";
 type TaskPhase = "التخطيط" | "التجهيز" | "التنفيذ" | "الإغلاق";
@@ -175,6 +175,15 @@ type TemplateProfileSuggestion = {
   summary: string;
 };
 
+type PlanSectionKey = "overview" | "template" | "tasks" | "updates" | "risks" | "actions";
+type PlanDetailSectionKey =
+  | "tasks_filters"
+  | "tasks_create"
+  | "tasks_list"
+  | "updates_form"
+  | "updates_list"
+  | "risks_list";
+
 const PROJECTS_REGISTRY_KEY = "oms_dashboard_projects_registry_v1";
 const PROJECT_DATA_KEY_PREFIX = "oms_dashboard_project_data_v1_";
 const PLAN_TRACKER_PREFIX = "oms_exec_plan_tracker_v1_";
@@ -215,6 +224,51 @@ const REGULATORY_LEAD_ESTIMATES: Record<RegulatoryPathKey, RegulatoryLeadRange> 
   insurance: { min: 1, max: 2 },
 };
 
+const PLAN_SECTION_DEFAULTS: Record<PlanSectionKey, boolean> = {
+  overview: true,
+  template: true,
+  tasks: true,
+  updates: false,
+  risks: false,
+  actions: true,
+};
+
+const PLAN_SECTION_LABELS: Record<PlanSectionKey, string> = {
+  overview: "ملخص الجاهزية",
+  template: "المولد الذكي",
+  tasks: "لوحة المهام",
+  updates: "التحديثات",
+  risks: "المخاطر",
+  actions: "الإجراءات",
+};
+
+const PLAN_SECTION_ANCHORS: Record<PlanSectionKey, string> = {
+  overview: "plan-overview",
+  template: "plan-template",
+  tasks: "plan-tasks",
+  updates: "plan-updates",
+  risks: "plan-risks",
+  actions: "plan-actions",
+};
+
+const PLAN_DETAIL_SECTION_ANCHORS: Record<PlanDetailSectionKey, string> = {
+  tasks_filters: "plan-tasks-filters",
+  tasks_create: "plan-tasks-create",
+  tasks_list: "plan-tasks-list",
+  updates_form: "plan-updates-form",
+  updates_list: "plan-updates-list",
+  risks_list: "plan-risks-list",
+};
+
+const PLAN_DETAIL_SECTION_LABELS: Record<PlanDetailSectionKey, string> = {
+  tasks_filters: "الفلاتر",
+  tasks_create: "إضافة مهمة",
+  tasks_list: "قائمة المهام",
+  updates_form: "إدخال تحديث",
+  updates_list: "سجل التحديثات",
+  risks_list: "سجل المخاطر",
+};
+
 export default function StrategyExecutionPlanPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext>({ id: "global", name: "مشروع غير محدد" });
   const [tasks, setTasks] = useState<PlanTask[]>([]);
@@ -244,6 +298,33 @@ export default function StrategyExecutionPlanPage() {
   const [newPresetName, setNewPresetName] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [templateSuggestionSummary, setTemplateSuggestionSummary] = useState("");
+  const [sectionsOpen, setSectionsOpen] = useState<Record<PlanSectionKey, boolean>>(PLAN_SECTION_DEFAULTS);
+  const [highlightedSection, setHighlightedSection] = useState<PlanSectionKey | null>(null);
+  const [highlightedDetailSection, setHighlightedDetailSection] = useState<PlanDetailSectionKey | null>(null);
+  const sectionRefs = useRef<Record<PlanSectionKey, HTMLElement | null>>({
+    overview: null,
+    template: null,
+    tasks: null,
+    updates: null,
+    risks: null,
+    actions: null,
+  });
+  const sectionFocusRefs = useRef<Record<PlanSectionKey, HTMLElement | null>>({
+    overview: null,
+    template: null,
+    tasks: null,
+    updates: null,
+    risks: null,
+    actions: null,
+  });
+  const detailSectionRefs = useRef<Record<PlanDetailSectionKey, HTMLElement | null>>({
+    tasks_filters: null,
+    tasks_create: null,
+    tasks_list: null,
+    updates_form: null,
+    updates_list: null,
+    risks_list: null,
+  });
 
   useEffect(() => {
     const context = readProjectContext();
@@ -276,7 +357,7 @@ export default function StrategyExecutionPlanPage() {
 
   useEffect(() => {
     if (!isLoaded || !projectContext.id) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- state synchronization from computed schedule risks
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keep derived risks synchronized with current task graph
     setRisks((prev) => {
       const next = syncScheduleRisks(taskViews, prev);
       if (risksEqual(prev, next)) return prev;
@@ -311,7 +392,7 @@ export default function StrategyExecutionPlanPage() {
   useEffect(() => {
     if (templatePresets.length === 0) {
       if (selectedPresetId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- keep selected preset aligned with available presets
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- align selected preset with available preset list
         setSelectedPresetId("");
       }
       return;
@@ -367,6 +448,96 @@ export default function StrategyExecutionPlanPage() {
   const templateTaskDefinitions = useMemo(() => buildTemplateDefinitions(templateProfile), [templateProfile]);
 
   const firstTaskId = taskViews.find((item) => !item.isInactive)?.id ?? taskViews[0]?.id ?? "";
+  const sectionKeys = Object.keys(PLAN_SECTION_LABELS) as PlanSectionKey[];
+  const openSectionsCount = sectionKeys.filter((section) => sectionsOpen[section]).length;
+
+  function setSectionRef(section: PlanSectionKey, node: HTMLElement | null) {
+    sectionRefs.current[section] = node;
+  }
+
+  function setSectionFocusRef(section: PlanSectionKey, node: HTMLElement | null) {
+    sectionFocusRefs.current[section] = node;
+  }
+
+  function setDetailSectionRef(section: PlanDetailSectionKey, node: HTMLElement | null) {
+    detailSectionRefs.current[section] = node;
+  }
+
+  function navigateToSection(section: PlanSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = PLAN_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
+
+  function navigateToDetailSection(section: PlanDetailSectionKey, parentSection: PlanSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [parentSection]: true }));
+    setHighlightedSection(parentSection);
+    setHighlightedDetailSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = PLAN_DETAIL_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = detailSectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === parentSection ? null : current));
+      setHighlightedDetailSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
+
+  function toggleSection(section: PlanSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const detailSection = resolvePlanDetailSectionFromHash(window.location.hash);
+    if (detailSection) {
+      const parentSection = detailSectionParent(detailSection);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- initial hash hydration opens target detail once
+      navigateToDetailSection(detailSection, parentSection);
+      return;
+    }
+    const section = resolvePlanSectionFromHash(window.location.hash);
+    if (!section) return;
+    navigateToSection(section);
+  }, []);
 
   function generateSmartTemplateTasks() {
     const result = materializeTemplateTasks(
@@ -708,66 +879,162 @@ export default function StrategyExecutionPlanPage() {
       {alertMessage ? <div className="plan-alert-banner">{alertMessage}</div> : null}
 
       <section className="oms-panel">
-        <div className="plan-head-grid">
+        <div className="plan-hierarchy-head">
           <div>
-            <div className="plan-head-label">المشروع الحالي</div>
-            <div className="plan-head-title">{projectContext.name}</div>
-            <div className="plan-head-meta">عدد المهام: {toArabicNumber(summary.total)}</div>
-            <div className="plan-head-meta">تحديثات اليوم: {toArabicNumber(todayUpdates)}</div>
-          </div>
-          <div className="plan-health-box">
-            <div className="plan-head-label">جاهزية المسار الزمني</div>
-            <div className="plan-health-value">{formatPercent(summary.completionRatio)}</div>
-            <div className="plan-head-meta">
-              تأخير حرج: {toArabicNumber(summary.criticalDelayed)} · مخاطر مفتوحة: {toArabicNumber(summary.openRisks)}
+            <h2 className="oms-section-title">هرمية عرض الخطة الزمنية</h2>
+            <div className="plan-hierarchy-meta">
+              مفتوح الآن: {toArabicNumber(openSectionsCount)} / {toArabicNumber(sectionKeys.length)}
             </div>
           </div>
+          <div className="plan-hierarchy-actions">
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() =>
+                setSectionsOpen({
+                  overview: true,
+                  template: true,
+                  tasks: true,
+                  updates: true,
+                  risks: true,
+                  actions: true,
+                })
+              }
+            >
+              فتح كل التفاصيل
+            </button>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() =>
+                setSectionsOpen({
+                  overview: false,
+                  template: false,
+                  tasks: false,
+                  updates: false,
+                  risks: false,
+                  actions: false,
+                })
+              }
+            >
+              إغلاق كل التفاصيل
+            </button>
+            <button className="oms-btn oms-btn-ghost" type="button" onClick={() => setSectionsOpen(PLAN_SECTION_DEFAULTS)}>
+              الوضع الافتراضي
+            </button>
+          </div>
+        </div>
+        <div className="plan-section-tabs">
+          {sectionKeys.map((section) => (
+            <button
+              key={section}
+              className={`plan-section-tab ${sectionsOpen[section] ? "is-open" : ""}`}
+              type="button"
+              onClick={() => navigateToSection(section)}
+            >
+              {PLAN_SECTION_LABELS[section]}
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="plan-kpi-grid">
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">لم تبدأ</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.notStarted)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">جارية</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.inProgress)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">مكتملة</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.completed)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">متأخرة</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.delayed)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">تعارض تبعيات</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.dependencyBlocked)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">غير منطبقة</div>
-          <div className="oms-kpi-value">{toArabicNumber(summary.inactive)}</div>
-        </article>
+      <section
+        id={PLAN_SECTION_ANCHORS.overview}
+        ref={(node) => setSectionRef("overview", node)}
+        className={`oms-panel ${highlightedSection === "overview" ? "plan-panel-highlight" : ""}`}
+      >
+        <div className="plan-section-head">
+          <h2 className="oms-section-title">ملخص الجاهزية الزمنية</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("overview", node)}
+            onClick={() => (sectionsOpen.overview ? toggleSection("overview") : navigateToSection("overview"))}
+          >
+            {sectionsOpen.overview ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.overview ? (
+          <>
+            <div className="plan-head-grid">
+              <div>
+                <div className="plan-head-label">المشروع الحالي</div>
+                <div className="plan-head-title">{projectContext.name}</div>
+                <div className="plan-head-meta">عدد المهام: {toArabicNumber(summary.total)}</div>
+                <div className="plan-head-meta">تحديثات اليوم: {toArabicNumber(todayUpdates)}</div>
+              </div>
+              <div className="plan-health-box">
+                <div className="plan-head-label">جاهزية المسار الزمني</div>
+                <div className="plan-health-value">{formatPercent(summary.completionRatio)}</div>
+                <div className="plan-head-meta">
+                  تأخير حرج: {toArabicNumber(summary.criticalDelayed)} · مخاطر مفتوحة: {toArabicNumber(summary.openRisks)}
+                </div>
+              </div>
+            </div>
+            <div className="plan-kpi-grid">
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">لم تبدأ</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.notStarted)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">جارية</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.inProgress)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">مكتملة</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.completed)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">متأخرة</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.delayed)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">تعارض تبعيات</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.dependencyBlocked)}</div>
+              </article>
+              <article className="oms-kpi-card">
+                <div className="oms-kpi-label">غير منطبقة</div>
+                <div className="oms-kpi-value">{toArabicNumber(summary.inactive)}</div>
+              </article>
+            </div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء ملخص الجاهزية. افتحه عند مراجعة حالة التنفيذ.</div>
+        )}
       </section>
 
-      <section className="oms-panel">
-        <div className="plan-template-head">
-          <div>
-            <h2 className="oms-section-title">مولد المهام الذكي</h2>
-            <p className="oms-text">
-              يولد حزمة مهام تشغيل مناسبة لنوع المشروع وحجمه، مع تبعيات FS جاهزة للتنفيذ.
-            </p>
-          </div>
-          <div className="plan-template-meta">
-            <div>عدد مهام القالب: {toArabicNumber(templateTaskDefinitions.length)}</div>
-            <div>
-              آخر توليد:{" "}
-              {templateProfile.lastGeneratedAt.trim() ? templateProfile.lastGeneratedAt : "لم يتم التوليد بعد"}
-            </div>
-          </div>
+      <section
+        id={PLAN_SECTION_ANCHORS.template}
+        ref={(node) => setSectionRef("template", node)}
+        className={`oms-panel ${highlightedSection === "template" ? "plan-panel-highlight" : ""}`}
+      >
+        <div className="plan-section-head">
+          <h2 className="oms-section-title">مولد المهام الذكي</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("template", node)}
+            onClick={() => (sectionsOpen.template ? toggleSection("template") : navigateToSection("template"))}
+          >
+            {sectionsOpen.template ? "إخفاء" : "عرض"}
+          </button>
         </div>
+        {sectionsOpen.template ? (
+          <>
+            <div className="plan-template-head">
+              <div>
+                <p className="oms-text">
+                  يولد حزمة مهام تشغيل مناسبة لنوع المشروع وحجمه، مع تبعيات FS جاهزة للتنفيذ.
+                </p>
+              </div>
+              <div className="plan-template-meta">
+                <div>عدد مهام القالب: {toArabicNumber(templateTaskDefinitions.length)}</div>
+                <div>
+                  آخر توليد:{" "}
+                  {templateProfile.lastGeneratedAt.trim() ? templateProfile.lastGeneratedAt : "لم يتم التوليد بعد"}
+                </div>
+              </div>
+            </div>
 
         <div className="plan-template-grid">
           <label className="budget-field">
@@ -977,12 +1244,50 @@ export default function StrategyExecutionPlanPage() {
             ))}
           </div>
         </div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء المولد الذكي. افتحه عند بناء أو تعديل مسار المهام.</div>
+        )}
       </section>
 
-      <section className="oms-panel">
-        <div className="plan-toolbar">
+      <section
+        id={PLAN_SECTION_ANCHORS.tasks}
+        ref={(node) => setSectionRef("tasks", node)}
+        className={`oms-panel ${highlightedSection === "tasks" ? "plan-panel-highlight" : ""}`}
+      >
+        <div className="plan-section-head">
           <h2 className="oms-section-title">لوحة مهام التنفيذ</h2>
-          <div className="plan-toolbar-filters">
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("tasks", node)}
+            onClick={() => (sectionsOpen.tasks ? toggleSection("tasks") : navigateToSection("tasks"))}
+          >
+            {sectionsOpen.tasks ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.tasks ? (
+          <>
+            <div className="plan-detail-tabs">
+              {(["tasks_filters", "tasks_create", "tasks_list"] as PlanDetailSectionKey[]).map((detailSection) => (
+                <button
+                  key={detailSection}
+                  className={`plan-detail-tab ${highlightedDetailSection === detailSection ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => navigateToDetailSection(detailSection, "tasks")}
+                >
+                  {PLAN_DETAIL_SECTION_LABELS[detailSection]}
+                </button>
+              ))}
+            </div>
+
+            <div
+              id={PLAN_DETAIL_SECTION_ANCHORS.tasks_filters}
+              ref={(node) => setDetailSectionRef("tasks_filters", node)}
+              className={`plan-detail-block ${highlightedDetailSection === "tasks_filters" ? "is-highlighted" : ""}`}
+            >
+            <div className="plan-toolbar">
+              <div className="plan-toolbar-filters">
             <label className="plan-inline-field">
               <span>المرحلة</span>
               <select
@@ -1022,9 +1327,15 @@ export default function StrategyExecutionPlanPage() {
               <span>إظهار المهام غير المنطبقة</span>
             </label>
           </div>
-        </div>
+            </div>
+            </div>
 
-        <div className="plan-new-task">
+            <div
+              id={PLAN_DETAIL_SECTION_ANCHORS.tasks_create}
+              ref={(node) => setDetailSectionRef("tasks_create", node)}
+              className={`plan-detail-block ${highlightedDetailSection === "tasks_create" ? "is-highlighted" : ""}`}
+            >
+            <div className="plan-new-task">
           <label className="budget-field">
             <span className="budget-field-label">اسم المهمة</span>
             <input
@@ -1101,8 +1412,14 @@ export default function StrategyExecutionPlanPage() {
             </button>
           </div>
         </div>
+            </div>
 
-        <div className="plan-task-list">
+            <div
+              id={PLAN_DETAIL_SECTION_ANCHORS.tasks_list}
+              ref={(node) => setDetailSectionRef("tasks_list", node)}
+              className={`plan-detail-block ${highlightedDetailSection === "tasks_list" ? "is-highlighted" : ""}`}
+            >
+            <div className="plan-task-list">
           {filteredTaskViews.length === 0 ? (
             <div className="workflow-empty">لا توجد مهام مطابقة للفلتر الحالي.</div>
           ) : (
@@ -1233,127 +1550,235 @@ export default function StrategyExecutionPlanPage() {
               </article>
             ))
           )}
-        </div>
+            </div>
+            </div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء لوحة المهام. افتح القسم لإدارة التنفيذ اليومي.</div>
+        )}
       </section>
 
       <section className="oms-grid-2">
-        <article className="oms-panel" style={{ marginTop: 0 }}>
-          <h2 className="oms-section-title">التحديثات اليومية</h2>
-          <p className="oms-text">يرفع المسؤولون تحديثات التنفيذ اليومية لتجديد حالة المهام بشكل مستمر.</p>
-
-          <div className="plan-update-form">
-            <label className="budget-field">
-              <span className="budget-field-label">المهمة</span>
-              <select
-                className="budget-input"
-                value={newUpdate.taskId || firstTaskId}
-                onChange={(event) => setNewUpdate((prev) => ({ ...prev, taskId: event.target.value }))}
-              >
-                {taskViews.filter((task) => !task.isInactive).map((task) => (
-                  <option key={task.id} value={task.id}>
-                    {task.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="budget-field">
-              <span className="budget-field-label">صاحب التحديث</span>
-              <input
-                className="budget-input"
-                value={newUpdate.author}
-                onChange={(event) => setNewUpdate((prev) => ({ ...prev, author: event.target.value }))}
-                placeholder="اسم المسؤول"
-              />
-            </label>
-            <label className="budget-field plan-update-note-field">
-              <span className="budget-field-label">التحديث</span>
-              <textarea
-                className="budget-input plan-update-note"
-                value={newUpdate.note}
-                onChange={(event) => setNewUpdate((prev) => ({ ...prev, note: event.target.value }))}
-                placeholder="مثال: تم توريد 70% من مواد الديكور مع تأخير يوم واحد في الشحن."
-              />
-            </label>
-            <button className="oms-btn oms-btn-primary" type="button" onClick={submitDailyUpdate}>
-              حفظ التحديث اليومي
+        <article
+          id={PLAN_SECTION_ANCHORS.updates}
+          ref={(node) => setSectionRef("updates", node)}
+          className={`oms-panel ${highlightedSection === "updates" ? "plan-panel-highlight" : ""}`}
+          style={{ marginTop: 0 }}
+        >
+          <div className="plan-section-head">
+            <h2 className="oms-section-title">التحديثات اليومية</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("updates", node)}
+              onClick={() => (sectionsOpen.updates ? toggleSection("updates") : navigateToSection("updates"))}
+            >
+              {sectionsOpen.updates ? "إخفاء" : "عرض"}
             </button>
           </div>
+          {sectionsOpen.updates ? (
+            <>
+              <div className="plan-detail-tabs">
+                {(["updates_form", "updates_list"] as PlanDetailSectionKey[]).map((detailSection) => (
+                  <button
+                    key={detailSection}
+                    className={`plan-detail-tab ${highlightedDetailSection === detailSection ? "is-active" : ""}`}
+                    type="button"
+                    onClick={() => navigateToDetailSection(detailSection, "updates")}
+                  >
+                    {PLAN_DETAIL_SECTION_LABELS[detailSection]}
+                  </button>
+                ))}
+              </div>
+              <p className="oms-text">يرفع المسؤولون تحديثات التنفيذ اليومية لتجديد حالة المهام بشكل مستمر.</p>
+              <div
+                id={PLAN_DETAIL_SECTION_ANCHORS.updates_form}
+                ref={(node) => setDetailSectionRef("updates_form", node)}
+                className={`plan-detail-block ${highlightedDetailSection === "updates_form" ? "is-highlighted" : ""}`}
+              >
+              <div className="plan-update-form">
+                <label className="budget-field">
+                  <span className="budget-field-label">المهمة</span>
+                  <select
+                    className="budget-input"
+                    value={newUpdate.taskId || firstTaskId}
+                    onChange={(event) => setNewUpdate((prev) => ({ ...prev, taskId: event.target.value }))}
+                  >
+                    {taskViews.filter((task) => !task.isInactive).map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="budget-field">
+                  <span className="budget-field-label">صاحب التحديث</span>
+                  <input
+                    className="budget-input"
+                    value={newUpdate.author}
+                    onChange={(event) => setNewUpdate((prev) => ({ ...prev, author: event.target.value }))}
+                    placeholder="اسم المسؤول"
+                  />
+                </label>
+                <label className="budget-field plan-update-note-field">
+                  <span className="budget-field-label">التحديث</span>
+                  <textarea
+                    className="budget-input plan-update-note"
+                    value={newUpdate.note}
+                    onChange={(event) => setNewUpdate((prev) => ({ ...prev, note: event.target.value }))}
+                    placeholder="مثال: تم توريد 70% من مواد الديكور مع تأخير يوم واحد في الشحن."
+                  />
+                </label>
+                <button className="oms-btn oms-btn-primary" type="button" onClick={submitDailyUpdate}>
+                  حفظ التحديث اليومي
+                </button>
+              </div>
+              </div>
 
-          <div className="plan-updates-list">
-            {updates.length === 0 ? (
-              <div className="workflow-empty">لا توجد تحديثات يومية بعد.</div>
-            ) : (
-              updates.slice(0, 8).map((item) => (
-                <article key={item.id} className="plan-update-item">
-                  <div className="plan-update-head">
-                    <strong>{item.taskTitle}</strong>
-                    <span>{item.createdAt}</span>
-                  </div>
-                  <div className="plan-update-meta">
-                    بواسطة: {item.author} · الحالة عند التحديث: {item.statusSnapshot}
-                  </div>
-                  <div className="plan-update-note-text">{item.note}</div>
-                </article>
-              ))
-            )}
-          </div>
+              <div
+                id={PLAN_DETAIL_SECTION_ANCHORS.updates_list}
+                ref={(node) => setDetailSectionRef("updates_list", node)}
+                className={`plan-detail-block ${highlightedDetailSection === "updates_list" ? "is-highlighted" : ""}`}
+              >
+              <div className="plan-updates-list">
+                {updates.length === 0 ? (
+                  <div className="workflow-empty">لا توجد تحديثات يومية بعد.</div>
+                ) : (
+                  updates.slice(0, 8).map((item) => (
+                    <article key={item.id} className="plan-update-item">
+                      <div className="plan-update-head">
+                        <strong>{item.taskTitle}</strong>
+                        <span>{item.createdAt}</span>
+                      </div>
+                      <div className="plan-update-meta">
+                        بواسطة: {item.author} · الحالة عند التحديث: {item.statusSnapshot}
+                      </div>
+                      <div className="plan-update-note-text">{item.note}</div>
+                    </article>
+                  ))
+                )}
+              </div>
+              </div>
+            </>
+          ) : (
+            <div className="workflow-empty">تم إخفاء التحديثات اليومية. افتحها عند متابعة التقدم.</div>
+          )}
         </article>
 
-        <article className="oms-panel" style={{ marginTop: 0 }}>
-          <h2 className="oms-section-title">مخاطر مرتبطة بالجدول</h2>
-          <p className="oms-text">يتم فتح مخاطر تلقائيًا عند تأخر المهام الحرجة أو خروجها عن الاستحقاق.</p>
-          <div className="plan-risk-list">
-            {risks.length === 0 ? (
-              <div className="workflow-empty">لا توجد مخاطر زمنية مفتوحة حاليًا.</div>
-            ) : (
-              risks.slice(0, 8).map((risk) => {
-                const delayedNow = taskViews.some(
-                  (task) => task.id === risk.taskId && task.effectiveStatus === "متأخرة"
-                );
-                return (
-                  <article key={risk.id} className="plan-risk-item">
-                    <div className="plan-risk-head">
-                      <strong>{risk.taskTitle}</strong>
-                      <span className={`plan-risk-badge severity-${risk.severity === "عالي" ? "high" : "medium"}`}>
-                        {risk.severity}
-                      </span>
-                    </div>
-                    <div className="plan-risk-meta">
-                      الحالة: {risk.state} · آخر تحديث: {risk.updatedAt}
-                    </div>
-                    <div className="plan-risk-reason">{risk.reason}</div>
-                    <div className="plan-risk-actions">
-                      <button
-                        className="oms-btn oms-btn-ghost"
-                        type="button"
-                        onClick={() => toggleRiskState(risk.id)}
-                        disabled={delayedNow}
-                      >
-                        {delayedNow ? "بانتظار معالجة التأخير" : "تحديث حالة الخطر"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })
-            )}
+        <article
+          id={PLAN_SECTION_ANCHORS.risks}
+          ref={(node) => setSectionRef("risks", node)}
+          className={`oms-panel ${highlightedSection === "risks" ? "plan-panel-highlight" : ""}`}
+          style={{ marginTop: 0 }}
+        >
+          <div className="plan-section-head">
+            <h2 className="oms-section-title">مخاطر مرتبطة بالجدول</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("risks", node)}
+              onClick={() => (sectionsOpen.risks ? toggleSection("risks") : navigateToSection("risks"))}
+            >
+              {sectionsOpen.risks ? "إخفاء" : "عرض"}
+            </button>
           </div>
+          {sectionsOpen.risks ? (
+            <>
+              <div className="plan-detail-tabs">
+                {(["risks_list"] as PlanDetailSectionKey[]).map((detailSection) => (
+                  <button
+                    key={detailSection}
+                    className={`plan-detail-tab ${highlightedDetailSection === detailSection ? "is-active" : ""}`}
+                    type="button"
+                    onClick={() => navigateToDetailSection(detailSection, "risks")}
+                  >
+                    {PLAN_DETAIL_SECTION_LABELS[detailSection]}
+                  </button>
+                ))}
+              </div>
+              <p className="oms-text">يتم فتح مخاطر تلقائيًا عند تأخر المهام الحرجة أو خروجها عن الاستحقاق.</p>
+              <div
+                id={PLAN_DETAIL_SECTION_ANCHORS.risks_list}
+                ref={(node) => setDetailSectionRef("risks_list", node)}
+                className={`plan-detail-block ${highlightedDetailSection === "risks_list" ? "is-highlighted" : ""}`}
+              >
+              <div className="plan-risk-list">
+                {risks.length === 0 ? (
+                  <div className="workflow-empty">لا توجد مخاطر زمنية مفتوحة حاليًا.</div>
+                ) : (
+                  risks.slice(0, 8).map((risk) => {
+                    const delayedNow = taskViews.some(
+                      (task) => task.id === risk.taskId && task.effectiveStatus === "متأخرة"
+                    );
+                    return (
+                      <article key={risk.id} className="plan-risk-item">
+                        <div className="plan-risk-head">
+                          <strong>{risk.taskTitle}</strong>
+                          <span className={`plan-risk-badge severity-${risk.severity === "عالي" ? "high" : "medium"}`}>
+                            {risk.severity}
+                          </span>
+                        </div>
+                        <div className="plan-risk-meta">
+                          الحالة: {risk.state} · آخر تحديث: {risk.updatedAt}
+                        </div>
+                        <div className="plan-risk-reason">{risk.reason}</div>
+                        <div className="plan-risk-actions">
+                          <button
+                            className="oms-btn oms-btn-ghost"
+                            type="button"
+                            onClick={() => toggleRiskState(risk.id)}
+                            disabled={delayedNow}
+                          >
+                            {delayedNow ? "بانتظار معالجة التأخير" : "تحديث حالة الخطر"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+              </div>
+            </>
+          ) : (
+            <div className="workflow-empty">تم إخفاء مخاطر الجدول. افتح القسم عند تقييم التعطيلات.</div>
+          )}
         </article>
       </section>
 
-      <section className="oms-panel">
-        <h2 className="oms-section-title">إجراء تنفيذي</h2>
-        <div className="plan-footer-actions">
-          <Link href="/app/strategy/execution/risks" className="oms-btn oms-btn-primary">
-            فتح سجل المخاطر
-          </Link>
-          <Link href="/app/workflows" className="oms-btn oms-btn-ghost">
-            فتح سير العمل التنفيذي
-          </Link>
-          <Link href="/app/strategy/review" className="oms-btn oms-btn-ghost">
-            الانتقال للمراجعة النهائية
-          </Link>
+      <section
+        id={PLAN_SECTION_ANCHORS.actions}
+        ref={(node) => setSectionRef("actions", node)}
+        className={`oms-panel ${highlightedSection === "actions" ? "plan-panel-highlight" : ""}`}
+      >
+        <div className="plan-section-head">
+          <h2 className="oms-section-title">إجراء تنفيذي</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("actions", node)}
+            onClick={() => (sectionsOpen.actions ? toggleSection("actions") : navigateToSection("actions"))}
+          >
+            {sectionsOpen.actions ? "إخفاء" : "عرض"}
+          </button>
         </div>
-        <div className="budget-foot-note">{lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي مفعل."}</div>
+        {sectionsOpen.actions ? (
+          <>
+            <div className="plan-footer-actions">
+              <Link href="/app/strategy/execution/risks" className="oms-btn oms-btn-primary">
+                فتح سجل المخاطر
+              </Link>
+              <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
+                العودة إلى الخطة المالية
+              </Link>
+              <Link href="/app/workflows" className="oms-btn oms-btn-ghost">
+                فتح سير العمل التنفيذي
+              </Link>
+            </div>
+            <div className="budget-foot-note">{lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي مفعل."}</div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء الإجراءات النهائية. افتحها قبل الانتقال للمرحلة التالية.</div>
+        )}
       </section>
 
       <style>{`
@@ -1368,7 +1793,123 @@ export default function StrategyExecutionPlanPage() {
           line-height: 1.7;
         }
 
+        .plan-hierarchy-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .plan-hierarchy-meta {
+          margin-top: 6px;
+          color: var(--oms-text-muted);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+
+        .plan-hierarchy-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .plan-section-tabs {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .plan-section-tab {
+          min-height: 36px;
+          border-radius: var(--oms-radius-sm);
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(8, 14, 26, 0.78);
+          color: var(--oms-text-muted);
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .plan-section-tab.is-open {
+          border-color: var(--oms-border-accent);
+          background: linear-gradient(180deg, rgba(127, 90, 240, 0.34), rgba(86, 60, 158, 0.22));
+          color: var(--oms-text);
+        }
+
+        .plan-detail-tabs {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .plan-detail-tab {
+          min-height: 32px;
+          border-radius: 999px;
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(10, 18, 36, 0.74);
+          color: var(--oms-text-faint);
+          font-size: 12px;
+          font-weight: 800;
+          padding: 0 12px;
+          cursor: pointer;
+          transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+        }
+
+        .plan-detail-tab.is-active {
+          border-color: rgba(145, 205, 255, 0.62);
+          color: #d8efff;
+          background: rgba(22, 58, 94, 0.66);
+        }
+
+        .plan-detail-block {
+          border-radius: var(--oms-radius-md);
+        }
+
+        .plan-detail-block.is-highlighted {
+          border: 1px solid rgba(145, 205, 255, 0.58);
+          box-shadow: 0 0 0 1px rgba(145, 205, 255, 0.2), 0 0 22px rgba(80, 145, 225, 0.18);
+          animation: plan-detail-pulse 1.05s ease;
+        }
+
+        @keyframes plan-detail-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(145, 205, 255, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 1px rgba(145, 205, 255, 0.2), 0 0 22px rgba(80, 145, 225, 0.18);
+          }
+        }
+
+        .plan-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .plan-panel-highlight {
+          border-color: rgba(167, 115, 255, 0.72);
+          box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          animation: plan-panel-pulse 1.1s ease;
+        }
+
+        @keyframes plan-panel-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(128, 69, 242, 0);
+          }
+          35% {
+            box-shadow: 0 0 0 2px rgba(167, 115, 255, 0.28), 0 0 32px rgba(128, 69, 242, 0.24);
+          }
+          100% {
+            box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          }
+        }
+
         .plan-head-grid {
+          margin-top: 10px;
           display: grid;
           grid-template-columns: minmax(0, 1fr) 260px;
           gap: 10px;
@@ -1933,6 +2474,10 @@ export default function StrategyExecutionPlanPage() {
         }
 
         @media (max-width: 1180px) {
+          .plan-section-tabs {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
           .plan-head-grid {
             grid-template-columns: 1fr;
           }
@@ -1951,6 +2496,19 @@ export default function StrategyExecutionPlanPage() {
         }
 
         @media (max-width: 760px) {
+          .plan-section-tabs {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .plan-detail-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .plan-detail-tab {
+            width: 100%;
+          }
+
           .plan-kpi-grid,
           .plan-template-grid,
           .plan-template-preset-grid,
@@ -2985,6 +3543,28 @@ function daysBetween(fromIso: string, toIso: string) {
 
 function randomId() {
   return `id_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function resolvePlanSectionFromHash(hash: string): PlanSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(PLAN_SECTION_ANCHORS) as Array<[PlanSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
+}
+
+function resolvePlanDetailSectionFromHash(hash: string): PlanDetailSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(PLAN_DETAIL_SECTION_ANCHORS) as Array<[PlanDetailSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
+}
+
+function detailSectionParent(section: PlanDetailSectionKey): PlanSectionKey {
+  if (section === "tasks_filters" || section === "tasks_create" || section === "tasks_list") return "tasks";
+  if (section === "updates_form" || section === "updates_list") return "updates";
+  return "risks";
 }
 
 function toArabicNumber(value: number) {

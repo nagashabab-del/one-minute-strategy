@@ -78,6 +78,16 @@ function normalizeReportText(text: string) {
     .trim();
 }
 
+function formatAnalysisContextForPrompt(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return "لا توجد حزمة تنفيذية/مالية إضافية واردة من واجهة النظام.";
+  }
+  const serialized = JSON.stringify(value, null, 2);
+  const maxChars = 18000;
+  if (serialized.length <= maxChars) return serialized;
+  return `${serialized.slice(0, maxChars)}\n... [تم اختصار الحزمة بسبب الحجم]`;
+}
+
 function jsonError(status: number, error: string, code: string) {
   return NextResponse.json({ ok: false, error, code }, { status });
 }
@@ -197,9 +207,11 @@ export async function POST(req: Request) {
     const answers = body.answers ?? [];
     const dialogue = body.dialogue ?? [];
     const userAddition = body.userAddition ?? "";
+    const analysisContext = body.analysisContext;
     const selectedAdvisors = selectedAdvisorsRaw.filter((x: unknown): x is AdvisorKey =>
       ALL_ADVISOR_KEYS.includes(x as AdvisorKey)
     );
+    const analysisContextText = formatAnalysisContextForPrompt(analysisContext);
 
     if (!project?.trim()) {
       return jsonError(400, "حقل بيانات المشروع مطلوب قبل بدء التحليل.", "PROJECT_REQUIRED");
@@ -218,6 +230,7 @@ export async function POST(req: Request) {
       endAt,
       budget,
       venueType,
+      analysisContext,
       answers,
       dialogue,
       userAddition,
@@ -404,11 +417,22 @@ ${JSON.stringify(dialogue, null, 2)}
 إضافة المستخدم (إن وجدت):
 ${userAddition?.trim() ? userAddition : "لا يوجد"}
 
+حزمة البيانات التنفيذية/المالية من النظام (JSON):
+${analysisContextText}
+
 مهمتك الآن:
-1) التحليل الشامل (مع مراعاة المدة/التوقيت + نوع الموقع + الميزانية إن وجدت)
+1) التحليل الشامل (مع مراعاة المدة/التوقيت + نوع الموقع + الميزانية)
 2) القرار التنفيذي
 3) توصيات المستشارين
 4) report_text جاهز للنسخ إلى Word بعناوين واضحة
+
+تعليمات إلزامية إضافية:
+- ابنِ القرار النهائي على بيانات الحزمة التنفيذية/المالية قبل أي افتراضات عامة.
+- إذا ظهر تعارض بين وصف المشروع النصي وبين أرقام البنود أو مؤشرات المخاطر أو تقدم المهام: قدّم الأرقام والحالة التشغيلية الفعلية مع توضيح التعارض.
+- اذكر في التحليل المالي صراحةً: إجمالي التكلفة، إجمالي البيع، صافي الربح/الخسارة، الهامش، وحالة الميزانية (ضمن/فوق).
+- اذكر في التحليل التنفيذي توزيع المسؤوليات، المهام المتعثرة الحرجة، وتأثيرها على القرار.
+- اذكر في المخاطر: أعلى المخاطر النشطة، حالة المعالجة، وهل توجد مخاطر مصعدة أو متأخرة.
+- اختم بخطة تنفيذ مختصرة مقسمة إلى: إجراءات عاجلة (24-72 ساعة) + إجراءات 30 يوم + إجراءات 60-90 يوم.
 
 أخرج JSON بهذا الشكل حرفيًا:
 
@@ -437,8 +461,11 @@ ${userAddition?.trim() ? userAddition : "لا يوجد"}
 - decision:
 "جاهز للتنفيذ" | "جاهز بعد تحسينات محددة" | "يحتاج إعادة ضبط استراتيجية" | "يحتاج إعادة دراسة شاملة"
 - report_text بعناوين:
-(ملخص تنفيذي / معلومات الفعالية / أسئلة وإجابات / حوار المجلس / التحليل / القرار / توصيات المستشارين)
+(ملخص تنفيذي / معلومات الفعالية / حالة الجاهزية / التحليل المالي / التحليل التنفيذي وتوزيع المهام / تحليل المخاطر / أسئلة وإجابات / حوار المجلس / القرار / توصيات المستشارين / خطة المتابعة)
 - ضمن "معلومات الفعالية" اذكر: نوع الموقع + البداية + النهاية + الميزانية (إن وجدت).
+- ضمن "حالة الجاهزية" اعكس درجة الجاهزية الفعلية والفجوات الحرجة من الحزمة.
+- ضمن "التحليل التنفيذي وتوزيع المهام" اربط القرار بحالة التنفيذ الفعلية (نسبة الإنجاز، المتعثر، التوزيع على الأدوار).
+- ضمن "تحليل المخاطر" اذكر على الأقل 3 مخاطر محورية مع أثرها والإجراء المقترح.
 - في "أسئلة وإجابات": اكتب السؤال والإجابة بصياغة بشرية مرتبة، بدون معرفات تقنية مثل Q1/F1.
 - لا تستخدم علامات تنصيص حول الأسطر أو العناوين داخل report_text إلا عند نقل اقتباس حرفي (نادر).
 - اجعل report_text تقريرًا مهنيًا جاهزًا للنسخ، وليس عرضًا لبيانات JSON.

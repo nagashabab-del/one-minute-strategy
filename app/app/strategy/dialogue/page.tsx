@@ -22,6 +22,8 @@ export default function StrategyDialoguePage() {
         ]}
         primaryActionHref="/app/strategy/workspace"
         primaryActionLabel="فتح جلسة التحليل الحالية"
+        secondaryActionHref="/app/strategy/advisors"
+        secondaryActionLabel="العودة إلى تجهيز المستشارين"
       />
     </StrategyReadinessGuard>
   );

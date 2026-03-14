@@ -10,19 +10,21 @@ export default function StrategyDecisionPage() {
       <StrategyReadinessPanel stageLabel="القرار التنفيذي" compact />
       <StageScreen
         title="القرار التنفيذي"
-        subtitle="اعتماد نتيجة التحليل قبل الدخول في نطاق التنفيذ."
-        objective="تثبيت قرار تنفيذي واضح: هل المشروع جاهز للتنفيذ، وما الشروط اللازمة للانطلاق."
+        subtitle="اعتماد القرار بعد اكتمال المسارات المالية والزمنية والمخاطر."
+        objective="تحويل مخرجات جميع المراحل إلى قرار تنفيذي نهائي مع شروط اعتماد واضحة قبل الإغلاق."
         currentScope={[
-          "قراءة القرار النهائي بصياغة تنفيذية.",
-          "مراجعة أهم المخاطر والشروط المقترنة بالقرار.",
-          "اعتماد الانتقال إلى مرحلة إعداد التشغيل.",
+          "مراجعة القرار النهائي على ضوء الميزانية والخطة الزمنية وسجل المخاطر.",
+          "تثبيت شروط الاعتماد أو أسباب الإرجاء بشكل صريح.",
+          "اعتماد الانتقال إلى المراجعة النهائية والتقرير.",
         ]}
         nextDeliverables={[
-          "قرار معتمد (Go / Hold / Rework).",
-          "محددات تنفيذية واضحة للمرحلة التالية.",
+          "قرار معتمد (Go / Hold / Rework) مع مبررات واضحة.",
+          "حزمة قرار جاهزة للمراجعة النهائية والإغلاق.",
         ]}
-        primaryActionHref="/app/strategy/execution/scope"
-        primaryActionLabel="الانتقال إلى هيكلة النطاق"
+        primaryActionHref="/app/strategy/review"
+        primaryActionLabel="الانتقال إلى المراجعة النهائية"
+        secondaryActionHref="/app/strategy/execution/risks"
+        secondaryActionLabel="العودة إلى سجل المخاطر"
       />
     </StrategyReadinessGuard>
   );

@@ -17,6 +17,8 @@ export default function StrategyExecutionScopePage() {
       ]}
       primaryActionHref="/app/strategy/execution/budget"
       primaryActionLabel="الانتقال إلى الخطة المالية"
+      secondaryActionHref="/app/strategy/decision"
+      secondaryActionLabel="العودة إلى القرار التنفيذي"
     />
   );
 }

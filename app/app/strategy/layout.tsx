@@ -7,8 +7,6 @@ import { useStrategyReadinessState } from "./_components/readiness-gate";
 import { READINESS_STAGE_LOCK_REASON } from "../_lib/readiness-lock";
 import { STRATEGY_STAGES, resolveActiveStageId, stageCompletionRatio } from "./stages";
 
-const PROJECTS_HUB_HREF = "/app/strategy/workspace?entry=projects";
-
 export default function StrategyLayout({
   children,
 }: Readonly<{
@@ -26,91 +24,79 @@ export default function StrategyLayout({
   const sidebarBlockHint = READINESS_STAGE_LOCK_REASON;
 
   return (
-    <div className="strategy-layout">
-      <aside className="strategy-sidebar">
-        <div className="strategy-sidebar-head">
-          <div className="strategy-sidebar-title">مراحل الاستراتيجية</div>
-          <div className="strategy-sidebar-progress">{hasActiveProject ? `${completion}%` : "—"}</div>
-        </div>
-
-        {!hasActiveProject ? (
-          <div className="strategy-empty-project">
-            <div className="strategy-empty-title">لا يوجد مشروع نشط</div>
-            <div className="strategy-empty-text">
-              لن تظهر مراحل الاستراتيجية قبل إنشاء مشروع جديد أو فتح مشروع سابق.
-            </div>
-            <Link href={PROJECTS_HUB_HREF} className="oms-btn oms-btn-primary">
-              فتح مركز المشاريع
-            </Link>
+    <div className={`strategy-layout ${hasActiveProject ? "" : "is-empty"}`}>
+      {hasActiveProject ? (
+        <aside className="strategy-sidebar">
+          <div className="strategy-sidebar-head">
+            <div className="strategy-sidebar-title">مراحل الاستراتيجية</div>
+            <div className="strategy-sidebar-progress">{`${completion}%`}</div>
           </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="strategy-mobile-toggle"
-              onClick={() => setMobileStagesOpen((prev) => !prev)}
-            >
-              <span>المرحلة الحالية: {activeStage?.title ?? "غير محددة"}</span>
-              <span>{mobileStagesOpen ? "إخفاء المراحل" : "عرض المراحل"}</span>
-            </button>
 
-            {isGapMode ? (
-              <div className="strategy-gap-hint">{sidebarBlockHint}</div>
-            ) : null}
+          <button
+            type="button"
+            className="strategy-mobile-toggle"
+            onClick={() => setMobileStagesOpen((prev) => !prev)}
+          >
+            <span>المرحلة الحالية: {activeStage?.title ?? "غير محددة"}</span>
+            <span>{mobileStagesOpen ? "إخفاء المراحل" : "عرض المراحل"}</span>
+          </button>
 
-            <nav className={`strategy-stage-list ${mobileStagesOpen ? "is-open" : ""}`}>
-              {STRATEGY_STAGES.map((stage, idx) => {
-                const active = stage.id === activeId;
-                const completed = idx < activeIndex;
-                const blocked = isGapMode && stage.id !== "brief" && !active;
-                const stateLabel = active ? "نشطة" : blocked ? "مغلقة" : completed ? "مكتملة" : "قادمة";
-                const stageClassName = `strategy-stage-link ${active ? "is-active" : ""} ${
-                  completed ? "is-complete" : ""
-                } ${blocked ? "is-blocked" : ""}`;
-                const stateClassName = `strategy-stage-state ${
-                  active ? "is-active" : completed ? "is-complete" : ""
-                } ${blocked ? "is-blocked" : ""}`;
+          {isGapMode ? (
+            <div className="strategy-gap-hint">{sidebarBlockHint}</div>
+          ) : null}
 
-                const content = (
-                  <>
-                    <span className="strategy-stage-row">
-                      <span className="strategy-stage-title">{stage.title}</span>
-                      <span className={stateClassName}>{stateLabel}</span>
-                    </span>
-                    <span className="strategy-stage-subtitle">{stage.subtitle}</span>
-                  </>
-                );
+          <nav className={`strategy-stage-list ${mobileStagesOpen ? "is-open" : ""}`}>
+            {STRATEGY_STAGES.map((stage, idx) => {
+              const active = stage.id === activeId;
+              const completed = idx < activeIndex;
+              const blocked = isGapMode && stage.id !== "brief" && !active;
+              const stateLabel = active ? "نشطة" : blocked ? "مغلقة" : completed ? "مكتملة" : "قادمة";
+              const stageClassName = `strategy-stage-link ${active ? "is-active" : ""} ${
+                completed ? "is-complete" : ""
+              } ${blocked ? "is-blocked" : ""}`;
+              const stateClassName = `strategy-stage-state ${
+                active ? "is-active" : completed ? "is-complete" : ""
+              } ${blocked ? "is-blocked" : ""}`;
 
-                if (blocked) {
-                  return (
-                    <div key={stage.id} className={stageClassName} title={sidebarBlockHint} aria-disabled>
-                      {content}
-                    </div>
-                  );
-                }
+              const content = (
+                <>
+                  <span className="strategy-stage-row">
+                    <span className="strategy-stage-title">{stage.title}</span>
+                    <span className={stateClassName}>{stateLabel}</span>
+                  </span>
+                  <span className="strategy-stage-subtitle">{stage.subtitle}</span>
+                </>
+              );
 
+              if (blocked) {
                 return (
-                  <Link
-                    key={stage.id}
-                    href={stage.href}
-                    className={stageClassName}
-                    onClick={() => setMobileStagesOpen(false)}
-                  >
+                  <div key={stage.id} className={stageClassName} title={sidebarBlockHint} aria-disabled>
                     {content}
-                  </Link>
+                  </div>
                 );
-              })}
-            </nav>
+              }
 
-            <Link
-              href="/app/strategy/workspace"
-              className={`oms-btn oms-btn-ghost strategy-engine-btn ${mobileStagesOpen ? "is-open" : ""}`}
-            >
-              فتح محرك التحليل الحالي
-            </Link>
-          </>
-        )}
-      </aside>
+              return (
+                <Link
+                  key={stage.id}
+                  href={stage.href}
+                  className={stageClassName}
+                  onClick={() => setMobileStagesOpen(false)}
+                >
+                  {content}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <Link
+            href="/app/strategy/workspace"
+            className={`oms-btn oms-btn-ghost strategy-engine-btn ${mobileStagesOpen ? "is-open" : ""}`}
+          >
+            فتح محرك التحليل الحالي
+          </Link>
+        </aside>
+      ) : null}
 
       <section className="strategy-workspace">{children}</section>
 
@@ -121,6 +107,10 @@ export default function StrategyLayout({
           gap: 10px;
         }
 
+        .strategy-layout.is-empty {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
         .strategy-sidebar {
           border: 1px solid var(--oms-border);
           border-radius: var(--oms-radius-lg);
@@ -128,7 +118,7 @@ export default function StrategyLayout({
           padding: 10px;
           height: fit-content;
           position: sticky;
-          top: 10px;
+          top: calc(var(--oms-shell-sticky-offset, 10px) + 8px);
           display: grid;
           gap: 10px;
         }
@@ -268,27 +258,6 @@ export default function StrategyLayout({
           font-size: 12px;
           line-height: 1.6;
           font-weight: 700;
-        }
-
-        .strategy-empty-project {
-          border: 1px solid rgba(138, 160, 255, 0.28);
-          border-radius: var(--oms-radius-sm);
-          background: rgba(10, 17, 31, 0.8);
-          padding: 10px;
-          display: grid;
-          gap: 8px;
-        }
-
-        .strategy-empty-title {
-          font-size: 13px;
-          font-weight: 900;
-          color: #f2f6ff;
-        }
-
-        .strategy-empty-text {
-          font-size: 12px;
-          color: var(--oms-text-faint);
-          line-height: 1.6;
         }
 
         .strategy-engine-btn {

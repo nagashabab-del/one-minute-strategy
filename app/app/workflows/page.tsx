@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StrategyReport, readReports } from "../reports/report-store";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "../_components/strategy-readiness-banner";
 import {
@@ -31,6 +31,29 @@ type WorkflowQueueRow = {
   href: string;
 };
 
+type WorkflowSectionKey = "kpis" | "alerts" | "quickActions" | "queue";
+
+const WORKFLOW_SECTION_DEFAULTS: Record<WorkflowSectionKey, boolean> = {
+  kpis: true,
+  alerts: true,
+  quickActions: true,
+  queue: true,
+};
+
+const WORKFLOW_SECTION_LABELS: Record<WorkflowSectionKey, string> = {
+  kpis: "مؤشرات المراحل",
+  alerts: "التنبيهات",
+  quickActions: "الإجراءات السريعة",
+  queue: "طابور المشاريع",
+};
+
+const WORKFLOW_SECTION_ANCHORS: Record<WorkflowSectionKey, string> = {
+  kpis: "workflow-kpis",
+  alerts: "workflow-alerts",
+  quickActions: "workflow-quick-actions",
+  queue: "workflow-queue",
+};
+
 export default function WorkflowsPage() {
   const reports = useMemo(() => readReports(), []);
   const readiness = useStrategyReadinessMode();
@@ -53,6 +76,74 @@ export default function WorkflowsPage() {
 
   const alerts = useMemo<WorkflowAlert[]>(() => buildAlerts(reports), [reports]);
   const queue = useMemo<WorkflowQueueRow[]>(() => buildQueue(reports), [reports]);
+  const [sectionsOpen, setSectionsOpen] =
+    useState<Record<WorkflowSectionKey, boolean>>(WORKFLOW_SECTION_DEFAULTS);
+  const [highlightedSection, setHighlightedSection] = useState<WorkflowSectionKey | null>(null);
+  const sectionRefs = useRef<Record<WorkflowSectionKey, HTMLElement | null>>({
+    kpis: null,
+    alerts: null,
+    quickActions: null,
+    queue: null,
+  });
+  const sectionFocusRefs = useRef<Record<WorkflowSectionKey, HTMLElement | null>>({
+    kpis: null,
+    alerts: null,
+    quickActions: null,
+    queue: null,
+  });
+  const sectionKeys = Object.keys(WORKFLOW_SECTION_LABELS) as WorkflowSectionKey[];
+  const openSectionsCount = sectionKeys.filter((section) => sectionsOpen[section]).length;
+
+  function setSectionRef(section: WorkflowSectionKey, node: HTMLElement | null) {
+    sectionRefs.current[section] = node;
+  }
+
+  function setSectionFocusRef(section: WorkflowSectionKey, node: HTMLElement | null) {
+    sectionFocusRefs.current[section] = node;
+  }
+
+  function navigateToSection(section: WorkflowSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = WORKFLOW_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
+
+  function toggleSection(section: WorkflowSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const section = resolveWorkflowSectionFromHash(window.location.hash);
+    if (!section) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial hash hydration opens the target section once
+    navigateToSection(section);
+  }, []);
 
   return (
     <main>
@@ -62,155 +153,348 @@ export default function WorkflowsPage() {
       </p>
       <StrategyReadinessBanner contextLabel="سير العمل" />
 
-      <section className="workflow-stage-grid">
-        <article className="oms-kpi-card workflow-stage-card">
-          <div className="oms-kpi-label">استقبال المدخلات</div>
-          <div className="workflow-stage-meta">ملخصات أولية قيد التجهيز</div>
-          <div className="oms-kpi-value">{stageCounts.intake}</div>
-        </article>
-        <article className="oms-kpi-card workflow-stage-card">
-          <div className="oms-kpi-label">قيد التحليل</div>
-          <div className="workflow-stage-meta">جلسات استشارية نشطة</div>
-          <div className="oms-kpi-value">{stageCounts.analysis}</div>
-        </article>
-        <article className="oms-kpi-card workflow-stage-card">
-          <div className="oms-kpi-label">بانتظار الاعتماد</div>
-          <div className="workflow-stage-meta">جاهزة لمراجعة القرار</div>
-          <div className="oms-kpi-value">{stageCounts.review}</div>
-        </article>
-        <article className="oms-kpi-card workflow-stage-card">
-          <div className="oms-kpi-label">معتمدة للتنفيذ</div>
-          <div className="workflow-stage-meta">مؤهلة للتشغيل</div>
-          <div className="oms-kpi-value">{stageCounts.approved}</div>
-        </article>
+      <section className="oms-panel">
+        <div className="workflow-hierarchy-head">
+          <div>
+            <h2 className="oms-section-title">هرمية شاشة سير العمل</h2>
+            <div className="workflow-hierarchy-meta">
+              مفتوح الآن: {toArabicNumber(openSectionsCount)} / {toArabicNumber(sectionKeys.length)}
+            </div>
+          </div>
+          <div className="workflow-hierarchy-actions">
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => setSectionsOpen({ kpis: true, alerts: true, quickActions: true, queue: true })}
+            >
+              فتح كل التفاصيل
+            </button>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => setSectionsOpen({ kpis: false, alerts: false, quickActions: false, queue: false })}
+            >
+              إغلاق كل التفاصيل
+            </button>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => setSectionsOpen(WORKFLOW_SECTION_DEFAULTS)}
+            >
+              الوضع الافتراضي
+            </button>
+          </div>
+        </div>
+        <div className="workflow-section-tabs">
+          {sectionKeys.map((section) => (
+            <button
+              key={section}
+              className={`workflow-section-tab ${sectionsOpen[section] ? "is-open" : ""}`}
+              type="button"
+              onClick={() => navigateToSection(section)}
+            >
+              {WORKFLOW_SECTION_LABELS[section]}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section
+        id={WORKFLOW_SECTION_ANCHORS.kpis}
+        ref={(node) => setSectionRef("kpis", node)}
+        className={`oms-panel ${highlightedSection === "kpis" ? "workflow-panel-highlight" : ""}`}
+      >
+        <div className="workflow-section-head">
+          <h2 className="oms-section-title">مؤشرات المراحل</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("kpis", node)}
+            onClick={() => (sectionsOpen.kpis ? toggleSection("kpis") : navigateToSection("kpis"))}
+          >
+            {sectionsOpen.kpis ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.kpis ? (
+          <div className="workflow-stage-grid">
+            <article className="oms-kpi-card workflow-stage-card">
+              <div className="oms-kpi-label">استقبال المدخلات</div>
+              <div className="workflow-stage-meta">ملخصات أولية قيد التجهيز</div>
+              <div className="oms-kpi-value">{stageCounts.intake}</div>
+            </article>
+            <article className="oms-kpi-card workflow-stage-card">
+              <div className="oms-kpi-label">قيد التحليل</div>
+              <div className="workflow-stage-meta">جلسات استشارية نشطة</div>
+              <div className="oms-kpi-value">{stageCounts.analysis}</div>
+            </article>
+            <article className="oms-kpi-card workflow-stage-card">
+              <div className="oms-kpi-label">بانتظار الاعتماد</div>
+              <div className="workflow-stage-meta">جاهزة لمراجعة القرار</div>
+              <div className="oms-kpi-value">{stageCounts.review}</div>
+            </article>
+            <article className="oms-kpi-card workflow-stage-card">
+              <div className="oms-kpi-label">معتمدة للتنفيذ</div>
+              <div className="workflow-stage-meta">مؤهلة للتشغيل</div>
+              <div className="oms-kpi-value">{stageCounts.approved}</div>
+            </article>
+          </div>
+        ) : (
+          <div className="workflow-empty">تم إخفاء مؤشرات المراحل.</div>
+        )}
       </section>
 
       <section className="workflow-columns">
-        <article className="oms-panel">
-          <h2 className="oms-section-title">تنبيهات وأولويات</h2>
-          {alerts.length === 0 ? (
-            <div className="workflow-empty">لا توجد تنبيهات حرجة الآن. استمر على نفس الإيقاع التشغيلي.</div>
-          ) : (
-            <div className="workflow-alerts">
-              {alerts.map((alert) => (
-                <div className={`workflow-alert is-${alert.tone}`} key={alert.id}>
-                  <div>
-                    <div className="workflow-alert-title">{alert.title}</div>
-                    <div className="workflow-alert-text">{alert.description}</div>
+        <article
+          id={WORKFLOW_SECTION_ANCHORS.alerts}
+          ref={(node) => setSectionRef("alerts", node)}
+          className={`oms-panel ${highlightedSection === "alerts" ? "workflow-panel-highlight" : ""}`}
+        >
+          <div className="workflow-section-head">
+            <h2 className="oms-section-title">تنبيهات وأولويات</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("alerts", node)}
+              onClick={() => (sectionsOpen.alerts ? toggleSection("alerts") : navigateToSection("alerts"))}
+            >
+              {sectionsOpen.alerts ? "إخفاء" : "عرض"}
+            </button>
+          </div>
+          {sectionsOpen.alerts ? (
+            alerts.length === 0 ? (
+              <div className="workflow-empty">لا توجد تنبيهات حرجة الآن. استمر على نفس الإيقاع التشغيلي.</div>
+            ) : (
+              <div className="workflow-alerts">
+                {alerts.map((alert) => (
+                  <div className={`workflow-alert is-${alert.tone}`} key={alert.id}>
+                    <div>
+                      <div className="workflow-alert-title">{alert.title}</div>
+                      <div className="workflow-alert-text">{alert.description}</div>
+                    </div>
+                    {isReadinessActionBlocked(inGapMode, alert.href) ? (
+                      <button
+                        type="button"
+                        className={`${
+                          alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
+                        } workflow-action-disabled`}
+                        disabled
+                        title={quickActionBlockedHint}
+                      >
+                        {alert.actionLabel}
+                      </button>
+                    ) : (
+                      <Link
+                        href={resolveReadinessNavigationHref(inGapMode, alert.href)}
+                        className={alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
+                      >
+                        {alert.actionLabel}
+                      </Link>
+                    )}
                   </div>
-                  {isReadinessActionBlocked(inGapMode, alert.href) ? (
-                    <button
-                      type="button"
-                      className={`${
-                        alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"
-                      } workflow-action-disabled`}
-                      disabled
-                      title={quickActionBlockedHint}
-                    >
-                      {alert.actionLabel}
-                    </button>
-                  ) : (
-                    <Link
-                      href={resolveReadinessNavigationHref(inGapMode, alert.href)}
-                      className={alert.tone === "critical" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
-                    >
-                      {alert.actionLabel}
-                    </Link>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="workflow-empty">تم إخفاء التنبيهات.</div>
           )}
         </article>
 
-        <article className="oms-panel">
-          <h2 className="oms-section-title">إجراءات سريعة</h2>
-          <div className="workflow-quick-actions">
-            <Link href={quickStart.href} className="oms-btn oms-btn-primary">
-              {quickStart.label}
-            </Link>
-            {inGapMode ? (
-              <>
-                <button
-                  type="button"
-                  className="oms-btn oms-btn-ghost workflow-action-disabled"
-                  disabled
-                  title={quickActionBlockedHint}
-                >
-                  متابعة الخطة المالية
-                </button>
-                <button
-                  type="button"
-                  className="oms-btn oms-btn-ghost workflow-action-disabled"
-                  disabled
-                  title={quickActionBlockedHint}
-                >
-                  مراجعة التقارير
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
-                  متابعة الخطة المالية
-                </Link>
-                <Link href="/app/reports" className="oms-btn oms-btn-ghost">
-                  مراجعة التقارير
-                </Link>
-              </>
-            )}
-            <Link href="/app" className="oms-btn oms-btn-ghost">
-              الرجوع للوحة التنفيذ
-            </Link>
+        <article
+          id={WORKFLOW_SECTION_ANCHORS.quickActions}
+          ref={(node) => setSectionRef("quickActions", node)}
+          className={`oms-panel ${highlightedSection === "quickActions" ? "workflow-panel-highlight" : ""}`}
+        >
+          <div className="workflow-section-head">
+            <h2 className="oms-section-title">إجراءات سريعة</h2>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("quickActions", node)}
+              onClick={() =>
+                sectionsOpen.quickActions ? toggleSection("quickActions") : navigateToSection("quickActions")
+              }
+            >
+              {sectionsOpen.quickActions ? "إخفاء" : "عرض"}
+            </button>
           </div>
+          {sectionsOpen.quickActions ? (
+            <div className="workflow-quick-actions">
+              <Link href={quickStart.href} className="oms-btn oms-btn-primary">
+                {quickStart.label}
+              </Link>
+              {inGapMode ? (
+                <>
+                  <button
+                    type="button"
+                    className="oms-btn oms-btn-ghost workflow-action-disabled"
+                    disabled
+                    title={quickActionBlockedHint}
+                  >
+                    متابعة الخطة المالية
+                  </button>
+                  <button
+                    type="button"
+                    className="oms-btn oms-btn-ghost workflow-action-disabled"
+                    disabled
+                    title={quickActionBlockedHint}
+                  >
+                    مراجعة التقارير
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/app/strategy/execution/budget" className="oms-btn oms-btn-ghost">
+                    متابعة الخطة المالية
+                  </Link>
+                  <Link href="/app/reports" className="oms-btn oms-btn-ghost">
+                    مراجعة التقارير
+                  </Link>
+                </>
+              )}
+              <Link href="/app" className="oms-btn oms-btn-ghost">
+                الرجوع للوحة التنفيذ
+              </Link>
+            </div>
+          ) : (
+            <div className="workflow-empty">تم إخفاء الإجراءات السريعة.</div>
+          )}
         </article>
       </section>
 
-      <section className="oms-panel">
-        <div className="workflow-queue-head">
+      <section
+        id={WORKFLOW_SECTION_ANCHORS.queue}
+        ref={(node) => setSectionRef("queue", node)}
+        className={`oms-panel ${highlightedSection === "queue" ? "workflow-panel-highlight" : ""}`}
+      >
+        <div className="workflow-section-head">
           <h2 className="oms-section-title">طابور المشاريع التنفيذي</h2>
-          <div className="workflow-queue-summary">إجمالي المشاريع في المسار: {stageCounts.total}</div>
+          <div className="workflow-queue-head-actions">
+            <div className="workflow-queue-summary">إجمالي المشاريع في المسار: {toArabicNumber(stageCounts.total)}</div>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              ref={(node) => setSectionFocusRef("queue", node)}
+              onClick={() => (sectionsOpen.queue ? toggleSection("queue") : navigateToSection("queue"))}
+            >
+              {sectionsOpen.queue ? "إخفاء" : "عرض"}
+            </button>
+          </div>
         </div>
 
-        {queue.length === 0 ? (
-          <div className="workflow-empty">لا يوجد أي مشروع في الطابور. ابدأ تحليل جديد لإنشاء أول مسار.</div>
+        {sectionsOpen.queue ? (
+          queue.length === 0 ? (
+            <div className="workflow-empty">لا يوجد أي مشروع في الطابور. ابدأ تحليل جديد لإنشاء أول مسار.</div>
+          ) : (
+            <div className="workflow-queue-list">
+              {queue.map((row) => (
+                <article className="workflow-queue-row" key={row.id}>
+                  <div>
+                    <div className="workflow-queue-title">{row.title}</div>
+                    <div className="workflow-queue-meta">آخر تحديث: {row.date}</div>
+                  </div>
+                  <div className="workflow-queue-center">
+                    <span className={`workflow-status is-${statusClass(row.status)}`}>{row.status}</span>
+                    <div className="workflow-next-action">{row.nextAction}</div>
+                  </div>
+                  <div className="workflow-queue-actions">
+                    {isReadinessActionBlocked(inGapMode, row.href) ? (
+                      <button
+                        type="button"
+                        className="oms-btn oms-btn-primary workflow-action-disabled"
+                        disabled
+                        title={quickActionBlockedHint}
+                      >
+                        تنفيذ الآن
+                      </button>
+                    ) : (
+                      <Link
+                        href={resolveReadinessNavigationHref(inGapMode, row.href)}
+                        className="oms-btn oms-btn-primary"
+                      >
+                        تنفيذ الآن
+                      </Link>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
         ) : (
-          <div className="workflow-queue-list">
-            {queue.map((row) => (
-              <article className="workflow-queue-row" key={row.id}>
-                <div>
-                  <div className="workflow-queue-title">{row.title}</div>
-                  <div className="workflow-queue-meta">آخر تحديث: {row.date}</div>
-                </div>
-                <div className="workflow-queue-center">
-                  <span className={`workflow-status is-${statusClass(row.status)}`}>{row.status}</span>
-                  <div className="workflow-next-action">{row.nextAction}</div>
-                </div>
-                <div className="workflow-queue-actions">
-                  {isReadinessActionBlocked(inGapMode, row.href) ? (
-                    <button
-                      type="button"
-                      className="oms-btn oms-btn-primary workflow-action-disabled"
-                      disabled
-                      title={quickActionBlockedHint}
-                    >
-                      تنفيذ الآن
-                    </button>
-                  ) : (
-                    <Link
-                      href={resolveReadinessNavigationHref(inGapMode, row.href)}
-                      className="oms-btn oms-btn-primary"
-                    >
-                      تنفيذ الآن
-                    </Link>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
+          <div className="workflow-empty">تم إخفاء طابور المشاريع.</div>
         )}
       </section>
 
       <style>{`
+        .workflow-hierarchy-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .workflow-hierarchy-meta {
+          margin-top: 6px;
+          color: var(--oms-text-muted);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+
+        .workflow-hierarchy-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .workflow-section-tabs {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .workflow-section-tab {
+          min-height: 36px;
+          border-radius: var(--oms-radius-sm);
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(8, 14, 26, 0.78);
+          color: var(--oms-text-muted);
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .workflow-section-tab.is-open {
+          border-color: var(--oms-border-accent);
+          background: linear-gradient(180deg, rgba(127, 90, 240, 0.34), rgba(86, 60, 158, 0.22));
+          color: var(--oms-text);
+        }
+
+        .workflow-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .workflow-panel-highlight {
+          border-color: rgba(167, 115, 255, 0.72);
+          box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          animation: workflow-panel-pulse 1.1s ease;
+        }
+
+        @keyframes workflow-panel-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(128, 69, 242, 0);
+          }
+          35% {
+            box-shadow: 0 0 0 2px rgba(167, 115, 255, 0.28), 0 0 32px rgba(128, 69, 242, 0.24);
+          }
+          100% {
+            box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          }
+        }
+
         .workflow-stage-grid {
           margin-top: 12px;
           display: grid;
@@ -276,10 +560,10 @@ export default function WorkflowsPage() {
           gap: 8px;
         }
 
-        .workflow-queue-head {
+        .workflow-queue-head-actions {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           gap: 10px;
           flex-wrap: wrap;
         }
@@ -405,9 +689,34 @@ export default function WorkflowsPage() {
           }
         }
 
+        @media (max-width: 900px) {
+          .workflow-section-tabs {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
         @media (max-width: 720px) {
           .workflow-stage-grid {
             grid-template-columns: 1fr;
+          }
+
+          .workflow-section-tabs {
+            grid-template-columns: 1fr;
+          }
+
+          .workflow-hierarchy-actions .oms-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .workflow-queue-head-actions {
+            width: 100%;
+            justify-content: stretch;
+          }
+
+          .workflow-queue-head-actions .oms-btn {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>
@@ -494,4 +803,16 @@ function statusClass(status: StrategyReport["status"]) {
 function isNoRisk(risks: string[]) {
   const first = risks[0]?.trim() ?? "";
   return first.startsWith("لا توجد مخاطر");
+}
+
+function resolveWorkflowSectionFromHash(hash: string): WorkflowSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(WORKFLOW_SECTION_ANCHORS) as Array<[WorkflowSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
+}
+
+function toArabicNumber(value: number) {
+  return new Intl.NumberFormat("ar-SA").format(value);
 }

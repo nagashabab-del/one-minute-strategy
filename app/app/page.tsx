@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
 import FirstRunOnboardingWizard from "./_components/first-run-onboarding-wizard";
 import StrategyReadinessBanner, { useStrategyReadinessMode } from "./_components/strategy-readiness-banner";
 import {
@@ -24,13 +25,20 @@ type PriorityItem = {
 };
 
 const PROJECTS_HUB_HREF = "/app/strategy/workspace?entry=projects";
+const NEW_PROJECT_HUB_HREF = "/app/strategy/workspace?entry=projects&create=1";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [isNavigating, startNavigation] = useTransition();
+  const [navigationHint, setNavigationHint] = useState("");
   const readiness = useStrategyReadinessMode();
   const inGapMode = readiness.mode === "gap";
   const quickStart = resolveQuickStartForReadiness(readiness.mode);
   const quickActionBlockedHint = resolveReadinessBlockedHint(inGapMode);
-  const [showFirstRunOnboarding, setShowFirstRunOnboarding] = useState<boolean>(() => shouldShowFirstRunOnboarding());
+  const [needsFirstRunOnboarding, setNeedsFirstRunOnboarding] = useState<boolean>(() =>
+    shouldShowFirstRunOnboarding()
+  );
+  const [showFirstRunOnboarding, setShowFirstRunOnboarding] = useState(false);
   const reports = useMemo(() => readReports(), []);
   const approvedCount = reports.filter((item) => item.status === "معتمد").length;
   const completedCount = reports.filter((item) => item.status === "مكتمل").length;
@@ -51,7 +59,15 @@ export default function DashboardPage() {
 
   const closeOnboarding = (skipped: boolean) => {
     completeFirstRunOnboarding(skipped);
+    setNeedsFirstRunOnboarding(false);
     setShowFirstRunOnboarding(false);
+  };
+
+  const navigateWithFeedback = (href: string, label: string) => {
+    setNavigationHint(`جاري الانتقال إلى ${label}...`);
+    startNavigation(() => {
+      router.push(href);
+    });
   };
 
   return (
@@ -69,23 +85,64 @@ export default function DashboardPage() {
         مركز قيادة القرار والتنفيذ: راقب الجاهزية، اعرف الأولويات، واتخذ الإجراء التالي فورًا.
       </p>
 
+      {needsFirstRunOnboarding && !showFirstRunOnboarding ? (
+        <section className="oms-panel cockpit-onboarding-hint">
+          <div>
+            <h2 className="oms-section-title">جولة تعريفية سريعة</h2>
+            <p className="cockpit-quick-start-text">
+              الجولة التعريفية اختيارية. يمكنك تشغيلها الآن أو تجاوزها والبدء مباشرة.
+            </p>
+          </div>
+          <div className="cockpit-onboarding-actions">
+            <button
+              type="button"
+              className="oms-btn oms-btn-primary"
+              onClick={() => setShowFirstRunOnboarding(true)}
+            >
+              بدء الجولة التعريفية
+            </button>
+            <button
+              type="button"
+              className="oms-btn oms-btn-ghost"
+              onClick={() => closeOnboarding(true)}
+            >
+              تخطي الآن
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="oms-panel cockpit-quick-start">
         <h2 className="oms-section-title">ابدأ الآن</h2>
         <p className="cockpit-quick-start-text">
-          اختر المسار مباشرة: ابدأ تحليل جديد، افتح مشروعًا سابقًا، أو راجع النظرة العامة.
+          اختر مسارك مباشرة: أنشئ مشروعًا جديدًا أو افتح مشروعًا سابقًا من الأرشيف.
         </p>
         <div className="cockpit-quick-actions">
-          <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
-            تحليل جديد
-          </Link>
-          <Link className="oms-btn oms-btn-ghost" href={PROJECTS_HUB_HREF}>
+          <button
+            type="button"
+            className="oms-btn oms-btn-primary"
+            disabled={isNavigating}
+            onClick={() => navigateWithFeedback(NEW_PROJECT_HUB_HREF, "مشروع جديد")}
+          >
+            مشروع جديد
+          </button>
+          <button
+            type="button"
+            className="oms-btn oms-btn-ghost"
+            disabled={isNavigating}
+            onClick={() => navigateWithFeedback(PROJECTS_HUB_HREF, "فتح مشروع سابق")}
+          >
             فتح مشروع سابق
-          </Link>
-          <Link className="oms-btn oms-btn-ghost" href="/app">
-            نظرة عامة
-          </Link>
+          </button>
         </div>
       </section>
+
+      {isNavigating ? (
+        <div className="cockpit-nav-loading" role="status" aria-live="polite" aria-atomic="true">
+          <span className="cockpit-nav-loading-spinner" aria-hidden="true" />
+          <span>{navigationHint || "جاري الانتقال..."}</span>
+        </div>
+      ) : null}
 
       <StrategyReadinessBanner contextLabel="نظرة عامة" />
 
@@ -111,16 +168,21 @@ export default function DashboardPage() {
                 {nextPriority.actionLabel}
               </button>
             ) : (
-              <Link
+              <button
+                type="button"
                 className="oms-btn oms-btn-primary"
-                href={
-                  nextPriority
-                    ? resolveReadinessNavigationHref(inGapMode, nextPriority.href)
-                    : quickStart.href
+                disabled={isNavigating}
+                onClick={() =>
+                  navigateWithFeedback(
+                    nextPriority
+                      ? resolveReadinessNavigationHref(inGapMode, nextPriority.href)
+                      : quickStart.href,
+                    nextPriority?.actionLabel ?? quickStart.label
+                  )
                 }
               >
                 {nextPriority?.actionLabel ?? quickStart.label}
-              </Link>
+              </button>
             )}
             {inGapMode ? (
               <button
@@ -132,9 +194,14 @@ export default function DashboardPage() {
                 فتح التقارير
               </button>
             ) : (
-              <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+              <button
+                type="button"
+                className="oms-btn oms-btn-ghost"
+                disabled={isNavigating}
+                onClick={() => navigateWithFeedback("/app/reports", "فتح التقارير")}
+              >
                 فتح التقارير
-              </Link>
+              </button>
             )}
           </div>
         </div>
@@ -170,9 +237,14 @@ export default function DashboardPage() {
             <div className="cockpit-empty">
               <p>لا توجد أولويات إضافية الآن. يمكنك متابعة التنفيذ من الإجراء التالي.</p>
               <div className="cockpit-empty-actions">
-                <Link className="oms-btn oms-btn-primary" href={quickStart.href}>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-primary"
+                  disabled={isNavigating}
+                  onClick={() => navigateWithFeedback(quickStart.href, quickStart.label)}
+                >
                   {quickStart.label}
-                </Link>
+                </button>
                 {inGapMode ? (
                   <button
                     type="button"
@@ -183,9 +255,14 @@ export default function DashboardPage() {
                     فتح التقارير
                   </button>
                 ) : (
-                  <Link className="oms-btn oms-btn-ghost" href="/app/reports">
+                  <button
+                    type="button"
+                    className="oms-btn oms-btn-ghost"
+                    disabled={isNavigating}
+                    onClick={() => navigateWithFeedback("/app/reports", "فتح التقارير")}
+                  >
                     فتح التقارير
-                  </Link>
+                  </button>
                 )}
               </div>
             </div>
@@ -209,12 +286,19 @@ export default function DashboardPage() {
                       {item.actionLabel}
                     </button>
                   ) : (
-                    <Link
-                      href={resolveReadinessNavigationHref(inGapMode, item.href)}
+                    <button
+                      type="button"
                       className={item.tone === "warning" ? "oms-btn oms-btn-primary" : "oms-btn oms-btn-ghost"}
+                      disabled={isNavigating}
+                      onClick={() =>
+                        navigateWithFeedback(
+                          resolveReadinessNavigationHref(inGapMode, item.href),
+                          item.actionLabel
+                        )
+                      }
                     >
                       {item.actionLabel}
-                    </Link>
+                    </button>
                   )}
                 </div>
               ))}
@@ -228,12 +312,22 @@ export default function DashboardPage() {
             <div className="cockpit-empty">
               <p>لا توجد تقارير بعد. ابدأ تحليل جديد ليظهر هنا موجز القرار التنفيذي.</p>
               <div className="cockpit-empty-actions">
-                <Link className="oms-btn oms-btn-primary" href="/app/strategy/brief">
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-primary"
+                  disabled={isNavigating}
+                  onClick={() => navigateWithFeedback(NEW_PROJECT_HUB_HREF, "ابدأ تحليل جديد")}
+                >
                   ابدأ تحليل جديد
-                </Link>
-                <Link className="oms-btn oms-btn-ghost" href={PROJECTS_HUB_HREF}>
+                </button>
+                <button
+                  type="button"
+                  className="oms-btn oms-btn-ghost"
+                  disabled={isNavigating}
+                  onClick={() => navigateWithFeedback(PROJECTS_HUB_HREF, "فتح مشروع سابق")}
+                >
                   فتح مشروع سابق
-                </Link>
+                </button>
               </div>
             </div>
           ) : (
@@ -270,6 +364,19 @@ export default function DashboardPage() {
           background: linear-gradient(145deg, rgba(20,33,58,0.92), rgba(14,24,41,0.86));
         }
 
+        .cockpit-onboarding-hint {
+          margin-top: 12px;
+          display: grid;
+          gap: 10px;
+          background: linear-gradient(145deg, rgba(26,35,59,0.92), rgba(16,24,42,0.88));
+        }
+
+        .cockpit-onboarding-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .cockpit-quick-start-text {
           color: var(--oms-text-muted);
           line-height: 1.75;
@@ -279,6 +386,29 @@ export default function DashboardPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+
+        .cockpit-nav-loading {
+          margin-top: 10px;
+          border-radius: var(--oms-radius-md);
+          border: 1px solid rgba(174,128,255,0.45);
+          background: rgba(34,16,64,0.45);
+          padding: 10px 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #e2d6ff;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .cockpit-nav-loading-spinner {
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          border: 2px solid rgba(214,196,255,0.28);
+          border-top-color: #cdb2ff;
+          animation: cockpitSpin 0.9s linear infinite;
         }
 
         .cockpit-next-action {
@@ -428,6 +558,15 @@ export default function DashboardPage() {
           white-space: nowrap;
         }
 
+        @keyframes cockpitSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
         @media (max-width: 1080px) {
           .cockpit-kpis {
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -439,6 +578,11 @@ export default function DashboardPage() {
         }
 
         @media (max-width: 720px) {
+          .cockpit-onboarding-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
           .cockpit-quick-actions {
             display: grid;
             grid-template-columns: 1fr;
@@ -503,7 +647,7 @@ function buildPriorities(input: {
     items.push({
       title: "لا يوجد تحليل منشور",
       description: "ابدأ أول تحليل لإنشاء خط قرار قابل للتنفيذ.",
-      href: "/app/strategy",
+      href: NEW_PROJECT_HUB_HREF,
       actionLabel: "ابدأ التحليل",
       tone: "warning",
     });

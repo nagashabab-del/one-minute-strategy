@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BUNDLE_EXPORT_ACTIONS,
   BundleExportAction,
@@ -45,6 +45,25 @@ type ExportActionOptions = { silent?: boolean; skipBusy?: boolean };
 type ExportActionResult = { ok: true } | { ok: false; error: unknown };
 type ReportBusyActions = Record<string, ReportExportAction | undefined>;
 type BundleBusyReports = Record<string, true | undefined>;
+type ReportSectionKey = "filters" | "kpis" | "list";
+
+const REPORT_SECTION_DEFAULTS: Record<ReportSectionKey, boolean> = {
+  filters: true,
+  kpis: true,
+  list: true,
+};
+
+const REPORT_SECTION_LABELS: Record<ReportSectionKey, string> = {
+  filters: "الفلاتر والتصدير",
+  kpis: "المؤشرات",
+  list: "قائمة التقارير",
+};
+
+const REPORT_SECTION_ANCHORS: Record<ReportSectionKey, string> = {
+  filters: "reports-filters",
+  kpis: "reports-kpis",
+  list: "reports-list",
+};
 
 export default function ReportsPage() {
   const reportsSignature = useSyncExternalStore(
@@ -68,6 +87,18 @@ export default function ReportsPage() {
   const [bundleBusyReports, setBundleBusyReports] = useState<BundleBusyReports>({});
   const [busyActionsByReport, setBusyActionsByReport] = useState<ReportBusyActions>({});
   const [isCsvExporting, setIsCsvExporting] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState<Record<ReportSectionKey, boolean>>(REPORT_SECTION_DEFAULTS);
+  const [highlightedSection, setHighlightedSection] = useState<ReportSectionKey | null>(null);
+  const sectionRefs = useRef<Record<ReportSectionKey, HTMLElement | null>>({
+    filters: null,
+    kpis: null,
+    list: null,
+  });
+  const sectionFocusRefs = useRef<Record<ReportSectionKey, HTMLElement | null>>({
+    filters: null,
+    kpis: null,
+    list: null,
+  });
 
   const statusCounts = useMemo(
     () => ({
@@ -442,6 +473,54 @@ export default function ReportsPage() {
     if (!retryTarget.reportId) return false;
     return isReportBusy(retryTarget.reportId) || isBundleBusy(retryTarget.reportId);
   })();
+  const sectionKeys = Object.keys(REPORT_SECTION_LABELS) as ReportSectionKey[];
+  const openSectionsCount = sectionKeys.filter((section) => sectionsOpen[section]).length;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const section = resolveReportSectionFromHash(window.location.hash);
+    if (!section) return;
+    navigateToSection(section);
+  }, []);
+
+  function setSectionRef(section: ReportSectionKey, node: HTMLElement | null) {
+    sectionRefs.current[section] = node;
+  }
+
+  function setSectionFocusRef(section: ReportSectionKey, node: HTMLElement | null) {
+    sectionFocusRefs.current[section] = node;
+  }
+
+  function navigateToSection(section: ReportSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = REPORT_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
 
   const triggerDownload = (fileName: string, mimeType: string, payload: BlobPart[]) => {
     if (typeof window === "undefined") {
@@ -504,249 +583,441 @@ export default function ReportsPage() {
         </div>
       ) : reportsSignature !== "server" ? (
         <>
-          <section className="oms-panel reports-toolbar">
-            <div className="reports-toolbar-grid">
-              <label className="reports-field">
-                <span className="reports-field-label">بحث</span>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="ابحث باسم المشروع أو القرار التنفيذي"
-                  className="reports-input"
-                />
-              </label>
-
-              <label className="reports-field">
-                <span className="reports-field-label">الحالة</span>
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                  className="reports-input"
-                >
-                  <option value="الكل">الكل</option>
-                  <option value="معتمد">معتمد</option>
-                  <option value="مكتمل">مكتمل</option>
-                  <option value="مسودة">مسودة</option>
-                </select>
-              </label>
-
-              <label className="reports-field">
-                <span className="reports-field-label">الفرز</span>
-                <select
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value as SortOption)}
-                  className="reports-input"
-                >
-                  <option value="الأحدث">الأحدث</option>
-                  <option value="الأقدم">الأقدم</option>
-                  <option value="الحالة">حسب الحالة</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="reports-toolbar-actions">
-              {inGapMode ? (
+          <section className="oms-panel">
+            <div className="reports-hierarchy-head">
+              <div>
+                <h2 className="oms-section-title">هرمية عرض شاشة التقارير</h2>
+                <div className="reports-hierarchy-meta">
+                  مفتوح الآن: {openSectionsCount}/{sectionKeys.length}
+                </div>
+              </div>
+              <div className="reports-hierarchy-actions">
                 <button
+                  className="oms-btn oms-btn-ghost"
                   type="button"
-                  className="oms-btn oms-btn-ghost reports-toolbar-export reports-action-disabled"
-                  disabled
-                  title={quickActionBlockedHint}
+                  onClick={() =>
+                    setSectionsOpen({
+                      filters: true,
+                      kpis: true,
+                      list: true,
+                    })
+                  }
                 >
-                  تصدير CSV ({filteredReports.length})
+                  فتح كل التفاصيل
                 </button>
-              ) : (
                 <button
+                  className="oms-btn oms-btn-ghost"
                   type="button"
-                  className="oms-btn oms-btn-ghost reports-toolbar-export"
-                  onClick={onExportFilteredCsv}
-                  disabled={isCsvExporting}
+                  onClick={() =>
+                    setSectionsOpen({
+                      filters: false,
+                      kpis: false,
+                      list: false,
+                    })
+                  }
                 >
-                  {isCsvExporting ? "جاري تصدير CSV..." : `تصدير CSV (${filteredReports.length})`}
+                  إغلاق كل التفاصيل
                 </button>
-              )}
+                <button
+                  className="oms-btn oms-btn-ghost"
+                  type="button"
+                  onClick={() => setSectionsOpen(REPORT_SECTION_DEFAULTS)}
+                >
+                  الوضع الافتراضي
+                </button>
+              </div>
             </div>
-            {exportFeedback ? (
-              <div className={`reports-export-feedback state-${exportFeedback.status}`}>
-                <span>{exportFeedback.text}</span>
-                {exportFeedback.status === "error" && retryTarget ? (
-                  <button
-                    type="button"
-                    className="reports-feedback-retry"
-                    onClick={() => void onRetryLastFailedExport()}
-                    disabled={isRetryActionBusy}
-                  >
-                    {retryButtonLabel}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="reports-kpis">
-              <div className="oms-kpi-card">
-                <div className="oms-kpi-label">إجمالي التقارير</div>
-                <div className="oms-kpi-value reports-kpi-value">{statusCounts.total}</div>
-              </div>
-              <div className="oms-kpi-card">
-                <div className="oms-kpi-label">معتمدة</div>
-                <div className="oms-kpi-value reports-kpi-value">{statusCounts.approved}</div>
-              </div>
-              <div className="oms-kpi-card">
-                <div className="oms-kpi-label">مكتملة</div>
-                <div className="oms-kpi-value reports-kpi-value">{statusCounts.completed}</div>
-              </div>
-              <div className="oms-kpi-card">
-                <div className="oms-kpi-label">مسودات</div>
-                <div className="oms-kpi-value reports-kpi-value">{statusCounts.draft}</div>
-              </div>
+            <div className="reports-section-tabs">
+              {sectionKeys.map((section) => (
+                <button
+                  key={section}
+                  className={`reports-section-tab ${sectionsOpen[section] ? "is-open" : ""}`}
+                  type="button"
+                  onClick={() => navigateToSection(section)}
+                >
+                  {REPORT_SECTION_LABELS[section]}
+                </button>
+              ))}
             </div>
           </section>
 
-          {filteredReports.length === 0 ? (
-            <section className="oms-panel">
-              <div style={{ fontWeight: 900, fontSize: 18 }}>لا توجد نتائج مطابقة</div>
-              <p className="oms-text">غيّر الفلتر أو نص البحث لعرض تقارير أخرى.</p>
-            </section>
-          ) : (
-            <div className="oms-list">
-              {filteredReports.map((report) => (
-                <article key={report.id} className="oms-panel reports-card">
-                  <div className="reports-card-main">
-                    <div className="reports-card-head">
-                      <h2 className="reports-card-title">{report.title}</h2>
-                      <div className="reports-card-badges">
-                        <span className={`reports-type-badge type-${report.reportType}`}>
-                          {report.reportType === "financial" ? "مالي" : "استراتيجي"}
-                        </span>
-                        <span className={`reports-status ${statusClass(report.status)}`}>{report.status}</span>
-                      </div>
-                    </div>
-                    <div className="reports-card-meta">تاريخ التحديث: {report.date}</div>
-                    <p className="reports-card-preview">{truncate(report.executiveDecision, 130)}</p>
-                    {report.regulatoryCompliance ? (
-                      <div className="reports-card-compliance">
-                        <span className={`reports-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
-                          امتثال تنظيمي: {report.regulatoryCompliance.readiness}
-                        </span>
-                        <span className="reports-card-meta">
-                          مكتمل {report.regulatoryCompliance.completedCount}/{report.regulatoryCompliance.requiredCount}
-                        </span>
-                      </div>
+          <section
+            id={REPORT_SECTION_ANCHORS.filters}
+            ref={(node) => setSectionRef("filters", node)}
+            className={`oms-panel reports-toolbar ${highlightedSection === "filters" ? "reports-panel-highlight" : ""}`}
+          >
+            <div className="reports-section-head">
+              <h2 className="oms-section-title">الفلاتر والتصدير</h2>
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                ref={(node) => setSectionFocusRef("filters", node)}
+                onClick={() => (sectionsOpen.filters ? setSectionsOpen((prev) => ({ ...prev, filters: false })) : navigateToSection("filters"))}
+              >
+                {sectionsOpen.filters ? "إخفاء" : "عرض"}
+              </button>
+            </div>
+            {sectionsOpen.filters ? (
+              <>
+                <div className="reports-toolbar-grid">
+                  <label className="reports-field">
+                    <span className="reports-field-label">بحث</span>
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="ابحث باسم المشروع أو القرار التنفيذي"
+                      className="reports-input"
+                    />
+                  </label>
+
+                  <label className="reports-field">
+                    <span className="reports-field-label">الحالة</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                      className="reports-input"
+                    >
+                      <option value="الكل">الكل</option>
+                      <option value="معتمد">معتمد</option>
+                      <option value="مكتمل">مكتمل</option>
+                      <option value="مسودة">مسودة</option>
+                    </select>
+                  </label>
+
+                  <label className="reports-field">
+                    <span className="reports-field-label">الفرز</span>
+                    <select
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value as SortOption)}
+                      className="reports-input"
+                    >
+                      <option value="الأحدث">الأحدث</option>
+                      <option value="الأقدم">الأقدم</option>
+                      <option value="الحالة">حسب الحالة</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="reports-toolbar-actions">
+                  {inGapMode ? (
+                    <button
+                      type="button"
+                      className="oms-btn oms-btn-ghost reports-toolbar-export reports-action-disabled"
+                      disabled
+                      title={quickActionBlockedHint}
+                    >
+                      تصدير CSV ({filteredReports.length})
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="oms-btn oms-btn-ghost reports-toolbar-export"
+                      onClick={onExportFilteredCsv}
+                      disabled={isCsvExporting}
+                    >
+                      {isCsvExporting ? "جاري تصدير CSV..." : `تصدير CSV (${filteredReports.length})`}
+                    </button>
+                  )}
+                </div>
+                {exportFeedback ? (
+                  <div className={`reports-export-feedback state-${exportFeedback.status}`}>
+                    <span>{exportFeedback.text}</span>
+                    {exportFeedback.status === "error" && retryTarget ? (
+                      <button
+                        type="button"
+                        className="reports-feedback-retry"
+                        onClick={() => void onRetryLastFailedExport()}
+                        disabled={isRetryActionBusy}
+                      >
+                        {retryButtonLabel}
+                      </button>
                     ) : null}
                   </div>
-                  <div className="reports-card-actions">
-                    {inGapMode ? (
-                      <>
-                        <button
-                          type="button"
-                          className="oms-btn oms-btn-primary reports-open-btn reports-action-disabled"
-                          disabled
-                          title={quickActionBlockedHint}
-                        >
-                          فتح التقرير
-                        </button>
-                        <div className="reports-actions-row">
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
-                            disabled
-                            title={quickActionBlockedHint}
-                          >
-                            TXT
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
-                            disabled
-                            title={quickActionBlockedHint}
-                          >
-                            DOCX
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
-                            disabled
-                            title={quickActionBlockedHint}
-                          >
-                            PDF
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
-                            disabled
-                            title={quickActionBlockedHint}
-                          >
-                            حزمة
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
-                            disabled
-                            title={quickActionBlockedHint}
-                          >
-                            نسخ
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
-                          فتح التقرير
-                        </Link>
-                        <div className="reports-actions-row">
-                          {isBundleBusy(report.id) ? (
-                            <div className="reports-bundle-loading">جاري تجهيز ملفات الحزمة...</div>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => onExportReportTxt(report)}
-                            disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
-                          >
-                            {isReportActionBusy(report.id, "txt") ? "جاري TXT" : "TXT"}
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => void onExportReportDoc(report)}
-                            disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
-                          >
-                            {isReportActionBusy(report.id, "docx") ? "جاري DOCX" : "DOCX"}
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => void onExportReportPdf(report)}
-                            disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
-                          >
-                            {isReportActionBusy(report.id, "pdf") ? "جاري PDF" : "PDF"}
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => void onExportReportBundle(report)}
-                            disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
-                          >
-                            {isBundleBusy(report.id) ? "جاري الحزمة..." : "حزمة"}
-                          </button>
-                          <button
-                            type="button"
-                            className="oms-btn oms-btn-ghost reports-export-btn"
-                            onClick={() => void onCopyReport(report)}
-                            disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
-                          >
-                            {isReportActionBusy(report.id, "copy") ? "جاري نسخ" : "نسخ"}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
+                ) : null}
+              </>
+            ) : (
+              <div className="workflow-empty">تم إخفاء الفلاتر والتصدير.</div>
+            )}
+          </section>
+
+          <section
+            id={REPORT_SECTION_ANCHORS.kpis}
+            ref={(node) => setSectionRef("kpis", node)}
+            className={`oms-panel ${highlightedSection === "kpis" ? "reports-panel-highlight" : ""}`}
+          >
+            <div className="reports-section-head">
+              <h2 className="oms-section-title">مؤشرات التقارير</h2>
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                ref={(node) => setSectionFocusRef("kpis", node)}
+                onClick={() => (sectionsOpen.kpis ? setSectionsOpen((prev) => ({ ...prev, kpis: false })) : navigateToSection("kpis"))}
+              >
+                {sectionsOpen.kpis ? "إخفاء" : "عرض"}
+              </button>
             </div>
-          )}
+            {sectionsOpen.kpis ? (
+              <div className="reports-kpis">
+                <div className="oms-kpi-card">
+                  <div className="oms-kpi-label">إجمالي التقارير</div>
+                  <div className="oms-kpi-value reports-kpi-value">{statusCounts.total}</div>
+                </div>
+                <div className="oms-kpi-card">
+                  <div className="oms-kpi-label">معتمدة</div>
+                  <div className="oms-kpi-value reports-kpi-value">{statusCounts.approved}</div>
+                </div>
+                <div className="oms-kpi-card">
+                  <div className="oms-kpi-label">مكتملة</div>
+                  <div className="oms-kpi-value reports-kpi-value">{statusCounts.completed}</div>
+                </div>
+                <div className="oms-kpi-card">
+                  <div className="oms-kpi-label">مسودات</div>
+                  <div className="oms-kpi-value reports-kpi-value">{statusCounts.draft}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="workflow-empty">تم إخفاء مؤشرات التقارير.</div>
+            )}
+          </section>
+
+          <section
+            id={REPORT_SECTION_ANCHORS.list}
+            ref={(node) => setSectionRef("list", node)}
+            className={`oms-panel ${highlightedSection === "list" ? "reports-panel-highlight" : ""}`}
+          >
+            <div className="reports-section-head">
+              <h2 className="oms-section-title">قائمة التقارير</h2>
+              <button
+                className="oms-btn oms-btn-ghost"
+                type="button"
+                ref={(node) => setSectionFocusRef("list", node)}
+                onClick={() => (sectionsOpen.list ? setSectionsOpen((prev) => ({ ...prev, list: false })) : navigateToSection("list"))}
+              >
+                {sectionsOpen.list ? "إخفاء" : "عرض"}
+              </button>
+            </div>
+            {sectionsOpen.list ? (
+              filteredReports.length === 0 ? (
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>لا توجد نتائج مطابقة</div>
+                  <p className="oms-text">غيّر الفلتر أو نص البحث لعرض تقارير أخرى.</p>
+                </div>
+              ) : (
+                <div className="oms-list">
+                  {filteredReports.map((report) => (
+                    <article key={report.id} className="oms-panel reports-card">
+                      <div className="reports-card-main">
+                        <div className="reports-card-head">
+                          <h2 className="reports-card-title">{report.title}</h2>
+                          <div className="reports-card-badges">
+                            <span className={`reports-type-badge type-${report.reportType}`}>
+                              {report.reportType === "financial" ? "مالي" : "استراتيجي"}
+                            </span>
+                            <span className={`reports-status ${statusClass(report.status)}`}>{report.status}</span>
+                          </div>
+                        </div>
+                        <div className="reports-card-meta">تاريخ التحديث: {report.date}</div>
+                        <p className="reports-card-preview">{truncate(report.executiveDecision, 130)}</p>
+                        {report.regulatoryCompliance ? (
+                          <div className="reports-card-compliance">
+                            <span className={`reports-compliance-badge ${complianceClass(report.regulatoryCompliance.readiness)}`}>
+                              امتثال تنظيمي: {report.regulatoryCompliance.readiness}
+                            </span>
+                            <span className="reports-card-meta">
+                              مكتمل {report.regulatoryCompliance.completedCount}/{report.regulatoryCompliance.requiredCount}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="reports-card-actions">
+                        {inGapMode ? (
+                          <>
+                            <button
+                              type="button"
+                              className="oms-btn oms-btn-primary reports-open-btn reports-action-disabled"
+                              disabled
+                              title={quickActionBlockedHint}
+                            >
+                              فتح التقرير
+                            </button>
+                            <div className="reports-actions-row">
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                                disabled
+                                title={quickActionBlockedHint}
+                              >
+                                TXT
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                                disabled
+                                title={quickActionBlockedHint}
+                              >
+                                DOCX
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                                disabled
+                                title={quickActionBlockedHint}
+                              >
+                                PDF
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                                disabled
+                                title={quickActionBlockedHint}
+                              >
+                                حزمة
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn reports-action-disabled"
+                                disabled
+                                title={quickActionBlockedHint}
+                              >
+                                نسخ
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Link href={`/app/reports/${report.id}`} className="oms-btn oms-btn-primary reports-open-btn">
+                              فتح التقرير
+                            </Link>
+                            <div className="reports-actions-row">
+                              {isBundleBusy(report.id) ? (
+                                <div className="reports-bundle-loading">جاري تجهيز ملفات الحزمة...</div>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn"
+                                onClick={() => onExportReportTxt(report)}
+                                disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
+                              >
+                                {isReportActionBusy(report.id, "txt") ? "جاري TXT" : "TXT"}
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn"
+                                onClick={() => void onExportReportDoc(report)}
+                                disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
+                              >
+                                {isReportActionBusy(report.id, "docx") ? "جاري DOCX" : "DOCX"}
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn"
+                                onClick={() => void onExportReportPdf(report)}
+                                disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
+                              >
+                                {isReportActionBusy(report.id, "pdf") ? "جاري PDF" : "PDF"}
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn"
+                                onClick={() => void onExportReportBundle(report)}
+                                disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
+                              >
+                                {isBundleBusy(report.id) ? "جاري الحزمة..." : "حزمة"}
+                              </button>
+                              <button
+                                type="button"
+                                className="oms-btn oms-btn-ghost reports-export-btn"
+                                onClick={() => void onCopyReport(report)}
+                                disabled={isBundleBusy(report.id) || isReportBusy(report.id)}
+                              >
+                                {isReportActionBusy(report.id, "copy") ? "جاري نسخ" : "نسخ"}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="workflow-empty">تم إخفاء قائمة التقارير.</div>
+            )}
+          </section>
 
           <style>{`
+            .reports-hierarchy-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              flex-wrap: wrap;
+            }
+
+            .reports-hierarchy-meta {
+              margin-top: 6px;
+              color: var(--oms-text-muted);
+              font-size: 12px;
+              line-height: 1.6;
+            }
+
+            .reports-hierarchy-actions {
+              display: flex;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+
+            .reports-section-tabs {
+              margin-top: 10px;
+              display: grid;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 8px;
+            }
+
+            .reports-section-tab {
+              min-height: 36px;
+              border-radius: var(--oms-radius-sm);
+              border: 1px solid var(--oms-border-strong);
+              background: rgba(8, 14, 26, 0.78);
+              color: var(--oms-text-muted);
+              font-weight: 800;
+              cursor: pointer;
+            }
+
+            .reports-section-tab.is-open {
+              border-color: var(--oms-border-accent);
+              background: linear-gradient(180deg, rgba(127, 90, 240, 0.34), rgba(86, 60, 158, 0.22));
+              color: var(--oms-text);
+            }
+
+            .reports-section-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              flex-wrap: wrap;
+            }
+
+            .reports-panel-highlight {
+              border-color: rgba(167, 115, 255, 0.72);
+              box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+              animation: reports-panel-pulse 1.1s ease;
+            }
+
+            @keyframes reports-panel-pulse {
+              0% {
+                box-shadow: 0 0 0 0 rgba(128, 69, 242, 0);
+              }
+              35% {
+                box-shadow: 0 0 0 2px rgba(167, 115, 255, 0.28), 0 0 32px rgba(128, 69, 242, 0.24);
+              }
+              100% {
+                box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+              }
+            }
+
             .reports-toolbar-grid {
+              margin-top: 10px;
               display: grid;
               grid-template-columns: 1.5fr repeat(2, minmax(180px, 0.7fr));
               gap: 10px;
@@ -1024,6 +1295,10 @@ export default function ReportsPage() {
             }
 
             @media (max-width: 980px) {
+              .reports-section-tabs {
+                grid-template-columns: 1fr;
+              }
+
               .reports-toolbar-grid {
                 grid-template-columns: 1fr;
               }
@@ -1042,6 +1317,11 @@ export default function ReportsPage() {
               }
 
               .reports-open-btn {
+                width: 100%;
+                justify-content: center;
+              }
+
+              .reports-hierarchy-actions .oms-btn {
                 width: 100%;
                 justify-content: center;
               }
@@ -1075,6 +1355,14 @@ function statusRank(status: StrategyReport["status"]) {
   if (status === "معتمد") return 1;
   if (status === "مكتمل") return 2;
   return 3;
+}
+
+function resolveReportSectionFromHash(hash: string): ReportSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(REPORT_SECTION_ANCHORS) as Array<[ReportSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
 }
 
 function wait(ms: number) {

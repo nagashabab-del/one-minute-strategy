@@ -25,16 +25,9 @@ export const STRATEGY_STAGES: StrategyStageItem[] = [
   },
   {
     id: "dialogue",
-    title: "جلسة التحليل",
-    subtitle: "الحوار وتوليد المخرجات",
+    title: "الاستشارة التمهيدية",
+    subtitle: "صورة أولية قبل المراحل المتقدمة",
     href: "/app/strategy/dialogue",
-    tone: "decision",
-  },
-  {
-    id: "decision",
-    title: "القرار التنفيذي",
-    subtitle: "اعتماد القرار قبل التنفيذ",
-    href: "/app/strategy/decision",
     tone: "decision",
   },
   {
@@ -64,6 +57,13 @@ export const STRATEGY_STAGES: StrategyStageItem[] = [
     subtitle: "التصعيد والمعالجة",
     href: "/app/strategy/execution/risks",
     tone: "execution",
+  },
+  {
+    id: "decision",
+    title: "القرار التنفيذي النهائي",
+    subtitle: "اعتماد القرار بعد اكتمال جميع المدخلات",
+    href: "/app/strategy/decision",
+    tone: "decision",
   },
   {
     id: "review",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type BudgetLine = {
   id: string;
@@ -132,6 +132,7 @@ type BudgetAuditEntry = {
   lineId?: string;
 };
 type AuditFilter = "all" | "advances" | "increases" | "permissions";
+type BudgetSectionKey = "kpi" | "profitability" | "lines" | "advances" | "audit";
 
 type ProjectDataSnapshot = {
   eventType: string;
@@ -165,6 +166,30 @@ const REGULATORY_PATH_LABELS: Record<RegulatoryPathKey, string> = {
   gea: "الجهة المنظمة للمحتوى",
   traffic: "المرور",
   insurance: "التأمين",
+};
+
+const BUDGET_SECTION_DEFAULTS: Record<BudgetSectionKey, boolean> = {
+  kpi: true,
+  profitability: false,
+  lines: true,
+  advances: true,
+  audit: false,
+};
+
+const BUDGET_SECTION_LABELS: Record<BudgetSectionKey, string> = {
+  kpi: "مؤشرات المال",
+  profitability: "الربحية",
+  lines: "البنود",
+  advances: "العهد والالتزامات",
+  audit: "التدقيق",
+};
+
+const BUDGET_SECTION_ANCHORS: Record<BudgetSectionKey, string> = {
+  kpi: "budget-kpi",
+  profitability: "budget-profitability",
+  lines: "budget-lines",
+  advances: "budget-advances",
+  audit: "budget-audit",
 };
 
 const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionScope, boolean>> = {
@@ -261,6 +286,24 @@ export default function StrategyExecutionBudgetPage() {
   const [isAuditExpanded, setIsAuditExpanded] = useState(false);
   const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
   const [visibleAuditCount, setVisibleAuditCount] = useState(8);
+  const [sectionsOpen, setSectionsOpen] = useState<Record<BudgetSectionKey, boolean>>(
+    BUDGET_SECTION_DEFAULTS
+  );
+  const [highlightedSection, setHighlightedSection] = useState<BudgetSectionKey | null>(null);
+  const sectionRefs = useRef<Record<BudgetSectionKey, HTMLElement | null>>({
+    kpi: null,
+    profitability: null,
+    lines: null,
+    advances: null,
+    audit: null,
+  });
+  const sectionFocusRefs = useRef<Record<BudgetSectionKey, HTMLElement | null>>({
+    kpi: null,
+    profitability: null,
+    lines: null,
+    advances: null,
+    audit: null,
+  });
 
   useEffect(() => {
     const context = readProjectContext();
@@ -342,6 +385,36 @@ export default function StrategyExecutionBudgetPage() {
     plannedRevenue,
     actualRevenue,
   ]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    const section = resolveSectionFromHash(window.location.hash);
+    if (!section) return;
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    const timeout = window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+    return () => window.clearTimeout(timeout);
+  }, [isLoaded]);
 
   const activeReservedByLine = useMemo(() => {
     const map: Record<string, number> = {};
@@ -478,6 +551,51 @@ export default function StrategyExecutionBudgetPage() {
     { key: "increases", label: "رفع ميزانية" },
     { key: "permissions", label: "صلاحيات" },
   ];
+  const sectionKeys = Object.keys(BUDGET_SECTION_LABELS) as BudgetSectionKey[];
+  const openSectionsCount = sectionKeys.filter((section) => sectionsOpen[section]).length;
+
+  function setSectionRef(section: BudgetSectionKey, node: HTMLElement | null) {
+    sectionRefs.current[section] = node;
+  }
+
+  function setSectionFocusRef(section: BudgetSectionKey, node: HTMLElement | null) {
+    sectionFocusRefs.current[section] = node;
+  }
+
+  function navigateToSection(section: BudgetSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: true }));
+    setHighlightedSection(section);
+    if (typeof window === "undefined") return;
+
+    const anchor = BUDGET_SECTION_ANCHORS[section];
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, "", `${pathname}${search}#${anchor}`);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const sectionNode = sectionRefs.current[section];
+        if (sectionNode) {
+          const offset = window.matchMedia("(max-width: 720px)").matches ? 112 : 148;
+          const top = sectionNode.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        }
+        const focusNode = sectionFocusRefs.current[section];
+        if (focusNode) {
+          window.setTimeout(() => {
+            focusNode.focus({ preventScroll: true });
+          }, 260);
+        }
+      });
+    });
+
+    window.setTimeout(() => {
+      setHighlightedSection((current) => (current === section ? null : current));
+    }, 1200);
+  }
+
+  function toggleSection(section: BudgetSectionKey) {
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
+  }
 
   return (
     <main>
@@ -517,91 +635,206 @@ export default function StrategyExecutionBudgetPage() {
         </div>
       </section>
 
-      <section className="budget-kpi-grid">
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">إجمالي المخطط (شامل الضريبة)</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedTotal)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">المصروف الفعلي (شامل الضريبة)</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualTotal)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">الضريبة المخططة</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedVatTotal)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">الضريبة الفعلية</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualVatTotal)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">عهد مفتوحة (محجوزة)</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.reservedTotal)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">المتبقي بعد الالتزامات</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatSignedCurrency(summary.remainingAfterCommitment)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">الانحراف الكلي</div>
-          <div className="oms-kpi-value budget-kpi-value">{formatSignedPercent(summary.variancePct)}</div>
-        </article>
-        <article className="oms-kpi-card">
-          <div className="oms-kpi-label">العهد المتأخرة</div>
-          <div className="oms-kpi-value budget-kpi-value">{toArabicNumber(summary.overdueAdvances)}</div>
-        </article>
-      </section>
-
       <section className="oms-panel">
-        <h2 className="oms-section-title">قياس الربحية</h2>
-        <p className="oms-text">الإيرادات مقابل التكاليف قبل الضريبة وبعدها للحصول على قراءة ربحية أدق.</p>
-
-        <div className="budget-revenue-grid">
-          <label className="budget-field">
-            <span className="budget-field-label">الإيرادات المخططة</span>
-            <input
-              className="budget-input"
-              type="number"
-              min={0}
-              value={plannedRevenue}
-              disabled={!permissions.edit_budget_lines}
-              onChange={(event) => setPlannedRevenue(toNumber(event.target.value))}
-            />
-          </label>
-          <label className="budget-field">
-            <span className="budget-field-label">الإيرادات الفعلية</span>
-            <input
-              className="budget-input"
-              type="number"
-              min={0}
-              value={actualRevenue}
-              disabled={!permissions.edit_budget_lines}
-              onChange={(event) => setActualRevenue(toNumber(event.target.value))}
-            />
-          </label>
-          <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة مخططة (قبل الضريبة)</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitBeforeVat)}</div>
+        <div className="budget-hierarchy-head">
+          <div>
+            <h2 className="oms-section-title">هرمية عرض الخطة المالية</h2>
+            <div className="budget-hierarchy-meta">
+              مفتوح الآن: {toArabicNumber(openSectionsCount)} / {toArabicNumber(sectionKeys.length)}
+            </div>
           </div>
-          <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة فعلية (قبل الضريبة)</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitBeforeVat)}</div>
+          <div className="budget-hierarchy-actions">
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() =>
+                setSectionsOpen({
+                  kpi: true,
+                  profitability: true,
+                  lines: true,
+                  advances: true,
+                  audit: true,
+                })
+              }
+            >
+              فتح كل التفاصيل
+            </button>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() =>
+                setSectionsOpen({
+                  kpi: false,
+                  profitability: false,
+                  lines: false,
+                  advances: false,
+                  audit: false,
+                })
+              }
+            >
+              إغلاق كل التفاصيل
+            </button>
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => setSectionsOpen(BUDGET_SECTION_DEFAULTS)}
+            >
+              الوضع الافتراضي
+            </button>
           </div>
-          <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة مخططة (شامل الضريبة)</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitAfterVat)}</div>
-          </div>
-          <div className="budget-profit-box">
-            <div className="budget-profit-label">ربح/خسارة فعلية (شامل الضريبة)</div>
-            <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitAfterVat)}</div>
-          </div>
+        </div>
+        <div className="budget-section-tabs">
+          {sectionKeys.map((section) => (
+            <button
+              key={section}
+              className={`budget-section-tab ${sectionsOpen[section] ? "is-open" : ""}`}
+              type="button"
+              onClick={() => navigateToSection(section)}
+            >
+              {BUDGET_SECTION_LABELS[section]}
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="oms-panel">
+      <section
+        id={BUDGET_SECTION_ANCHORS.kpi}
+        ref={(node) => setSectionRef("kpi", node)}
+        className={`oms-panel ${highlightedSection === "kpi" ? "budget-panel-highlight" : ""}`}
+      >
+        <div className="budget-section-head">
+          <h2 className="oms-section-title">مؤشرات المال السريعة</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            ref={(node) => setSectionFocusRef("kpi", node)}
+            onClick={() => (sectionsOpen.kpi ? toggleSection("kpi") : navigateToSection("kpi"))}
+          >
+            {sectionsOpen.kpi ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.kpi ? (
+          <div className="budget-kpi-grid">
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">إجمالي المخطط (شامل الضريبة)</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedTotal)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">المصروف الفعلي (شامل الضريبة)</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualTotal)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">الضريبة المخططة</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.plannedVatTotal)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">الضريبة الفعلية</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.actualVatTotal)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">عهد مفتوحة (محجوزة)</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatCurrency(summary.reservedTotal)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">المتبقي بعد الالتزامات</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatSignedCurrency(summary.remainingAfterCommitment)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">الانحراف الكلي</div>
+              <div className="oms-kpi-value budget-kpi-value">{formatSignedPercent(summary.variancePct)}</div>
+            </article>
+            <article className="oms-kpi-card">
+              <div className="oms-kpi-label">العهد المتأخرة</div>
+              <div className="oms-kpi-value budget-kpi-value">{toArabicNumber(summary.overdueAdvances)}</div>
+            </article>
+          </div>
+        ) : (
+          <div className="workflow-empty">تم إخفاء مؤشرات المال. افتحها عند الحاجة.</div>
+        )}
+      </section>
+
+      <section
+        id={BUDGET_SECTION_ANCHORS.profitability}
+        ref={(node) => setSectionRef("profitability", node)}
+        className={`oms-panel ${highlightedSection === "profitability" ? "budget-panel-highlight" : ""}`}
+      >
+        <div className="budget-section-head">
+          <h2 className="oms-section-title">قياس الربحية</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            onClick={() =>
+              sectionsOpen.profitability ? toggleSection("profitability") : navigateToSection("profitability")
+            }
+          >
+            {sectionsOpen.profitability ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+        {sectionsOpen.profitability ? (
+          <>
+            <p className="oms-text">الإيرادات مقابل التكاليف قبل الضريبة وبعدها للحصول على قراءة ربحية أدق.</p>
+            <div className="budget-revenue-grid">
+              <label className="budget-field">
+                <span className="budget-field-label">الإيرادات المخططة</span>
+                <input
+                  className="budget-input"
+                  type="number"
+                  min={0}
+                  ref={(node) => setSectionFocusRef("profitability", node)}
+                  value={plannedRevenue}
+                  disabled={!permissions.edit_budget_lines}
+                  onChange={(event) => setPlannedRevenue(toNumber(event.target.value))}
+                />
+              </label>
+              <label className="budget-field">
+                <span className="budget-field-label">الإيرادات الفعلية</span>
+                <input
+                  className="budget-input"
+                  type="number"
+                  min={0}
+                  value={actualRevenue}
+                  disabled={!permissions.edit_budget_lines}
+                  onChange={(event) => setActualRevenue(toNumber(event.target.value))}
+                />
+              </label>
+              <div className="budget-profit-box">
+                <div className="budget-profit-label">ربح/خسارة مخططة (قبل الضريبة)</div>
+                <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitBeforeVat)}</div>
+              </div>
+              <div className="budget-profit-box">
+                <div className="budget-profit-label">ربح/خسارة فعلية (قبل الضريبة)</div>
+                <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitBeforeVat)}</div>
+              </div>
+              <div className="budget-profit-box">
+                <div className="budget-profit-label">ربح/خسارة مخططة (شامل الضريبة)</div>
+                <div className="budget-profit-value">{formatSignedCurrency(summary.plannedProfitAfterVat)}</div>
+              </div>
+              <div className="budget-profit-box">
+                <div className="budget-profit-label">ربح/خسارة فعلية (شامل الضريبة)</div>
+                <div className="budget-profit-value">{formatSignedCurrency(summary.actualProfitAfterVat)}</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء قسم الربحية. افتحه عند مراجعة الهامش.</div>
+        )}
+      </section>
+
+      <section
+        id={BUDGET_SECTION_ANCHORS.lines}
+        ref={(node) => setSectionRef("lines", node)}
+        className={`oms-panel ${highlightedSection === "lines" ? "budget-panel-highlight" : ""}`}
+      >
         <div className="budget-lines-head">
           <h2 className="oms-section-title">بنود الميزانية</h2>
           <div className="budget-lines-actions">
+            <button
+              className="oms-btn oms-btn-ghost"
+              type="button"
+              onClick={() => (sectionsOpen.lines ? toggleSection("lines") : navigateToSection("lines"))}
+            >
+              {sectionsOpen.lines ? "إخفاء" : "عرض"}
+            </button>
             <button
               className="oms-btn oms-btn-ghost"
               type="button"
@@ -621,275 +854,303 @@ export default function StrategyExecutionBudgetPage() {
           </div>
         </div>
 
-        <div className="budget-lines-list">
-          {lines.map((line) => {
-            const reserved = activeReservedByLine[line.id] ?? 0;
-            const available = lineAvailable(line.id);
-            const plannedVat = computeVatAmount(positive(line.planned), line);
-            const actualVat = computeVatAmount(positive(line.actual), line);
-            const plannedWithVat = positive(line.planned) + plannedVat;
-            const actualWithVat = positive(line.actual) + actualVat;
-            const effectiveSpent = actualWithVat + reserved;
-            const rowVariance = plannedWithVat > 0 ? ((effectiveSpent - plannedWithVat) / plannedWithVat) * 100 : null;
-            return (
-              <article key={line.id} className="budget-row">
-                <label className="budget-field">
-                  <span className="budget-field-label">البند</span>
-                  <input
-                    className="budget-input"
-                    value={line.title}
-                    disabled={!permissions.edit_budget_lines}
-                    onChange={(event) => updateLine(line.id, { title: event.target.value })}
-                  />
-                </label>
-                <label className="budget-field">
-                  <span className="budget-field-label">المسؤول</span>
-                  <input
-                    className="budget-input"
-                    value={line.owner}
-                    disabled={!permissions.edit_budget_lines}
-                    onChange={(event) => updateLine(line.id, { owner: event.target.value })}
-                  />
-                </label>
-                <label className="budget-field">
-                  <span className="budget-field-label">المخطط (قبل الضريبة)</span>
-                  <input
-                    className="budget-input"
-                    type="number"
-                    min={0}
-                    value={line.planned}
-                    disabled={!permissions.edit_budget_lines}
-                    onChange={(event) => updateLine(line.id, { planned: toNumber(event.target.value) })}
-                  />
-                </label>
-                <label className="budget-field">
-                  <span className="budget-field-label">المصروف الفعلي (قبل الضريبة)</span>
-                  <input
-                    className="budget-input"
-                    type="number"
-                    min={0}
-                    value={line.actual}
-                    disabled={!permissions.edit_budget_lines}
-                    onChange={(event) => updateLine(line.id, { actual: toNumber(event.target.value) })}
-                  />
-                </label>
-                <label className="budget-field">
-                  <span className="budget-field-label">حالة الضريبة</span>
-                  <select
-                    className="budget-input"
-                    value={line.vatApplicable ? "taxable" : "exempt"}
-                    disabled={!permissions.edit_budget_lines}
-                    onChange={(event) =>
-                      updateLine(line.id, {
-                        vatApplicable: event.target.value === "taxable",
-                      })
-                    }
-                  >
-                    <option value="taxable">خاضع للضريبة</option>
-                    <option value="exempt">غير خاضع</option>
-                  </select>
-                </label>
-                <label className="budget-field">
-                  <span className="budget-field-label">نسبة الضريبة %</span>
-                  <input
-                    className="budget-input"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    value={line.vatRate}
-                    disabled={!permissions.edit_budget_lines || !line.vatApplicable}
-                    onChange={(event) => updateLine(line.id, { vatRate: normalizeVatRate(toNumber(event.target.value)) })}
-                  />
-                </label>
-
-                <div className="budget-row-stats">
-                  <div className="budget-row-stat">
-                    <span>إجمالي المخطط شامل الضريبة:</span>
-                    <strong>{formatCurrency(plannedWithVat)}</strong>
-                  </div>
-                  <div className="budget-row-stat">
-                    <span>ضريبة المصروف الفعلي:</span>
-                    <strong>{formatCurrency(actualVat)}</strong>
-                  </div>
-                  <div className="budget-row-stat">
-                    <span>العهد المحجوزة:</span>
-                    <strong>{formatCurrency(reserved)}</strong>
-                  </div>
-                  <div className="budget-row-stat">
-                    <span>المتاح:</span>
-                    <strong>{formatSignedCurrency(available)}</strong>
-                  </div>
-                  <div className="budget-row-stat">
-                    <span>الانحراف:</span>
-                    <strong>{formatSignedPercent(rowVariance)}</strong>
-                  </div>
-                </div>
-
-                <div className="budget-row-actions">
-                  <button
-                    className="oms-btn oms-btn-ghost"
-                    type="button"
-                    onClick={() => removeLine(line.id)}
-                    disabled={!permissions.edit_budget_lines}
-                  >
-                    حذف
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="oms-panel">
-        <div className="budget-lines-head">
-          <h2 className="oms-section-title">إدارة العهد المالية</h2>
-          <div className="budget-advance-meta">
-            عهد مفتوحة: {toArabicNumber(summary.openAdvancesCount)} · نسبة التسوية:{" "}
-            {formatPercent(summary.settlementRate)} · {permissionSummary}
-          </div>
-        </div>
-
-        <button
-          className="budget-subsection-toggle"
-          type="button"
-          aria-expanded={isRegulatorySectionExpanded}
-          onClick={() => setIsRegulatorySectionExpanded((prev) => !prev)}
-        >
-          <div className="audit-toggle-main">
-            <h3 className="oms-section-title">سجل الالتزامات التنظيمية</h3>
-            <div className="audit-toggle-meta">
-              الجاهزية: {regulatorySummary.label} · المسارات المطلوبة: {toArabicNumber(regulatorySummary.requiredCount)} ·
-              مكتملة: {toArabicNumber(regulatorySummary.completedRequired)} · مفتوحة:{" "}
-              {toArabicNumber(regulatorySummary.pendingRequired.length)}
-            </div>
-          </div>
-          <span className={`audit-chevron ${isRegulatorySectionExpanded ? "is-open" : ""}`}>
-            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
-              <path
-                d="M4 6.5 L8 10.5 L12 6.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
-        {isRegulatorySectionExpanded ? (
-          <div className="regulatory-list">
-            {regulatoryCommitments.map((commitment) => {
-              const overdue = isCommitmentOverdue(commitment);
-              const baselineRequired = regulatoryBaselineRequiredPaths.includes(commitment.path);
-              const hasAdminException = baselineRequired && !commitment.required && commitment.status === "غير مطلوب";
+        {sectionsOpen.lines ? (
+          <div className="budget-lines-list">
+            {lines.map((line, lineIndex) => {
+              const reserved = activeReservedByLine[line.id] ?? 0;
+              const available = lineAvailable(line.id);
+              const plannedVat = computeVatAmount(positive(line.planned), line);
+              const actualVat = computeVatAmount(positive(line.actual), line);
+              const plannedWithVat = positive(line.planned) + plannedVat;
+              const actualWithVat = positive(line.actual) + actualVat;
+              const effectiveSpent = actualWithVat + reserved;
+              const rowVariance = plannedWithVat > 0 ? ((effectiveSpent - plannedWithVat) / plannedWithVat) * 100 : null;
               return (
-                <article key={commitment.path} className={`regulatory-row ${overdue ? "is-overdue" : ""}`}>
-                  <div className="regulatory-row-head">
-                    <div className="regulatory-title">{REGULATORY_PATH_LABELS[commitment.path]}</div>
-                    <div className="regulatory-badges">
-                      <span className={`regulatory-required ${commitment.required ? "is-required" : "is-not-required"}`}>
-                        {commitment.required ? "مطلوب" : "غير مطلوب"}
-                      </span>
-                      <span className={`regulatory-status ${regulatoryStatusClass(commitment.status)}`}>
-                        {commitment.status}
-                      </span>
-                      {hasAdminException ? <span className="regulatory-required is-exception">استثناء إداري</span> : null}
-                      {overdue ? <span className="regulatory-required is-overdue">متأخر</span> : null}
+                <article key={line.id} className="budget-row">
+                  <label className="budget-field">
+                    <span className="budget-field-label">البند</span>
+                    <input
+                      className="budget-input"
+                      value={line.title}
+                      ref={lineIndex === 0 ? (node) => setSectionFocusRef("lines", node) : undefined}
+                      disabled={!permissions.edit_budget_lines}
+                      onChange={(event) => updateLine(line.id, { title: event.target.value })}
+                    />
+                  </label>
+                  <label className="budget-field">
+                    <span className="budget-field-label">المسؤول</span>
+                    <input
+                      className="budget-input"
+                      value={line.owner}
+                      disabled={!permissions.edit_budget_lines}
+                      onChange={(event) => updateLine(line.id, { owner: event.target.value })}
+                    />
+                  </label>
+                  <label className="budget-field">
+                    <span className="budget-field-label">المخطط (قبل الضريبة)</span>
+                    <input
+                      className="budget-input"
+                      type="number"
+                      min={0}
+                      value={line.planned}
+                      disabled={!permissions.edit_budget_lines}
+                      onChange={(event) => updateLine(line.id, { planned: toNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="budget-field">
+                    <span className="budget-field-label">المصروف الفعلي (قبل الضريبة)</span>
+                    <input
+                      className="budget-input"
+                      type="number"
+                      min={0}
+                      value={line.actual}
+                      disabled={!permissions.edit_budget_lines}
+                      onChange={(event) => updateLine(line.id, { actual: toNumber(event.target.value) })}
+                    />
+                  </label>
+                  <label className="budget-field">
+                    <span className="budget-field-label">حالة الضريبة</span>
+                    <select
+                      className="budget-input"
+                      value={line.vatApplicable ? "taxable" : "exempt"}
+                      disabled={!permissions.edit_budget_lines}
+                      onChange={(event) =>
+                        updateLine(line.id, {
+                          vatApplicable: event.target.value === "taxable",
+                        })
+                      }
+                    >
+                      <option value="taxable">خاضع للضريبة</option>
+                      <option value="exempt">غير خاضع</option>
+                    </select>
+                  </label>
+                  <label className="budget-field">
+                    <span className="budget-field-label">نسبة الضريبة %</span>
+                    <input
+                      className="budget-input"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      value={line.vatRate}
+                      disabled={!permissions.edit_budget_lines || !line.vatApplicable}
+                      onChange={(event) =>
+                        updateLine(line.id, { vatRate: normalizeVatRate(toNumber(event.target.value)) })
+                      }
+                    />
+                  </label>
+
+                  <div className="budget-row-stats">
+                    <div className="budget-row-stat">
+                      <span>إجمالي المخطط شامل الضريبة:</span>
+                      <strong>{formatCurrency(plannedWithVat)}</strong>
+                    </div>
+                    <div className="budget-row-stat">
+                      <span>ضريبة المصروف الفعلي:</span>
+                      <strong>{formatCurrency(actualVat)}</strong>
+                    </div>
+                    <div className="budget-row-stat">
+                      <span>العهد المحجوزة:</span>
+                      <strong>{formatCurrency(reserved)}</strong>
+                    </div>
+                    <div className="budget-row-stat">
+                      <span>المتاح:</span>
+                      <strong>{formatSignedCurrency(available)}</strong>
+                    </div>
+                    <div className="budget-row-stat">
+                      <span>الانحراف:</span>
+                      <strong>{formatSignedPercent(rowVariance)}</strong>
                     </div>
                   </div>
 
-                  <div className="regulatory-fields">
-                    <label className="budget-field">
-                      <span className="budget-field-label">الحالة</span>
-                      <select
-                        className="budget-input"
-                        value={commitment.status}
-                        disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) => handleRegulatoryStatusChange(commitment.path, event.target.value)}
-                      >
-                        <option value="غير مطلوب">غير مطلوب</option>
-                        <option value="مطلوب">مطلوب</option>
-                        <option value="قيد الإجراء">قيد الإجراء</option>
-                        <option value="مكتمل">مكتمل</option>
-                      </select>
-                    </label>
-                    <label className="budget-field">
-                      <span className="budget-field-label">المسؤول</span>
-                      <input
-                        className="budget-input"
-                        value={commitment.owner}
-                        disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) =>
-                          updateRegulatoryCommitment(commitment.path, {
-                            owner: event.target.value,
-                          })
-                        }
-                        placeholder="اسم المسؤول"
-                      />
-                    </label>
-                    <label className="budget-field">
-                      <span className="budget-field-label">مرجع/رقم التصريح</span>
-                      <input
-                        className="budget-input"
-                        value={commitment.reference}
-                        disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) =>
-                          updateRegulatoryCommitment(commitment.path, {
-                            reference: event.target.value,
-                          })
-                        }
-                        placeholder="مثال: PERMIT-2026-001"
-                      />
-                    </label>
-                    <label className="budget-field">
-                      <span className="budget-field-label">تاريخ الانتهاء</span>
-                      <input
-                        className="budget-input"
-                        type="date"
-                        value={commitment.expiryDate}
-                        disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) =>
-                          updateRegulatoryCommitment(commitment.path, {
-                            expiryDate: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                    <label className="budget-field regulatory-reason-field">
-                      <span className="budget-field-label">سبب الاستثناء الإداري</span>
-                      <input
-                        className="budget-input"
-                        value={commitment.notes}
-                        disabled={!canEditRegulatoryCommitments}
-                        onChange={(event) =>
-                          updateRegulatoryCommitment(commitment.path, {
-                            notes: event.target.value,
-                          })
-                        }
-                        placeholder="إلزامي عند التحويل إلى غير مطلوب لمسار مطلوب"
-                      />
-                      <span className="budget-field-hint">
-                        متاح لمدير المشروع فقط عند تحويل المسار المطلوب إلى غير مطلوب.
-                      </span>
-                    </label>
+                  <div className="budget-row-actions">
+                    <button
+                      className="oms-btn oms-btn-ghost"
+                      type="button"
+                      onClick={() => removeLine(line.id)}
+                      disabled={!permissions.edit_budget_lines}
+                    >
+                      حذف
+                    </button>
                   </div>
                 </article>
               );
             })}
           </div>
-        ) : null}
+        ) : (
+          <div className="workflow-empty">تم إخفاء بنود الميزانية. افتحها عند التعديل.</div>
+        )}
+      </section>
 
-        {regulatoryComplianceWarning ? (
-          <div className="budget-inline-warning is-soft">{regulatoryComplianceWarning}</div>
-        ) : null}
+      <section
+        id={BUDGET_SECTION_ANCHORS.advances}
+        ref={(node) => setSectionRef("advances", node)}
+        className={`oms-panel ${highlightedSection === "advances" ? "budget-panel-highlight" : ""}`}
+      >
+        <div className="budget-section-head">
+          <h2 className="oms-section-title">إدارة العهد والالتزامات</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            onClick={() => (sectionsOpen.advances ? toggleSection("advances") : navigateToSection("advances"))}
+          >
+            {sectionsOpen.advances ? "إخفاء" : "عرض"}
+          </button>
+        </div>
+
+        {sectionsOpen.advances ? (
+          <>
+            <div className="budget-lines-head">
+              <h3 className="oms-section-title">تفاصيل العهد المالية</h3>
+              <div className="budget-advance-meta">
+                عهد مفتوحة: {toArabicNumber(summary.openAdvancesCount)} · نسبة التسوية:{" "}
+                {formatPercent(summary.settlementRate)} · {permissionSummary}
+              </div>
+            </div>
+
+            <button
+              className="budget-subsection-toggle"
+              type="button"
+              aria-expanded={isRegulatorySectionExpanded}
+              onClick={() => setIsRegulatorySectionExpanded((prev) => !prev)}
+            >
+              <div className="audit-toggle-main">
+                <h3 className="oms-section-title">سجل الالتزامات التنظيمية</h3>
+                <div className="audit-toggle-meta">
+                  الجاهزية: {regulatorySummary.label} · المسارات المطلوبة: {toArabicNumber(regulatorySummary.requiredCount)} ·
+                  مكتملة: {toArabicNumber(regulatorySummary.completedRequired)} · مفتوحة:{" "}
+                  {toArabicNumber(regulatorySummary.pendingRequired.length)}
+                </div>
+              </div>
+              <span className={`audit-chevron ${isRegulatorySectionExpanded ? "is-open" : ""}`}>
+                <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 6.5 L8 10.5 L12 6.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </button>
+            {isRegulatorySectionExpanded ? (
+              <div className="regulatory-list">
+                {regulatoryCommitments.map((commitment) => {
+                  const overdue = isCommitmentOverdue(commitment);
+                  const baselineRequired = regulatoryBaselineRequiredPaths.includes(commitment.path);
+                  const hasAdminException =
+                    baselineRequired && !commitment.required && commitment.status === "غير مطلوب";
+                  return (
+                    <article key={commitment.path} className={`regulatory-row ${overdue ? "is-overdue" : ""}`}>
+                      <div className="regulatory-row-head">
+                        <div className="regulatory-title">{REGULATORY_PATH_LABELS[commitment.path]}</div>
+                        <div className="regulatory-badges">
+                          <span
+                            className={`regulatory-required ${commitment.required ? "is-required" : "is-not-required"}`}
+                          >
+                            {commitment.required ? "مطلوب" : "غير مطلوب"}
+                          </span>
+                          <span className={`regulatory-status ${regulatoryStatusClass(commitment.status)}`}>
+                            {commitment.status}
+                          </span>
+                          {hasAdminException ? <span className="regulatory-required is-exception">استثناء إداري</span> : null}
+                          {overdue ? <span className="regulatory-required is-overdue">متأخر</span> : null}
+                        </div>
+                      </div>
+
+                      <div className="regulatory-fields">
+                        <label className="budget-field">
+                          <span className="budget-field-label">الحالة</span>
+                          <select
+                            className="budget-input"
+                            value={commitment.status}
+                            disabled={!canEditRegulatoryCommitments}
+                            onChange={(event) => handleRegulatoryStatusChange(commitment.path, event.target.value)}
+                          >
+                            <option value="غير مطلوب">غير مطلوب</option>
+                            <option value="مطلوب">مطلوب</option>
+                            <option value="قيد الإجراء">قيد الإجراء</option>
+                            <option value="مكتمل">مكتمل</option>
+                          </select>
+                        </label>
+                        <label className="budget-field">
+                          <span className="budget-field-label">المسؤول</span>
+                          <input
+                            className="budget-input"
+                            value={commitment.owner}
+                            disabled={!canEditRegulatoryCommitments}
+                            onChange={(event) =>
+                              updateRegulatoryCommitment(commitment.path, {
+                                owner: event.target.value,
+                              })
+                            }
+                            placeholder="اسم المسؤول"
+                          />
+                        </label>
+                        <label className="budget-field">
+                          <span className="budget-field-label">مرجع/رقم التصريح</span>
+                          <input
+                            className="budget-input"
+                            value={commitment.reference}
+                            disabled={!canEditRegulatoryCommitments}
+                            onChange={(event) =>
+                              updateRegulatoryCommitment(commitment.path, {
+                                reference: event.target.value,
+                              })
+                            }
+                            placeholder="مثال: PERMIT-2026-001"
+                          />
+                        </label>
+                        <label className="budget-field">
+                          <span className="budget-field-label">تاريخ الانتهاء</span>
+                          <input
+                            className="budget-input"
+                            type="date"
+                            value={commitment.expiryDate}
+                            disabled={!canEditRegulatoryCommitments}
+                            onChange={(event) =>
+                              updateRegulatoryCommitment(commitment.path, {
+                                expiryDate: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                        <label className="budget-field regulatory-reason-field">
+                          <span className="budget-field-label">سبب الاستثناء الإداري</span>
+                          <input
+                            className="budget-input"
+                            value={commitment.notes}
+                            disabled={!canEditRegulatoryCommitments}
+                            onChange={(event) =>
+                              updateRegulatoryCommitment(commitment.path, {
+                                notes: event.target.value,
+                              })
+                            }
+                            placeholder="إلزامي عند التحويل إلى غير مطلوب لمسار مطلوب"
+                          />
+                          <span className="budget-field-hint">
+                            متاح لمدير المشروع فقط عند تحويل المسار المطلوب إلى غير مطلوب.
+                          </span>
+                        </label>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {regulatoryComplianceWarning ? (
+              <div className="budget-inline-warning is-soft">{regulatoryComplianceWarning}</div>
+            ) : null}
 
         <div className="advance-create">
           <label className="budget-field">
             <span className="budget-field-label">البند</span>
             <select
               className="budget-input"
+              ref={(node) => setSectionFocusRef("advances", node)}
               value={newAdvance.lineId}
               disabled={!permissions.request_advance}
               onChange={(event) => {
@@ -1308,87 +1569,115 @@ export default function StrategyExecutionBudgetPage() {
             )}
           </div>
         ) : null}
-        <div className="budget-foot-note">
-          {lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي يعمل عند أي تعديل."}
-        </div>
+            <div className="budget-foot-note">
+              {lastSavedAt ? `آخر حفظ تلقائي: ${lastSavedAt}` : "الحفظ التلقائي يعمل عند أي تعديل."}
+            </div>
+          </>
+        ) : (
+          <div className="workflow-empty">تم إخفاء العهد والالتزامات. افتح القسم عند المتابعة المالية.</div>
+        )}
       </section>
 
-      <section className="oms-panel">
-        <button
-          className="audit-toggle"
-          type="button"
-          aria-expanded={isAuditExpanded}
-          onClick={() => setIsAuditExpanded((prev) => !prev)}
-        >
-          <div className="audit-toggle-main">
-            <h2 className="oms-section-title">سجل التدقيق المالي</h2>
-            <div className="audit-toggle-meta">
-              عدد الأحداث: {toArabicNumber(auditTrail.length)} · آخر حدث: {latestAuditTime}
-            </div>
-          </div>
-          <span className={`audit-chevron ${isAuditExpanded ? "is-open" : ""}`}>
-            <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
-              <path
-                d="M4 6.5 L8 10.5 L12 6.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
+      <section
+        id={BUDGET_SECTION_ANCHORS.audit}
+        ref={(node) => setSectionRef("audit", node)}
+        className={`oms-panel ${highlightedSection === "audit" ? "budget-panel-highlight" : ""}`}
+      >
+        <div className="budget-section-head">
+          <h2 className="oms-section-title">سجل التدقيق المالي</h2>
+          <button
+            className="oms-btn oms-btn-ghost"
+            type="button"
+            onClick={() => (sectionsOpen.audit ? toggleSection("audit") : navigateToSection("audit"))}
+          >
+            {sectionsOpen.audit ? "إخفاء" : "عرض"}
+          </button>
+        </div>
 
-        {isAuditExpanded ? (
+        {sectionsOpen.audit ? (
           <>
-            <p className="oms-text">توثيق زمني لكل إجراءات العهد والصلاحيات على مستوى المشروع الحالي.</p>
-            <div className="audit-filter-row">
-              {auditFilterButtons.map((filter) => (
-                <button
-                  key={filter.key}
-                  className={`audit-filter-btn ${auditFilter === filter.key ? "is-active" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    setAuditFilter(filter.key);
-                    setVisibleAuditCount(8);
-                  }}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-            <div className="audit-list">
-              {filteredAuditTrail.length === 0 ? (
-                <div className="workflow-empty">لا توجد أحداث ضمن الفلتر الحالي.</div>
-              ) : (
-                visibleAuditEntries.map((entry) => (
-                  <article key={entry.id} className="audit-item">
-                    <div className="audit-item-head">
-                      <div className="audit-action">{entry.action}</div>
-                      <div className="audit-time">{entry.createdAt}</div>
-                    </div>
-                    <div className="audit-meta">
-                      بواسطة: {entry.actorLabel} · الدور: {userRoleLabel(entry.actorRole)}
-                    </div>
-                    <div className="audit-details">{entry.details}</div>
-                  </article>
-                ))
-              )}
-            </div>
-            {canLoadMoreAudit ? (
-              <div className="audit-more">
-                <button
-                  className="oms-btn oms-btn-ghost"
-                  type="button"
-                  onClick={() => setVisibleAuditCount((prev) => prev + 8)}
-                >
-                  عرض المزيد
-                </button>
+            <button
+              className="audit-toggle"
+              type="button"
+              ref={(node) => setSectionFocusRef("audit", node)}
+              aria-expanded={isAuditExpanded}
+              onClick={() => setIsAuditExpanded((prev) => !prev)}
+            >
+              <div className="audit-toggle-main">
+                <h3 className="oms-section-title">تفاصيل السجل</h3>
+                <div className="audit-toggle-meta">
+                  عدد الأحداث: {toArabicNumber(auditTrail.length)} · آخر حدث: {latestAuditTime}
+                </div>
               </div>
-            ) : null}
+              <span className={`audit-chevron ${isAuditExpanded ? "is-open" : ""}`}>
+                <svg viewBox="0 0 16 16" className="audit-chevron-icon" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 6.5 L8 10.5 L12 6.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </button>
+
+            {isAuditExpanded ? (
+              <>
+                <p className="oms-text">توثيق زمني لكل إجراءات العهد والصلاحيات على مستوى المشروع الحالي.</p>
+                <div className="audit-filter-row">
+                  {auditFilterButtons.map((filter) => (
+                    <button
+                      key={filter.key}
+                      className={`audit-filter-btn ${auditFilter === filter.key ? "is-active" : ""}`}
+                      type="button"
+                      onClick={() => {
+                        setAuditFilter(filter.key);
+                        setVisibleAuditCount(8);
+                      }}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="audit-list">
+                  {filteredAuditTrail.length === 0 ? (
+                    <div className="workflow-empty">لا توجد أحداث ضمن الفلتر الحالي.</div>
+                  ) : (
+                    visibleAuditEntries.map((entry) => (
+                      <article key={entry.id} className="audit-item">
+                        <div className="audit-item-head">
+                          <div className="audit-action">{entry.action}</div>
+                          <div className="audit-time">{entry.createdAt}</div>
+                        </div>
+                        <div className="audit-meta">
+                          بواسطة: {entry.actorLabel} · الدور: {userRoleLabel(entry.actorRole)}
+                        </div>
+                        <div className="audit-details">{entry.details}</div>
+                      </article>
+                    ))
+                  )}
+                </div>
+                {canLoadMoreAudit ? (
+                  <div className="audit-more">
+                    <button
+                      className="oms-btn oms-btn-ghost"
+                      type="button"
+                      onClick={() => setVisibleAuditCount((prev) => prev + 8)}
+                    >
+                      عرض المزيد
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="workflow-empty">السجل ظاهر بشكل مختصر. افتح تفاصيل السجل لعرض الأحداث.</div>
+            )}
           </>
-        ) : null}
+        ) : (
+          <div className="workflow-empty">تم إخفاء سجل التدقيق. افتحه عند المراجعة النهائية.</div>
+        )}
       </section>
 
       <section className="oms-panel">
@@ -1396,6 +1685,9 @@ export default function StrategyExecutionBudgetPage() {
         <div className="budget-footer-actions">
           <Link href="/app/strategy/execution/plan" className="oms-btn oms-btn-primary">
             اعتماد الخطة المالية والانتقال للخطة الزمنية
+          </Link>
+          <Link href="/app/strategy/execution/scope" className="oms-btn oms-btn-ghost">
+            العودة إلى هيكلة النطاق
           </Link>
           <Link href="/app/workflows" className="oms-btn oms-btn-ghost">
             فتح سير العمل التنفيذي
@@ -1490,6 +1782,76 @@ export default function StrategyExecutionBudgetPage() {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 10px;
+        }
+
+        .budget-hierarchy-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .budget-hierarchy-meta {
+          margin-top: 6px;
+          color: var(--oms-text-muted);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+
+        .budget-hierarchy-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .budget-section-tabs {
+          margin-top: 10px;
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .budget-section-tab {
+          min-height: 36px;
+          border-radius: var(--oms-radius-sm);
+          border: 1px solid var(--oms-border-strong);
+          background: rgba(8, 14, 26, 0.78);
+          color: var(--oms-text-muted);
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .budget-section-tab.is-open {
+          border-color: var(--oms-border-accent);
+          background: linear-gradient(180deg, rgba(127, 90, 240, 0.34), rgba(86, 60, 158, 0.22));
+          color: var(--oms-text);
+        }
+
+        .budget-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .budget-panel-highlight {
+          border-color: rgba(167, 115, 255, 0.72);
+          box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          animation: budget-panel-pulse 1.1s ease;
+        }
+
+        @keyframes budget-panel-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(128, 69, 242, 0);
+          }
+          35% {
+            box-shadow: 0 0 0 2px rgba(167, 115, 255, 0.28), 0 0 32px rgba(128, 69, 242, 0.24);
+          }
+          100% {
+            box-shadow: 0 0 0 1px rgba(167, 115, 255, 0.24), 0 0 28px rgba(128, 69, 242, 0.18);
+          }
         }
 
         .budget-kpi-value {
@@ -2201,6 +2563,10 @@ export default function StrategyExecutionBudgetPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
+          .budget-section-tabs {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
           .budget-kpi-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
@@ -2232,6 +2598,18 @@ export default function StrategyExecutionBudgetPage() {
         }
 
         @media (max-width: 720px) {
+          .budget-hierarchy-actions {
+            width: 100%;
+          }
+
+          .budget-hierarchy-actions .oms-btn {
+            flex: 1;
+          }
+
+          .budget-section-tabs {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .budget-kpi-grid,
           .budget-revenue-grid,
           .budget-row,
@@ -3424,6 +3802,14 @@ function nowDateTimeLabel() {
 
 function randomId() {
   return `id_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function resolveSectionFromHash(hash: string): BudgetSectionKey | null {
+  const normalizedHash = hash.replace(/^#/, "");
+  const entry = (Object.entries(BUDGET_SECTION_ANCHORS) as Array<[BudgetSectionKey, string]>).find(
+    ([, anchor]) => anchor === normalizedHash
+  );
+  return entry ? entry[0] : null;
 }
 
 function toArabicNumber(value: number) {
